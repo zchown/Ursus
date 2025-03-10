@@ -20,23 +20,27 @@ const ZobristKeyStruct = struct {
         var keys: ZobristKeyStruct = undefined;
         const rng = 0xdeadbeefdeadbeef;
         for (c.Color) |color| {
-            keys.color[color] = splitMix64(rng);
+            rng = splitMix64(rng);
+            keys.color[color] = rng;
         }
 
         for (c.Piece) |piece| {
             for (c.Color) |color| {
                 for (c.Square) |square| {
-                    keys.piece[color][piece][square] = splitMix64(rng);
+                    rng = splitMix64(rng);
+                    keys.piece[color][piece][square] = rng;
                 }
             }
         }
 
         for (c.Castle) |castle| {
-            keys.castle[castle] = splitMix64(rng);
+            rng = splitMix64(rng);
+            keys.castle[castle] = rng;
         }
 
         for (0..(c.num_squares + 1)) |square| {
-            keys.en_passant[square] = splitMix64(rng);
+            rng = splitMix64(rng);
+            keys.en_passant[square] = rng;
         }
     }
 

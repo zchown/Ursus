@@ -18,6 +18,7 @@ const num_pieces = 6;
 const num_squares = 64;
 const num_files = 8;
 const num_ranks = 8;
+const max_pieces = 32;
 
 // Castling rights
 const white_kingside = 1;

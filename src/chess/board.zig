@@ -7,6 +7,12 @@ const Bitboard = u64;
 const Castling = u8;
 const bb_empty: Bitboard = 0;
 
+const Piece = struct {
+    color: c.Color,
+    piece: c.Pieces,
+    square: Square,
+};
+
 const GameState = struct {
     side_to_move: c.Color,
     castling_rights: Castling,
@@ -14,6 +20,17 @@ const GameState = struct {
     halfmove_clock: u8,
     fullmove_number: u16,
     zobrist: zob.ZobristKey,
+
+    pub fn new() GameState {
+        return .{
+            .side_to_move = c.Color.White,
+            .castling_rights = c.castling_rights_all,
+            .en_passant_square = null,
+            .halfmove_clock = 0,
+            .fullmove_number = 1,
+            .zobrist = 0,
+        };
+    }
 
     pub fn initZobrist(self: GameState) zob.ZobristKey {
         var zobrist: zob.ZobristKey = 0;
@@ -27,6 +44,13 @@ const GameState = struct {
 const History = struct {
     history_list: [c.max_game_moves]GameState,
     history_count: usize,
+
+    pub fn new() History {
+        return .{
+            .history_list = undefined,
+            .history_count = 0,
+        };
+    }
 };
 
 const Board = struct {
@@ -34,6 +58,15 @@ const Board = struct {
     color_bb: [c.num_colors]Bitboard,
     game_state: GameState,
     history: History,
+
+    pub fn new() Board {
+        return .{
+            .piece_bb = [c.num_colors][c.num_pieces]Bitboard{[_]Bitboard{bb_empty} ** c.num_pieces} ** c.num_colors,
+            .color_bb = [_]Bitboard{bb_empty} ** c.num_colors,
+            .game_state = GameState.new(),
+            .history = History.new(),
+        };
+    }
 
     pub fn getPieces(self: Board, color: c.Color, piece: c.Pieces) Bitboard {
         return self.piece_bb[color][piece];
@@ -103,36 +136,34 @@ const Board = struct {
             .history = self.history,
         };
     }
+
+    pub fn getPieceList(self: Board) [c.max_pieces]Piece {
+        var piece_list: [c.max_pieces]?Piece = null ** c.max_pieces;
+        var piece_count: usize = 0;
+        for (0..c.num_colors) |color| {
+            for (0..c.num_pieces) |piece| {
+                var piece_bb: Bitboard = self.piece_bb[color][piece];
+                while (piece_bb != 0) {
+                    const square: Square = @ctz(piece_bb);
+                    piece_list[piece_count] = .{
+                        .color = color,
+                        .piece = piece,
+                        .square = square,
+                    };
+                    piece_count += 1;
+                    piece_bb &= piece_bb - 1;
+                }
+            }
+        }
+        return piece_list;
+    }
+
+    pub fn reintZobrist(self: Board) void {
+        self.game_state.zobrist ^= zob.ZobristKeys.sideToMoveKey;
+        self.game_state.zobrist ^= zob.ZobristKeys.castlingKeys(self.game_state.castling_rights);
+        self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
+    }
 };
-
-pub fn initBoard() Board {
-    return .{
-        .piece_bb = [c.num_colors][c.num_pieces]Bitboard{[_]Bitboard{bb_empty} ** c.num_pieces} ** c.num_colors,
-        .color_bb = [_]Bitboard{bb_empty} ** c.num_colors,
-        .game_state = initGameState(),
-        .history = initHistory(),
-    };
-}
-
-pub fn initGameState() GameState {
-    var gs: GameState = .{
-        .side_to_move = c.Color.White,
-        .castling_rights = c.castling_rights_all,
-        .en_passant_square = null,
-        .halfmove_clock = 0,
-        .fullmove_number = 1,
-        .zobrist = 0,
-    };
-    gs.initZobrist();
-    return gs;
-}
-
-pub fn initHistory() History {
-    return .{
-        .history_list = undefined,
-        .history_count = 0,
-    };
-}
 
 pub inline fn flipColor(color: c.Color) c.Color {
     return if (color == c.Color.White) c.Color.Black else c.Color.White;
