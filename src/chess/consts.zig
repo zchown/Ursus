@@ -1,3 +1,17 @@
+const Pieces = enum(usize) {
+    Pawn,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King,
+};
+
+const Color = enum(usize) {
+    White,
+    Black,
+};
+
 // General constants
 const num_colors = 2;
 const num_pieces = 6;
@@ -11,6 +25,7 @@ const white_queenside = 2;
 const black_kingside = 4;
 const black_queenside = 8;
 const all_castling = 15;
+const num_castles = 16;
 
 // Move constants
 const max_game_moves = 2048;

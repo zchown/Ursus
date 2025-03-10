@@ -2,27 +2,13 @@ const std = @import("std");
 const zob = @import("zobrist.zig");
 const c = @import("consts.zig");
 
-const Pieces = enum(usize) {
-    Pawn,
-    Knight,
-    Bishop,
-    Rook,
-    Queen,
-    King,
-};
-
-const Color = enum(usize) {
-    White,
-    Black,
-};
-
 const Square = usize;
 const Bitboard = u64;
 const Castling = u8;
 const bb_empty: Bitboard = 0;
 
 const GameState = struct {
-    side_to_move: Color,
+    side_to_move: c.Color,
     castling_rights: Castling,
     en_passant_square: ?u8,
     halfmove_clock: u8,
@@ -31,9 +17,9 @@ const GameState = struct {
 
     pub fn initZobrist(self: GameState) zob.ZobristKey {
         var zobrist: zob.ZobristKey = 0;
-        zobrist ^= zob.sideToMoveKey;
-        zobrist ^= zob.castlingKeys[self.castling_rights];
-        zobrist ^= zob.enPassantKeys(self.en_passant_square);
+        zobrist ^= zob.ZobristKeys.sideToMoveKey;
+        zobrist ^= zob.ZobristKeys.castlingKeys(self.castling_rights);
+        zobrist ^= zob.ZobristKeys.enPassantKeys(self.en_passant_square);
         return zobrist;
     }
 };
@@ -49,64 +35,64 @@ const Board = struct {
     game_state: GameState,
     history: History,
 
-    pub fn getPieces(self: Board, color: Color, piece: Pieces) Bitboard {
+    pub fn getPieces(self: Board, color: c.Color, piece: c.Pieces) Bitboard {
         return self.piece_bb[color][piece];
     }
 
     pub fn occupency(self: Board) Bitboard {
-        return self.color_bb[Color.White] | self.color_bb[Color.Black];
+        return self.color_bb[c.Color.White] | self.color_bb[c.Color.Black];
     }
 
-    pub fn toMove(self: Board) Color {
+    pub fn toMove(self: Board) c.Color {
         return self.game_state.side_to_move;
     }
 
-    pub fn justMoved(self: Board) Color {
-        return if (self.game_state.side_to_move == Color.White) Color.Black else Color.White;
+    pub fn justMoved(self: Board) c.Color {
+        return if (self.game_state.side_to_move == c.Color.White) c.Color.Black else c.Color.White;
     }
 
-    pub fn kingSquare(self: Board, color: Color) Square {
-        return @ctz(self.piece_bb[color][Pieces.King]);
+    pub fn kingSquare(self: Board, color: c.Color) Square {
+        return @ctz(self.piece_bb[color][c.Pieces.King]);
     }
 
-    pub fn removePiece(self: Board, color: Color, piece: Pieces, square: Square) void {
+    pub fn removePiece(self: Board, color: c.Color, piece: c.Pieces, square: Square) void {
         self.piece_bb[color][piece] &= !(1 << square);
         self.color_bb[color] &= !(1 << square);
-        self.game_state.zobrist ^= zob.pieceKeys[color][piece][square];
+        self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
     }
 
-    pub fn addPiece(self: Board, color: Color, piece: Pieces, square: Square) void {
+    pub fn addPiece(self: Board, color: c.Color, piece: c.Pieces, square: Square) void {
         self.piece_bb[color][piece] |= 1 << square;
         self.color_bb[color] |= 1 << square;
-        self.game_state.zobrist ^= zob.pieceKeys[color][piece][square];
+        self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
     }
 
-    pub fn movePiece(self: Board, color: Color, piece: Pieces, from: Square, to: Square) void {
+    pub fn movePiece(self: Board, color: c.Color, piece: c.Pieces, from: Square, to: Square) void {
         self.removePiece(color, piece, from);
         self.addPiece(color, piece, to);
     }
 
     pub fn setEnPassantSquare(self: Board, square: ?u8) void {
         self.game_state.en_passant_square = square;
-        self.game_state.zobrist ^= zob.enPassantKeys[self.game_state.en_passant_square];
+        self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
     }
 
     pub fn clearEnPassantSquare(self: Board) void {
-        self.game_state.zobrist ^= zob.enPassantKeys(self.game_state.en_passant_square);
+        self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
         self.setEnPassantSquare(null);
-        self.game_state.zobrist ^= zob.enPassantKeys(self.game_state.en_passant_square);
+        self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
     }
 
     pub fn flipSideToMove(self: Board) void {
-        self.game_state.zobrist ^= zob.sideToMoveKey;
+        self.game_state.zobrist ^= zob.ZobristKeys.sideToMoveKey;
         self.game_state.side_to_move ^= 1;
-        self.game_state.zobrist ^= zob.sideToMoveKey;
+        self.game_state.zobrist ^= zob.ZobristKeys.sideToMoveKey;
     }
 
     pub fn updateCastlingRights(self: Board, castling: Castling) void {
-        self.game_state.zobrist ^= zob.castlingKeys[self.game_state.castling_rights];
+        self.game_state.zobrist ^= zob.ZobristKeys.castlingKeys(self.game_state.castling_rights);
         self.game_state.castling_rights = castling;
-        self.game_state.zobrist ^= zob.castlingKeys[self.game_state.castling_rights];
+        self.game_state.zobrist ^= zob.ZobristKeys.castlingKeys(self.game_state.castling_rights);
     }
 
     pub fn copyBoard(self: Board) Board {
@@ -130,7 +116,7 @@ pub fn initBoard() Board {
 
 pub fn initGameState() GameState {
     var gs: GameState = .{
-        .side_to_move = Color.White,
+        .side_to_move = c.Color.White,
         .castling_rights = c.castling_rights_all,
         .en_passant_square = null,
         .halfmove_clock = 0,
@@ -148,6 +134,6 @@ pub fn initHistory() History {
     };
 }
 
-pub inline fn flipColor(color: Color) Color {
-    return if (color == Color.White) Color.Black else Color.White;
+pub inline fn flipColor(color: c.Color) c.Color {
+    return if (color == c.Color.White) c.Color.Black else c.Color.White;
 }
