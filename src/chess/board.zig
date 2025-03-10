@@ -158,10 +158,18 @@ const Board = struct {
         return piece_list;
     }
 
-    pub fn reintZobrist(self: Board) void {
+    pub fn reinitZobrist(self: Board) void {
         self.game_state.zobrist ^= zob.ZobristKeys.sideToMoveKey;
         self.game_state.zobrist ^= zob.ZobristKeys.castlingKeys(self.game_state.castling_rights);
         self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
+
+        var i: usize = 0;
+        const piece_list: [c.max_pieces]Piece = self.getPieceList();
+        while (piece_list[i] != null) {
+            const piece: Piece = piece_list[i];
+            self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(piece.color, piece.piece, piece.square);
+            i += 1;
+        }
     }
 };
 
