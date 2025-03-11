@@ -1,7 +1,6 @@
 const std = @import("std");
-const c = @import("consts.zig");
-const b = @import("board.zig");
-const Bitboard = b.Bitboard;
+const brd = @import("board.zig");
+const Bitboard = brd.Bitboard;
 
 pub const bishop_relevant_bits = [_]usize{
     6, 5, 5, 5, 5, 5, 5, 6,
@@ -59,7 +58,7 @@ pub const Istari = struct {
         return self.randomU64() & self.randomU64() & self.randomU64();
     }
 
-    pub fn findMagicNums(self: *Istari, sq: b.Square, relevant_bits: i32, bishop: bool) u64 {
+    pub fn findMagicNums(self: *Istari, sq: brd.Square, relevant_bits: i32, bishop: bool) u64 {
         var occupancies = [_]Bitboard{0} ** 4096;
         var attacks = [_]Bitboard{0} ** 4096;
 
@@ -83,7 +82,7 @@ pub const Istari = struct {
         for (0..1000000) |_| {
             const magic: u64 = self.generateMagicNum();
 
-            if (b.countBits((attack_mask * magic) & 0xFF00000000000000) < 6) {
+            if (brd.countBits((attack_mask * magic) & 0xFF00000000000000) < 6) {
                 continue;
             }
 
@@ -122,7 +121,7 @@ pub const Istari = struct {
     }
 };
 
-pub fn maskBishopAttacks(sq: b.Square) Bitboard {
+pub fn maskBishopAttacks(sq: brd.Square) Bitboard {
     var attacks: Bitboard = 0;
 
     const target_rank = sq / 8;
@@ -136,7 +135,7 @@ pub fn maskBishopAttacks(sq: b.Square) Bitboard {
     return attacks;
 }
 
-pub fn maskRookAttacks(sq: b.Square) Bitboard {
+pub fn maskRookAttacks(sq: brd.Square) Bitboard {
     var attacks: Bitboard = 0;
 
     const target_rank = sq / 8;
@@ -166,7 +165,7 @@ fn calculateAttacksWithBlocks(rank_dir: isize, file_dir: isize, target_rank: isi
     while ((rank >= 1 and rank <= 6) or (file >= 1 and file <= 6)) {
         const sq = (@as(usize, rank) * 8) + @as(usize, file);
         attacks.* |= 1 << sq;
-        if (b.getBit(blockers, sq)) {
+        if (brd.getBit(blockers, sq)) {
             break;
         }
         rank += rank_dir;
@@ -174,7 +173,7 @@ fn calculateAttacksWithBlocks(rank_dir: isize, file_dir: isize, target_rank: isi
     }
 }
 
-pub fn bishopAttacks(sq: b.Square, blocks: Bitboard) Bitboard {
+pub fn bishopAttacks(sq: brd.Square, blocks: Bitboard) Bitboard {
     var attacks: Bitboard = 0;
     const target_rank = sq / 8;
     const target_file = sq % 8;
@@ -188,7 +187,7 @@ pub fn bishopAttacks(sq: b.Square, blocks: Bitboard) Bitboard {
     return attacks;
 }
 
-pub fn rookAttacks(sq: b.Square, blocks: Bitboard) Bitboard {
+pub fn rookAttacks(sq: brd.Square, blocks: Bitboard) Bitboard {
     var attacks: Bitboard = 0;
     const target_rank = sq / 8;
     const target_file = sq % 8;
@@ -206,8 +205,8 @@ pub fn setOccupancy(index: Bitboard, bits: usize, attack_mask: Bitboard) Bitboar
     var occupancy: Bitboard = 0;
     var count = 0;
     while (count < bits) {
-        const square = b.popBit(&index);
-        if (b.getBit(attack_mask, square)) {
+        const square = brd.popBit(&index);
+        if (brd.getBit(attack_mask, square)) {
             occupancy |= 1 << count;
         }
         count += 1;

@@ -1,9 +1,7 @@
 const std = @import("std");
 const zob = @import("zobrist.zig");
-const c = @import("consts.zig");
 const Board = @import("board.zig").Board;
-const CastlingRights = @import("consts.zig").CastlingRights;
-const b = @import("board.zig");
+const brd = @import("board.zig");
 
 pub fn parseFEN(board: *Board, fen: []const u8) !void {
     var it = std.mem.split(u8, fen, " ");
@@ -16,8 +14,8 @@ pub fn parseFEN(board: *Board, fen: []const u8) !void {
     const side_to_move = it.next() orelse return error.InvalidFEN;
     if (side_to_move.len != 1) return error.InvalidFEN;
     board.game_state.side_to_move = switch (side_to_move[0]) {
-        'w' => c.Color.White,
-        'b' => c.Color.Black,
+        'w' => brd.Color.White,
+        'b' => brd.Color.Black,
         else => return error.InvalidFEN,
     };
 
@@ -58,16 +56,16 @@ fn parsePiecePlacement(board: *Board, piece_placement: []const u8) !void {
             'P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k' => {
                 if (file >= 8 or rank >= 8) return error.InvalidFEN;
 
-                const color = if (std.ascii.isUpper(c_char)) c.Color.White else c.Color.Black;
+                const color = if (std.ascii.isUpper(c_char)) brd.Color.White else brd.Color.Black;
                 const piece_char = if (std.ascii.isUpper(c_char)) c_char else std.ascii.toUpper(c_char);
 
                 const piece = switch (piece_char) {
-                    'P' => c.Pieces.Pawn,
-                    'N' => c.Pieces.Knight,
-                    'B' => c.Pieces.Bishop,
-                    'R' => c.Pieces.Rook,
-                    'Q' => c.Pieces.Queen,
-                    'K' => c.Pieces.King,
+                    'P' => brd.Pieces.Pawn,
+                    'N' => brd.Pieces.Knight,
+                    'B' => brd.Pieces.Bishop,
+                    'R' => brd.Pieces.Rook,
+                    'Q' => brd.Pieces.Queen,
+                    'K' => brd.Pieces.King,
                     else => unreachable,
                 };
 
@@ -93,10 +91,10 @@ fn parseCastlingRights(board: *Board, castling_rights: []const u8) !void {
 
     for (castling_rights) |char| {
         switch (char) {
-            'K' => rights |= CastlingRights.WhiteKingside,
-            'Q' => rights |= CastlingRights.WhiteQueenside,
-            'k' => rights |= CastlingRights.BlackKingside,
-            'q' => rights |= CastlingRights.BlackQueenside,
+            'K' => rights |= brd.CastlingRights.WhiteKingside,
+            'Q' => rights |= brd.CastlingRights.WhiteQueenside,
+            'k' => rights |= brd.CastlingRights.BlackKingside,
+            'q' => rights |= brd.CastlingRights.BlackQueenside,
             else => return error.InvalidFEN,
         }
     }
@@ -117,7 +115,7 @@ fn parseEnPassant(board: *Board, en_passant: []const u8) !void {
 
     if (file >= 8 or rank >= 8) return error.InvalidFEN;
 
-    const square: b.Square = @intCast(rank * 8 + file);
+    const square: brd.Square = @intCast(rank * 8 + file);
     board.setEnPassantSquare(square);
 }
 
@@ -133,10 +131,10 @@ pub fn toFEN(board: Board, allocator: std.mem.Allocator) ![]u8 {
             const square = rank * 8 + file;
             var found_piece = false;
 
-            for (0..c.num_colors) |color_idx| {
-                const color: c.Color = @intCast(color_idx);
-                for (0..c.num_pieces) |piece_idx| {
-                    const piece: c.Pieces = @intCast(piece_idx);
+            for (0..brd.num_colors) |color_idx| {
+                const color: brd.Color = @intCast(color_idx);
+                for (0..brd.num_pieces) |piece_idx| {
+                    const piece: brd.Pieces = @intCast(piece_idx);
                     if ((board.getPieces(color, piece) & (1 << square)) != 0) {
                         if (empty_count > 0) {
                             try fen.append('0' + empty_count);
@@ -144,16 +142,16 @@ pub fn toFEN(board: Board, allocator: std.mem.Allocator) ![]u8 {
                         }
 
                         var piece_char: u8 = switch (piece) {
-                            c.Pieces.Pawn => 'P',
-                            c.Pieces.Knight => 'N',
-                            c.Pieces.Bishop => 'B',
-                            c.Pieces.Rook => 'R',
-                            c.Pieces.Queen => 'Q',
-                            c.Pieces.King => 'K',
+                            brd.Pieces.Pawn => 'P',
+                            brd.Pieces.Knight => 'N',
+                            brd.Pieces.Bishop => 'B',
+                            brd.Pieces.Rook => 'R',
+                            brd.Pieces.Queen => 'Q',
+                            brd.Pieces.King => 'K',
                             else => unreachable,
                         };
 
-                        if (color == c.Color.Black) {
+                        if (color == brd.Color.Black) {
                             piece_char = std.ascii.toLower(piece_char);
                         }
 
@@ -180,24 +178,24 @@ pub fn toFEN(board: Board, allocator: std.mem.Allocator) ![]u8 {
     }
 
     try fen.append(' ');
-    try fen.append(if (board.game_state.side_to_move == c.Color.White) 'w' else 'b');
+    try fen.append(if (board.game_state.side_to_move == brd.Color.White) 'w' else 'b');
 
     try fen.append(' ');
     var has_castling_rights = false;
 
-    if (board.game_state.castling_rights & CastlingRights.WhiteKingside != 0) {
+    if (board.game_state.castling_rights & brd.CastlingRights.WhiteKingside != 0) {
         try fen.append('K');
         has_castling_rights = true;
     }
-    if (board.game_state.castling_rights & CastlingRights.WhiteQueenside != 0) {
+    if (board.game_state.castling_rights & brd.CastlingRights.WhiteQueenside != 0) {
         try fen.append('Q');
         has_castling_rights = true;
     }
-    if (board.game_state.castling_rights & CastlingRights.BlackKingside != 0) {
+    if (board.game_state.castling_rights & brd.CastlingRights.BlackKingside != 0) {
         try fen.append('k');
         has_castling_rights = true;
     }
-    if (board.game_state.castling_rights & CastlingRights.BlackQueenside != 0) {
+    if (board.game_state.castling_rights & brd.CastlingRights.BlackQueenside != 0) {
         try fen.append('q');
         has_castling_rights = true;
     }
@@ -239,22 +237,22 @@ pub fn debugPrint(board: Board) void {
             const square = rank * 8 + file;
             var printed = false;
 
-            for (0..c.num_colors) |color_idx| {
-                const color: c.Color = @intCast(color_idx);
-                for (0..c.num_pieces) |piece_idx| {
-                    const piece: c.Pieces = @intCast(piece_idx);
+            for (0..brd.num_colors) |color_idx| {
+                const color: brd.Color = @intCast(color_idx);
+                for (0..brd.num_pieces) |piece_idx| {
+                    const piece: brd.Pieces = @intCast(piece_idx);
                     if ((board.getPieces(color, piece) & (1 << square)) != 0) {
                         var piece_char: u8 = switch (piece) {
-                            c.Pieces.Pawn => 'P',
-                            c.Pieces.Knight => 'N',
-                            c.Pieces.Bishop => 'B',
-                            c.Pieces.Rook => 'R',
-                            c.Pieces.Queen => 'Q',
-                            c.Pieces.King => 'K',
+                            brd.Pieces.Pawn => 'P',
+                            brd.Pieces.Knight => 'N',
+                            brd.Pieces.Bishop => 'B',
+                            brd.Pieces.Rook => 'R',
+                            brd.Pieces.Queen => 'Q',
+                            brd.Pieces.King => 'K',
                             else => unreachable,
                         };
 
-                        if (color == c.Color.Black) {
+                        if (color == brd.Color.Black) {
                             piece_char = std.ascii.toLower(piece_char);
                         }
 
