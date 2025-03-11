@@ -2,6 +2,7 @@ const std = @import("std");
 const zob = @import("zobrist.zig");
 const c = @import("consts.zig");
 const Board = @import("board.zig").Board;
+const CastlingRights = @import("consts.zig").CastlingRights;
 const b = @import("board.zig");
 
 pub fn parseFEN(board: *Board, fen: []const u8) !void {
@@ -92,10 +93,10 @@ fn parseCastlingRights(board: *Board, castling_rights: []const u8) !void {
 
     for (castling_rights) |char| {
         switch (char) {
-            'K' => rights |= c.castling_white_kingside,
-            'Q' => rights |= c.castling_white_queenside,
-            'k' => rights |= c.castling_black_kingside,
-            'q' => rights |= c.castling_black_queenside,
+            'K' => rights |= CastlingRights.WhiteKingside,
+            'Q' => rights |= CastlingRights.WhiteQueenside,
+            'k' => rights |= CastlingRights.BlackKingside,
+            'q' => rights |= CastlingRights.BlackQueenside,
             else => return error.InvalidFEN,
         }
     }
@@ -184,19 +185,19 @@ pub fn toFEN(board: Board, allocator: std.mem.Allocator) ![]u8 {
     try fen.append(' ');
     var has_castling_rights = false;
 
-    if (board.game_state.castling_rights & c.castling_white_kingside != 0) {
+    if (board.game_state.castling_rights & CastlingRights.WhiteKingside != 0) {
         try fen.append('K');
         has_castling_rights = true;
     }
-    if (board.game_state.castling_rights & c.castling_white_queenside != 0) {
+    if (board.game_state.castling_rights & CastlingRights.WhiteQueenside != 0) {
         try fen.append('Q');
         has_castling_rights = true;
     }
-    if (board.game_state.castling_rights & c.castling_black_kingside != 0) {
+    if (board.game_state.castling_rights & CastlingRights.BlackKingside != 0) {
         try fen.append('k');
         has_castling_rights = true;
     }
-    if (board.game_state.castling_rights & c.castling_black_queenside != 0) {
+    if (board.game_state.castling_rights & CastlingRights.BlackQueenside != 0) {
         try fen.append('q');
         has_castling_rights = true;
     }

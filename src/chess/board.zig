@@ -2,18 +2,18 @@ const std = @import("std");
 const zob = @import("zobrist.zig");
 const c = @import("consts.zig");
 
-const Square = usize;
-const Bitboard = u64;
-const Castling = u8;
-const bb_empty: Bitboard = 0;
+pub const Square = usize;
+pub const Bitboard = u64;
+pub const Castling = u8;
+pub const bb_empty: Bitboard = 0;
 
-const Piece = struct {
+pub const Piece = struct {
     color: c.Color,
     piece: c.Pieces,
     square: Square,
 };
 
-const GameState = struct {
+pub const GameState = struct {
     side_to_move: c.Color,
     castling_rights: Castling,
     en_passant_square: ?u8,
@@ -41,7 +41,7 @@ const GameState = struct {
     }
 };
 
-const History = struct {
+pub const History = struct {
     history_list: [c.max_game_moves]GameState,
     history_count: usize,
 
@@ -53,7 +53,7 @@ const History = struct {
     }
 };
 
-const Board = struct {
+pub const Board = struct {
     piece_bb: [c.num_colors][c.num_pieces]Bitboard,
     color_bb: [c.num_colors]Bitboard,
     game_state: GameState,
@@ -175,4 +175,38 @@ const Board = struct {
 
 pub inline fn flipColor(color: c.Color) c.Color {
     return if (color == c.Color.White) c.Color.Black else c.Color.White;
+}
+
+pub inline fn countBits(bb: Bitboard) u32 {
+    return @popCount(bb);
+}
+
+pub inline fn getLSB(bb: Bitboard) u32 {
+    return @ctz(bb);
+}
+
+pub inline fn getBit(bb: Bitboard, square: Square) bool {
+    return (bb & (1 << square)) != 0;
+}
+
+pub inline fn clearBit(bb: *Bitboard, square: Square) void {
+    bb.* &= !(1 << square);
+}
+
+pub inline fn setBit(bb: *Bitboard, square: Square) void {
+    bb.* |= (1 << square);
+}
+
+pub inline fn popBit(bb: *Bitboard, sq: Square) void {
+    if (getBit(bb.*, sq)) {
+        bb.* ^= 1 << sq;
+    }
+}
+
+pub fn bitboardToArray(bb: Bitboard) [64]bool {
+    var arr: [64]bool = undefined;
+    for (0..64) |i| {
+        arr[i] = getBit(bb, i);
+    }
+    return arr;
 }
