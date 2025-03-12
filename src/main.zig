@@ -1,1 +1,9 @@
-pub fn main() void {}
+const chess = @import("chess/chess.zig");
+pub fn main() void {
+    var board = chess.Board.new();
+    chess.setupStartingPosition(&board);
+
+    chess.debugPrint(board);
+
+    // board.printBoard();
+}

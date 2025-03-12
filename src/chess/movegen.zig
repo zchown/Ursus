@@ -3,7 +3,7 @@ const brd = @import("board.zig");
 const Board = brd.Board;
 const Bitboard = brd.Bitboard;
 const GameState = brd.GameState;
-const magic = @import("magibrd.zig");
+const magic = @import("magics.zig");
 const rad = @import("radagast.zig");
 
 pub const not_a_file: Bitboard = 0xfefefefefefefefe;
@@ -38,6 +38,22 @@ pub const MoveGen = struct {
         mg.initPawns();
         mg.initSliders();
         return mg;
+    }
+
+    // pub inline fn isAttacked(self: *MoveGen, sq: brd.Square, color: brd.Color, board: *Bitboard) bool {
+    // }
+
+    pub fn printAttackedSquares(self: *MoveGen, color: brd.Color, board: *Bitboard) void {
+        for (0..brd.num_squares) |sq| {
+            if (self.isAttacked(sq, color, board)) {
+                std.debug.print("1");
+            } else {
+                std.debug.print("0");
+            }
+            if (sq % 8 == 7) {
+                std.debug.print("\n");
+            }
+        }
     }
 
     pub fn getBishopAttacks(self: *MoveGen, sq: brd.Square, occ: Bitboard) Bitboard {

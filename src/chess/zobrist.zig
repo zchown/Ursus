@@ -4,7 +4,7 @@ const brd = @import("board.zig");
 pub const ZobristKey = u64;
 
 const PieceRandoms = [brd.num_colors][brd.num_pieces][brd.num_squares]ZobristKey;
-const CastleRandoms = [brd.num_castles]ZobristKey;
+const CastleRandoms = [@intFromEnum(brd.CastleRights.NumCastles) + 1]ZobristKey;
 const ColorRandoms = [brd.num_colors]ZobristKey;
 const EnPassantRandoms = [brd.num_squares + 1]ZobristKey;
 
@@ -17,55 +17,63 @@ pub const ZobristKeyStruct = struct {
     en_passant: EnPassantRandoms,
 
     pub fn new() ZobristKeyStruct {
-        var keys: ZobristKeyStruct = undefined;
-        const rng = 0xdeadbeefdeadbeef;
-        for (brd.Color) |color| {
-            rng = splitMix64(rng);
-            keys.color[color] = rng;
-        }
+        var keys: ZobristKeyStruct = ZobristKeyStruct{
+            .piece = std.mem.zeroes(PieceRandoms),
+            .castle = std.mem.zeroes(CastleRandoms),
+            .color = std.mem.zeroes(ColorRandoms),
+            .en_passant = std.mem.zeroes(EnPassantRandoms),
+        };
+        var rng = 0xdeadbeefdeadbeef;
+        rng = splitMix64(rng);
+        // white
+        keys.color[0] = rng;
+        rng = splitMix64(rng);
+        // black
+        keys.color[1] = rng;
 
-        for (brd.Piece) |piece| {
-            for (brd.Square) |square| {
+        @setEvalBranchQuota(1000000);
+        inline for (std.meta.fields(brd.Pieces)) |piece| {
+            for (0..brd.num_squares) |square| {
                 rng = splitMix64(rng);
-                keys.piece[brd.Color.White][piece][square] = rng;
+                // white
+                keys.piece[0][piece.value][square] = rng;
                 rng = splitMix64(rng);
-                keys.piece[brd.Color.Black][piece][square] = rng;
+                // black
+                keys.piece[1][piece.value][square] = rng;
             }
         }
 
-        for (brd.Castle) |castle| {
+        inline for (std.meta.fields(brd.CastleRights)) |castle| {
             rng = splitMix64(rng);
-            keys.castle[castle] = rng;
+            keys.castle[castle.value] = rng;
         }
 
-        for (0..(brd.num_squares + 1)) |square| {
+        for (0..brd.num_squares) |square| {
             rng = splitMix64(rng);
             keys.en_passant[square] = rng;
         }
+        return keys;
     }
 
-    pub inline fn enPassantKeys(self: ZobristKeyStruct, ep: ?usize) ZobristKey {
-        if (ep == null) {
-            return self.en_passant[brd.num_squares];
-        }
-        return self.en_passant[ep];
+    pub inline fn sideKeys(self: ZobristKeyStruct, side: brd.Color) ZobristKey {
+        return self.color[@intFromEnum(side)];
     }
 
-    pub inline fn castleKeys(self: ZobristKeyStruct, castles: u8) ZobristKey {
-        return self.castle[castles];
+    pub inline fn enPassantKeys(self: ZobristKeyStruct, ep: ?u8) ZobristKey {
+        return self.en_passant[ep orelse brd.num_squares];
     }
 
-    pub inline fn colorKeys(self: ZobristKeyStruct, color: u8) ZobristKey {
-        return self.color[color];
+    pub inline fn castleKeys(self: ZobristKeyStruct, castles: brd.CastleRights) ZobristKey {
+        return self.castle[@intFromEnum(castles)];
     }
 
-    pub inline fn pieceKeys(self: ZobristKeyStruct, color: u8, piece: u8, square: u8) ZobristKey {
-        return self.piece[color][piece][square];
+    pub inline fn pieceKeys(self: ZobristKeyStruct, color: brd.Color, piece: brd.Pieces, square: usize) ZobristKey {
+        return self.piece[@intFromEnum(color)][@intFromEnum(piece)][square];
     }
 };
 
 fn splitMix64(x: u64) ZobristKey {
-    x = (x ^ (x >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94d049bb133111eb);
-    return x ^ (x >> 31);
+    var y = (x ^ (x >> 30)) *% 0xbf58476d1ce4e5b9;
+    y = (y ^ (y >> 27)) *% 0x94d049bb133111eb;
+    return y ^ (y >> 31);
 }

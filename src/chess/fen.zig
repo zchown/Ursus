@@ -4,7 +4,7 @@ const Board = @import("board.zig").Board;
 const brd = @import("board.zig");
 
 pub fn parseFEN(board: *Board, fen: []const u8) !void {
-    var it = std.mem.split(u8, fen, " ");
+    var it = std.mem.tokenizeAny(u8, fen, " ");
 
     board.* = Board.new();
 
@@ -31,7 +31,7 @@ pub fn parseFEN(board: *Board, fen: []const u8) !void {
     const fullmove_str = it.next() orelse return error.InvalidFEN;
     board.game_state.fullmove_number = try std.fmt.parseInt(u16, fullmove_str, 10);
 
-    board.reintZobrist();
+    // board.reinitZobrist();
 
     return;
 }
@@ -49,15 +49,15 @@ fn parsePiecePlacement(board: *Board, piece_placement: []const u8) !void {
                 if (rank >= 8) return error.InvalidFEN;
             },
             '1'...'8' => {
-                const empty_squares = c_char - '0';
+                const empty_squares = char - '0';
                 file += empty_squares;
                 if (file > 8) return error.InvalidFEN;
             },
             'P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k' => {
                 if (file >= 8 or rank >= 8) return error.InvalidFEN;
 
-                const color = if (std.ascii.isUpper(c_char)) brd.Color.White else brd.Color.Black;
-                const piece_char = if (std.ascii.isUpper(c_char)) c_char else std.ascii.toUpper(c_char);
+                const color = if (std.ascii.isUpper(char)) brd.Color.White else brd.Color.Black;
+                const piece_char = if (std.ascii.isUpper(char)) char else std.ascii.toUpper(char);
 
                 const piece = switch (piece_char) {
                     'P' => brd.Pieces.Pawn,
@@ -85,21 +85,21 @@ fn parseCastlingRights(board: *Board, castling_rights: []const u8) !void {
     var rights: u8 = 0;
 
     if (std.mem.eql(u8, castling_rights, "-")) {
-        board.updateCastlingRights(0);
+        board.updateCastlingRights(brd.CastleRights.NoCastling);
         return;
     }
 
     for (castling_rights) |char| {
         switch (char) {
-            'K' => rights |= brd.CastlingRights.WhiteKingside,
-            'Q' => rights |= brd.CastlingRights.WhiteQueenside,
-            'k' => rights |= brd.CastlingRights.BlackKingside,
-            'q' => rights |= brd.CastlingRights.BlackQueenside,
+            'K' => rights |= @intFromEnum(brd.CastleRights.WhiteKingside),
+            'Q' => rights |= @intFromEnum(brd.CastleRights.WhiteQueenside),
+            'k' => rights |= @intFromEnum(brd.CastleRights.BlackKingside),
+            'q' => rights |= @intFromEnum(brd.CastleRights.BlackQueenside),
             else => return error.InvalidFEN,
         }
     }
 
-    board.updateCastlingRights(rights);
+    board.updateCastlingRights(@enumFromInt(rights));
 }
 
 fn parseEnPassant(board: *Board, en_passant: []const u8) !void {
@@ -116,7 +116,7 @@ fn parseEnPassant(board: *Board, en_passant: []const u8) !void {
     if (file >= 8 or rank >= 8) return error.InvalidFEN;
 
     const square: brd.Square = @intCast(rank * 8 + file);
-    board.setEnPassantSquare(square);
+    board.setEnPassantSquare(@intCast(square));
 }
 
 pub fn toFEN(board: Board, allocator: std.mem.Allocator) ![]u8 {
@@ -132,10 +132,10 @@ pub fn toFEN(board: Board, allocator: std.mem.Allocator) ![]u8 {
             var found_piece = false;
 
             for (0..brd.num_colors) |color_idx| {
-                const color: brd.Color = @intCast(color_idx);
+                const color: brd.Color = @enumFromInt(color_idx);
                 for (0..brd.num_pieces) |piece_idx| {
-                    const piece: brd.Pieces = @intCast(piece_idx);
-                    if ((board.getPieces(color, piece) & (1 << square)) != 0) {
+                    const piece: brd.Pieces = @enumFromInt(piece_idx);
+                    if ((board.getPieces(color, piece) & (@as(u64, 1) << @intCast(square))) != 0) {
                         if (empty_count > 0) {
                             try fen.append('0' + empty_count);
                             empty_count = 0;
@@ -148,7 +148,6 @@ pub fn toFEN(board: Board, allocator: std.mem.Allocator) ![]u8 {
                             brd.Pieces.Rook => 'R',
                             brd.Pieces.Queen => 'Q',
                             brd.Pieces.King => 'K',
-                            else => unreachable,
                         };
 
                         if (color == brd.Color.Black) {
@@ -183,19 +182,21 @@ pub fn toFEN(board: Board, allocator: std.mem.Allocator) ![]u8 {
     try fen.append(' ');
     var has_castling_rights = false;
 
-    if (board.game_state.castling_rights & brd.CastlingRights.WhiteKingside != 0) {
+    if (@intFromEnum(board.game_state.castling_rights) &
+        @intFromEnum(brd.CastleRights.WhiteKingside) != 0)
+    {
         try fen.append('K');
         has_castling_rights = true;
     }
-    if (board.game_state.castling_rights & brd.CastlingRights.WhiteQueenside != 0) {
+    if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) {
         try fen.append('Q');
         has_castling_rights = true;
     }
-    if (board.game_state.castling_rights & brd.CastlingRights.BlackKingside != 0) {
+    if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
         try fen.append('k');
         has_castling_rights = true;
     }
-    if (board.game_state.castling_rights & brd.CastlingRights.BlackQueenside != 0) {
+    if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) {
         try fen.append('q');
         has_castling_rights = true;
     }
@@ -238,10 +239,10 @@ pub fn debugPrint(board: Board) void {
             var printed = false;
 
             for (0..brd.num_colors) |color_idx| {
-                const color: brd.Color = @intCast(color_idx);
+                const color: brd.Color = @enumFromInt(color_idx);
                 for (0..brd.num_pieces) |piece_idx| {
-                    const piece: brd.Pieces = @intCast(piece_idx);
-                    if ((board.getPieces(color, piece) & (1 << square)) != 0) {
+                    const piece: brd.Pieces = @enumFromInt(piece_idx);
+                    if ((board.getPieces(color, piece) & (@as(u64, 1) << @intCast(square))) != 0) {
                         var piece_char: u8 = switch (piece) {
                             brd.Pieces.Pawn => 'P',
                             brd.Pieces.Knight => 'N',
@@ -249,7 +250,6 @@ pub fn debugPrint(board: Board) void {
                             brd.Pieces.Rook => 'R',
                             brd.Pieces.Queen => 'Q',
                             brd.Pieces.King => 'K',
-                            else => unreachable,
                         };
 
                         if (color == brd.Color.Black) {
