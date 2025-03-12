@@ -116,13 +116,15 @@ pub const Board = struct {
 
     pub fn new() Board {
         return .{
-            .piece_bb = undefined,
-            .color_bb = undefined,
+            .piece_bb = std.mem.zeroes([num_colors][num_pieces]Bitboard),
+            .color_bb = std.mem.zeroes([num_colors]Bitboard),
             .game_state = GameState.new(),
             .history = History.new(),
         };
     }
 
+    // allows printing without needing to import fen
+    // however fen.debuPrint is much nicer
     pub fn printBoard(self: *Board) void {
         const piece_chars: [num_colors][num_pieces]u8 = [num_colors][num_pieces]u8{
             [_]u8{ 'P', 'N', 'B', 'R', 'Q', 'K' },

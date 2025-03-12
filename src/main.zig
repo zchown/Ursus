@@ -5,5 +5,5 @@ pub fn main() void {
 
     chess.debugPrint(board);
 
-    // board.printBoard();
+    board.printBoard();
 }
