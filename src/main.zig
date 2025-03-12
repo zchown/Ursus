@@ -3,7 +3,5 @@ pub fn main() void {
     var board = chess.Board.new();
     chess.setupStartingPosition(&board);
 
-    chess.debugPrint(board);
-
-    board.printBoard();
+    chess.debugPrintBoard(&board);
 }

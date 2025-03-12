@@ -39,7 +39,7 @@ pub const Bitboard = u64;
 pub const bb_empty: Bitboard = 0;
 
 fn init_bb_squares() [num_squares]Bitboard {
-    var squares: [num_squares]Bitboard = undefined;
+    var squares: [num_squares]Bitboard = std.mem.zeroes([num_squares]Bitboard);
     for (0..num_squares) |i| {
         squares[i] = 1 << i;
     }
@@ -222,26 +222,32 @@ pub const Board = struct {
         };
     }
 
+    // this is not a very zig way to do this
+    // TODO: update to sentinel array
     pub fn getPieceList(self: Board) [max_pieces]?Piece {
-        var piece_list: [max_pieces]?Piece = undefined;
-        var i: usize = 0;
-        for (0..num_colors) |color| {
-            for (0..num_pieces) |piece| {
-                var bb: Bitboard = self.piece_bb[color][piece];
+        var list: [max_pieces]?Piece = undefined;
+        var count: usize = 0;
+
+        for (0..num_colors) |color_i| {
+            for (0..num_pieces) |piece_i| {
+                var bb: Bitboard = self.piece_bb[color_i][piece_i];
                 while (bb != 0) {
-                    const square: Square = getLSB(bb);
-                    piece_list[i] = .{
-                        .color = @enumFromInt(color),
-                        .piece = @enumFromInt(piece),
-                        .square = square,
+                    const sq = getLSB(bb);
+                    list[count] = Piece{
+                        .color = @enumFromInt(color_i),
+                        .piece = @enumFromInt(piece_i),
+                        .square = sq,
                     };
-                    std.debug.print("Piece: {d} {d} {d}\n", .{ color, piece, square });
-                    i += 1;
-                    popBit(&bb, square);
+                    count += 1;
+                    bb &= bb - 1;
                 }
             }
         }
-        return piece_list;
+
+        if (count < max_pieces) {
+            list[count] = null;
+        }
+        return list;
     }
 
     pub fn reinitZobrist(self: *Board) void {
@@ -251,10 +257,20 @@ pub const Board = struct {
 
         var i: usize = 0;
         const piece_list: [max_pieces]?Piece = self.getPieceList();
-        while (piece_list[i] != null) {
+        while (i < max_pieces and piece_list[i] != null) {
             const piece: Piece = piece_list[i] orelse unreachable;
             self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(piece.color, piece.piece, piece.square);
             i += 1;
+        }
+    }
+
+    pub fn printBitBoards(self: Board) void {
+        for (0..num_colors) |color| {
+            std.debug.print("Color: {d}\n", .{color});
+            for (0..num_pieces) |piece| {
+                std.debug.print("Piece: {d}\n", .{piece});
+                printBitboard(self.piece_bb[color][piece]);
+            }
         }
     }
 };
@@ -296,4 +312,19 @@ pub fn bitboardToArray(bb: Bitboard) [64]bool {
         arr[i] = getBit(bb, i);
     }
     return arr;
+}
+
+pub fn printBitboard(bb: Bitboard) void {
+    const arr: [64]bool = bitboardToArray(bb);
+    for (0..8) |r| {
+        for (0..8) |f| {
+            const i: usize = r * 8 + f;
+            if (arr[i]) {
+                std.debug.print("1", .{});
+            } else {
+                std.debug.print("0", .{});
+            }
+        }
+        std.debug.print("\n", .{});
+    }
 }

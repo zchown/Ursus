@@ -31,7 +31,7 @@ pub fn parseFEN(board: *Board, fen: []const u8) !void {
     const fullmove_str = it.next() orelse return error.InvalidFEN;
     board.game_state.fullmove_number = try std.fmt.parseInt(u16, fullmove_str, 10);
 
-    // board.reinitZobrist();
+    board.reinitZobrist();
 
     return;
 }
@@ -121,7 +121,7 @@ fn parseEnPassant(board: *Board, en_passant: []const u8) !void {
     board.setEnPassantSquare(@intCast(square));
 }
 
-pub fn toFEN(board: Board, allocator: std.mem.Allocator) ![]u8 {
+pub fn toFEN(board: *Board, allocator: std.mem.Allocator) ![]u8 {
     var fen = std.ArrayList(u8).init(allocator);
     defer fen.deinit();
 
@@ -230,7 +230,7 @@ pub fn setupStartingPosition(board: *Board) void {
     _ = parseFEN(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") catch {};
 }
 
-pub fn debugPrint(board: Board) void {
+pub fn debugPrintBoard(board: *Board) void {
     const stdout = std.io.getStdOut().writer();
     for (0..8) |rank_idx| {
         const rank = 7 - rank_idx;
