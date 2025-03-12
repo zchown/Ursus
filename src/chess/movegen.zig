@@ -15,7 +15,7 @@ pub const not_eighth_rank: Bitboard = 0x00ffffffffffffff;
 pub const dark_squares: Bitboard = 0xaa55aa55aa55aa55;
 
 pub const MoveGen = struct {
-    king: [brd.num_squares]Bitboard,
+    kings: [brd.num_squares]Bitboard,
     knights: [brd.num_squares]Bitboard,
     pawns: [brd.num_colors * brd.num_squares]Bitboard,
     bishops: [brd.num_squares][512]Bitboard,
@@ -25,13 +25,13 @@ pub const MoveGen = struct {
 
     pub fn new() MoveGen {
         var mg: MoveGen = undefined;
-        mg.king = [_]Bitboard{0};
-        mg.knights = [_]Bitboard{0};
-        mg.pawns = [_]Bitboard{0};
-        mg.bishops = [_][512]Bitboard{0};
-        mg.rooks = [_][4096]Bitboard{0};
-        mg.bishop_masks = [_]Bitboard{0};
-        mg.rook_masks = [_]Bitboard{0};
+        mg.kings = undefined;
+        mg.knights = undefined;
+        mg.pawns = undefined;
+        mg.bishops = undefined;
+        mg.rooks = undefined;
+        mg.bishop_masks = undefined;
+        mg.rook_masks = undefined;
 
         mg.initKings();
         mg.initKnights();
@@ -93,7 +93,7 @@ pub const MoveGen = struct {
 
     fn initKings(self: *MoveGen) void {
         for (0..brd.num_squares) |sq| {
-            self.kings[sq] = self.kingAttacks(sq);
+            self.kings[sq] = kingAttacks(sq);
         }
     }
 
@@ -130,7 +130,7 @@ pub const MoveGen = struct {
 
     fn initKnights(self: *MoveGen) void {
         for (0..brd.num_squares) |sq| {
-            self.knights[sq] = self.knightAttacks(sq);
+            self.knights[sq] = knightAttacks(sq);
         }
     }
 
@@ -159,10 +159,10 @@ pub const MoveGen = struct {
 
     fn initPawns(self: *MoveGen) void {
         for (0..brd.num_squares) |sq| {
-            self.pawns[(brd.Color.White * brd.num_squares) + sq] =
-                self.pawnAttacks(sq, brd.Color.White);
-            self.pawns[(brd.Color.Black * brd.num_squares) + sq] =
-                self.pawnAttacks(sq, brd.Color.Black);
+            // White pawns
+            self.pawns[sq] = pawnAttacks(sq, brd.Color.White);
+            // Black pawns
+            self.pawns[64 + sq] = pawnAttacks(sq, brd.Color.Black);
         }
     }
 
@@ -193,24 +193,26 @@ pub const MoveGen = struct {
             self.bishop_masks[sq] = rad.maskBishopAttacks(sq);
             self.rook_masks[sq] = rad.maskRookAttacks(sq);
 
-            const relevant_bits_bishop: i32 = rad.bishop_relevant_bits[sq];
-            const relevant_bits_rook: i32 = rad.rook_relevant_bits[sq];
+            const relevant_bits_bishop: i32 = @intCast(rad.bishop_relevant_bits[sq]);
+            const relevant_bits_rook: i32 = @intCast(rad.rook_relevant_bits[sq]);
 
-            const occupancy_index_bishop: u64 = 1 << relevant_bits_bishop;
-            const occupancy_index_rook: u64 = 1 << relevant_bits_rook;
+            const occupancy_index_bishop: u64 =
+                @as(u64, 1) << @intCast(relevant_bits_bishop);
+            const occupancy_index_rook: u64 =
+                @as(u64, 1) << @intCast(relevant_bits_rook);
 
             for (0..occupancy_index_bishop) |i| {
-                const occ = rad.set_occupancy(i, relevant_bits_bishop, self.bishop_masks[sq]);
-                const magic_index = (occ * rad.bishop_magics[sq]) >>
-                    (64 - relevant_bits_bishop);
-                self.bishops[sq][magic_index] = rad.generateBishopAttacks(sq, occ);
+                const occ = rad.setOccupancy(i, @intCast(relevant_bits_bishop), self.bishop_masks[sq]);
+                const magic_index = (occ * magic.bishop_magics[sq]) >>
+                    @intCast(64 - relevant_bits_bishop);
+                self.bishops[sq][magic_index] = rad.bishopAttacks(sq, occ);
             }
 
             for (0..occupancy_index_rook) |i| {
-                const occ = rad.set_occupancy(i, relevant_bits_rook, self.rook_masks[sq]);
-                const magic_index = (occ * rad.rook_magics[sq]) >>
-                    (64 - relevant_bits_rook);
-                self.rooks[sq][magic_index] = rad.generateRookAttacks(sq, occ);
+                const occ = rad.setOccupancy(i, @intCast(relevant_bits_rook), self.rook_masks[sq]);
+                const magic_index = (occ * magic.rook_magics[sq]) >>
+                    @intCast(64 - relevant_bits_rook);
+                self.rooks[sq][magic_index] = rad.rookAttacks(sq, occ);
             }
         }
     }

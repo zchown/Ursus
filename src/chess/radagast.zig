@@ -124,8 +124,8 @@ pub const Istari = struct {
 pub fn maskBishopAttacks(sq: brd.Square) Bitboard {
     var attacks: Bitboard = 0;
 
-    const target_rank = sq / 8;
-    const target_file = sq % 8;
+    const target_rank: isize = @intCast(sq / 8);
+    const target_file: isize = @intCast(sq % 8);
 
     calculateAttacks(1, 1, target_rank, target_file, &attacks);
     calculateAttacks(1, -1, target_rank, target_file, &attacks);
@@ -138,8 +138,8 @@ pub fn maskBishopAttacks(sq: brd.Square) Bitboard {
 pub fn maskRookAttacks(sq: brd.Square) Bitboard {
     var attacks: Bitboard = 0;
 
-    const target_rank = sq / 8;
-    const target_file = sq % 8;
+    const target_rank: isize = @intCast(sq / 8);
+    const target_file: isize = @intCast(sq % 8);
 
     calculateAttacks(1, 0, target_rank, target_file, &attacks);
     calculateAttacks(-1, 0, target_rank, target_file, &attacks);
@@ -150,10 +150,10 @@ pub fn maskRookAttacks(sq: brd.Square) Bitboard {
 }
 
 fn calculateAttacks(rank_dir: isize, file_dir: isize, target_rank: isize, target_file: isize, attacks: *Bitboard) void {
-    var rank = @as(isize, target_rank) + rank_dir;
-    var file = @as(isize, target_file) + file_dir;
+    var rank = target_rank + rank_dir;
+    var file = target_file + file_dir;
     while ((rank >= 1 and rank <= 6) or (file >= 1 and file <= 6)) {
-        attacks.* |= 1 << ((@as(usize, rank) * 8) + @as(usize, file));
+        attacks.* |= @as(u64, 1) << @intCast((rank * 8) + file);
         rank += rank_dir;
         file += file_dir;
     }
@@ -175,41 +175,42 @@ fn calculateAttacksWithBlocks(rank_dir: isize, file_dir: isize, target_rank: isi
 
 pub fn bishopAttacks(sq: brd.Square, blocks: Bitboard) Bitboard {
     var attacks: Bitboard = 0;
-    const target_rank = sq / 8;
-    const target_file = sq % 8;
+    const target_rank: isize = @intCast(sq / 8);
+    const target_file: isize = @intCast(sq % 8);
 
     calculateAttacks(1, 1, target_rank, target_file, &attacks);
     calculateAttacks(1, -1, target_rank, target_file, &attacks);
     calculateAttacks(-1, 1, target_rank, target_file, &attacks);
     calculateAttacks(-1, -1, target_rank, target_file, &attacks);
 
-    attacks &= !blocks;
+    attacks &= ~blocks;
     return attacks;
 }
 
 pub fn rookAttacks(sq: brd.Square, blocks: Bitboard) Bitboard {
     var attacks: Bitboard = 0;
-    const target_rank = sq / 8;
-    const target_file = sq % 8;
+    const target_rank: isize = @intCast(sq / 8);
+    const target_file: isize = @intCast(sq % 8);
 
     calculateAttacks(1, 0, target_rank, target_file, &attacks);
     calculateAttacks(-1, 0, target_rank, target_file, &attacks);
     calculateAttacks(0, 1, target_rank, target_file, &attacks);
     calculateAttacks(0, -1, target_rank, target_file, &attacks);
 
-    attacks &= !blocks;
+    attacks &= ~blocks;
     return attacks;
 }
 
 pub fn setOccupancy(index: Bitboard, bits: usize, attack_mask: Bitboard) Bitboard {
+    var atm = attack_mask;
     var occupancy: Bitboard = 0;
-    var count = 0;
-    while (count < bits) {
-        const square = brd.popBit(&index);
-        if (brd.getBit(attack_mask, square)) {
-            occupancy |= 1 << count;
+
+    for (0..bits) |i| {
+        const square = brd.getLSB(atm);
+        brd.popBit(&atm, square);
+        if (index & (@as(u64, 1) << @intCast(i)) != 0) {
+            occupancy |= @as(u64, 1) << @intCast(square);
         }
-        count += 1;
     }
     return occupancy;
 }
