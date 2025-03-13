@@ -25,13 +25,13 @@ pub const max_legal_moves = 255;
 pub const max_move_rule = 100;
 
 // Bitboard constants
-pub const bb_all = 0xFFFFFFFFFFFFFFFF;
-pub const bb_file_a = 0x0101010101010101;
-pub const bb_file_h = 0x8080808080808080;
-pub const bb_rank_1 = 0x00000000000000FF;
-pub const bb_rank_8 = 0xFF00000000000000;
-pub const bb_diag_a1h8 = 0x8040201008040201;
-pub const bb_diag_h1a8 = 0x0102040810204080;
+const bb_all = 0xFFFFFFFFFFFFFFFF;
+const bb_file_a = 0x0101010101010101;
+const bb_file_h = 0x8080808080808080;
+const bb_rank_1 = 0x00000000000000FF;
+const bb_rank_8 = 0xFF00000000000000;
+const bb_diag_a1h8 = 0x8040201008040201;
+const bb_diag_h1a8 = 0x0102040810204080;
 
 pub const Square = usize;
 pub const Bitboard = u64;
@@ -39,7 +39,7 @@ pub const Bitboard = u64;
 pub const bb_empty: Bitboard = 0;
 
 fn init_bb_squares() [num_squares]Bitboard {
-    var squares: [num_squares]Bitboard = std.mem.zeroes([num_squares]Bitboard);
+    var squares: [num_squares]Bitboard = @splat(0);
     for (0..num_squares) |i| {
         squares[i] = 1 << i;
     }
@@ -116,8 +116,8 @@ pub const Board = struct {
 
     pub fn new() Board {
         return .{
-            .piece_bb = std.mem.zeroes([num_colors][num_pieces]Bitboard),
-            .color_bb = std.mem.zeroes([num_colors]Bitboard),
+            .piece_bb = @splat(@splat(0)),
+            .color_bb = @splat(0),
             .game_state = GameState.new(),
             .history = History.new(),
         };

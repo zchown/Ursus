@@ -18,10 +18,10 @@ pub const ZobristKeyStruct = struct {
 
     pub fn new() ZobristKeyStruct {
         var keys: ZobristKeyStruct = ZobristKeyStruct{
-            .piece = std.mem.zeroes(PieceRandoms),
-            .castle = std.mem.zeroes(CastleRandoms),
-            .color = std.mem.zeroes(ColorRandoms),
-            .en_passant = std.mem.zeroes(EnPassantRandoms),
+            .piece = @splat(@splat(@splat(0))),
+            .castle = @splat(0),
+            .color = @splat(0),
+            .en_passant = @splat(0),
         };
         var rng = 0xdeadbeefdeadbeef;
         rng = splitMix64(rng);

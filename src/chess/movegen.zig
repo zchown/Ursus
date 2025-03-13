@@ -6,13 +6,13 @@ const GameState = brd.GameState;
 const magic = @import("magics.zig");
 const rad = @import("radagast.zig");
 
-pub const not_a_file: Bitboard = 0xfefefefefefefefe;
-pub const not_h_file: Bitboard = 0x7f7f7f7f7f7f7f7f;
-pub const not_hg_file: Bitboard = 0x3f3f3f3f3f3f3f3f;
-pub const not_ab_file: Bitboard = 0xfcfcfcfcfcfcfcfc;
-pub const not_first_rank: Bitboard = 0xffffffffffffff00;
-pub const not_eighth_rank: Bitboard = 0x00ffffffffffffff;
-pub const dark_squares: Bitboard = 0xaa55aa55aa55aa55;
+const not_a_file: Bitboard = 0xfefefefefefefefe;
+const not_h_file: Bitboard = 0x7f7f7f7f7f7f7f7f;
+const not_hg_file: Bitboard = 0x3f3f3f3f3f3f3f3f;
+const not_ab_file: Bitboard = 0xfcfcfcfcfcfcfcfc;
+const not_first_rank: Bitboard = 0xffffffffffffff00;
+const not_eighth_rank: Bitboard = 0x00ffffffffffffff;
+const dark_squares: Bitboard = 0xaa55aa55aa55aa55;
 
 pub const MoveGen = struct {
     kings: [brd.num_squares]Bitboard,
