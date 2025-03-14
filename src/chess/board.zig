@@ -182,7 +182,8 @@ pub const Board = struct {
     pub fn addPiece(self: *Board, color: Color, piece: Pieces, square: Square) void {
         self.piece_bb[@intFromEnum(color)][@intFromEnum(piece)] |= @as(u64, 1) << @intCast(square);
         self.color_bb[@intFromEnum(color)] |= @as(u64, 1) << @intCast(square);
-        self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
+        const newkey = zob.ZobristKeys.pieceKeys(color, piece, square);
+        self.game_state.zobrist ^= newkey;
     }
 
     pub fn movePiece(self: *Board, color: Color, piece: Pieces, from: Square, to: Square) void {
