@@ -39,6 +39,39 @@ pub const EncodedMove = packed struct (u32) {
             .castling = @intCast(castling),
         };
     }
+
+    pub fn print(self: EncodedMove) void {
+        std.debug.print("Start square: {}\n", .{self.start_square});
+        std.debug.print("End square: {}\n", .{self.end_square});
+        std.debug.print("Piece: {}\n", .{self.piece});
+        std.debug.print("Promoted piece: {}\n", .{self.promoted_piece});
+        std.debug.print("Capture: {}\n", .{self.capture});
+        std.debug.print("Double pawn push: {}\n", .{self.double_pawn_push});
+        std.debug.print("En passant: {}\n", .{self.en_passant});
+        std.debug.print("Castling: {}\n", .{self.castling});
+    }
+};
+
+pub const MoveList = struct {
+    list: [218:0]EncodedMove,
+    current: usize = 0,
+
+    pub fn new() MoveList {
+        return MoveList{ .list = @splat(0)};
+    }
+
+    pub fn addMove(self: *MoveList, start: brd.Square, end: brd.Square, piece: brd.Pieces, promoted_piece: brd.Pieces,
+                   capture: bool, double_pawn_push: bool, en_passant: bool, castling: bool) void {
+        const move = EncodedMove.encode(start, end, piece, promoted_piece, capture, double_pawn_push, en_passant, castling);
+        self.list[self.current] = move;
+        self.current += 1;
+    }
+
+    pub fn print(self: *MoveList) void {
+        for (0..self.current) |i| {
+            self.list[i].print();
+        }
+    }
 };
 
 pub const MoveGen = struct {
