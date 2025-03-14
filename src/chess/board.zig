@@ -30,6 +30,7 @@ pub const Pieces = enum(u3) {
     Rook = 3,
     Queen = 4,
     King = 5,
+    None = 6,
 };
 
 pub const Color = enum(u1) {

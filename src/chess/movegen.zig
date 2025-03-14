@@ -26,13 +26,14 @@ pub const EncodedMove = packed struct (u32) {
 
     _padding: u8 = 0,
 
-    pub fn encode(start: brd.Square, end: brd.Square, piece: brd.Pieces, promoted_piece: brd.Pieces,
-                  capture: bool, double_pawn_push: bool, en_passant: bool, castling: bool) EncodedMove {
+    pub fn encode(start: brd.Square, end: brd.Square, piece: brd.Pieces, promoted_piece: ?brd.Pieces,
+        capture: bool, double_pawn_push: bool, en_passant: bool, castling: bool) EncodedMove {
+        const pp = promoted_piece orelse brd.Pieces.Pawn;
         return EncodedMove{
             .start_square = @intCast(start),
             .end_square = @intCast(end),
             .piece = @intFromEnum(piece),
-            .promoted_piece = @intFromEnum(promoted_piece),
+            .promoted_piece = @intFromEnum(pp),
             .capture = @intCast(capture),
             .double_pawn_push = @intCast(double_pawn_push),
             .en_passant = @intCast(en_passant),
@@ -60,11 +61,17 @@ pub const MoveList = struct {
         return MoveList{ .list = @splat(0)};
     }
 
-    pub fn addMove(self: *MoveList, start: brd.Square, end: brd.Square, piece: brd.Pieces, promoted_piece: brd.Pieces,
-                   capture: bool, double_pawn_push: bool, en_passant: bool, castling: bool) void {
+    pub fn addMove(self: *MoveList, start: brd.Square, end: brd.Square, piece: brd.Pieces, promoted_piece: ?brd.Pieces,
+        capture: bool, double_pawn_push: bool, en_passant: bool, castling: bool) void {
+
         const move = EncodedMove.encode(start, end, piece, promoted_piece, capture, double_pawn_push, en_passant, castling);
+
         self.list[self.current] = move;
         self.current += 1;
+    }
+
+    pub fn addEasyMove(self: *MoveList, start: brd.Square, end: brd.Square, piece: brd.Pieces, capture: bool) void {
+        self.addMove(start, end, piece, null, capture, false, false, false);
     }
 
     pub fn print(self: *MoveList) void {
@@ -100,47 +107,104 @@ pub const MoveGen = struct {
         return mg;
     }
 
-    pub inline fn generateMoves(self: *MoveGen, board: *Board) void {
-        var start_square: brd.Square = undefined;
-        var end_square: brd.Square = undefined;
-
-        var attacks: Bitboard = undefined;
-        var bb: Bitboard = undefined;
+    pub inline fn generateMoves(self: *MoveGen, board: *Board) MoveList {
+        var move_list = MoveList.new();
 
         for (std.meta.tags(brd.Color)) |color| {
-            for (std.meta.tags(brd.Pieces)) |piece| {
-                bb = board.piece_bb[color][piece];
+            // pawn moves
+            self.generatePawnMoves(board, &move_list, color);
 
-                // pawn and castling
-                if (board.game_state.side_to_move == brd.Color.White ) {
-                    if (piece == brd.Pieces.Pawn) {
-                        while (bb != 0) {
-                            start_square = brd.getLSB(bb);
-                            end_square = start_square - 8;
+            // king moves
 
-                            // quite moves
-                            if (!(end_square < 0) and !brd.getBit(board.occupancy(), end_square)) {
-                                //pawn promotion
-                                if (start_square < 56 and start_square > 47) {
-                                    
-                                }
-                            }
+            // knight moves
+
+            // bishop moves
+
+            // rook moves
+
+            // queen moves
+
+            // castling moves
+        }
+
+        return move_list;
+    }
+
+    pub inline fn generatePawnMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color) void {
+        var bb = board.piece_bb[color][brd.Pieces.Pawn];
+        var start_square: brd.Square = undefined;
+        var end_square: brd.Square = undefined;
+        var attacks: Bitboard = undefined;
+
+        var end_square_update: i8 = undefined;
+        var pawn_promo_1: brd.Square = undefined;
+        var pawn_promo_2: brd.Square = undefined;
+
+        if (color == brd.Color.White) {
+            end_square_update = -8;
+            pawn_promo_1 = 56;
+            pawn_promo_2 = 47;
+        } else {
+            end_square_update = 8;
+            pawn_promo_1 = 7;
+            pawn_promo_2 = 0;
+        }
+
+        while (bb != 0) {
+            start_square = brd.getLSB(bb);
+            end_square = start_square + end_square_update;
+
+            // quite moves
+            if (!(end_square < 0) and !brd.getBit(board.occupancy(), end_square)) {
+                //pawn promotion
+                if (start_square < pawn_promo_1 and start_square > pawn_promo_2) {
+                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Queen, false, false, false, false);
+                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Rook, false, false, false, false);
+                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Bishop, false, false, false, false);
+                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Knight, false, false, false, false);
+                } else {
+                    move_list.addEasyMove(start_square, end_square, brd.Pieces.Pawn, false);
+
+                    // double pawn push
+                    if (color == brd.Color.White) {
+                        if (start_square < 16 and !brd.getBit(board.occupancy(), end_square + end_square_update)) {
+                            move_list.addMove(start_square, end_square - 8, brd.Pieces.Pawn, null, false, true, false, false);
+                        }
+                    } else {
+                        if (start_square > 47 and !brd.getBit(board.occupancy(), end_square + end_square_update)) {
+                            move_list.addMove(start_square, end_square + 8, brd.Pieces.Pawn, null, false, true, false, false);
                         }
                     }
-                } else {
                 }
-
-                // king moves
-                
-                // knight moves
-
-                // bishop moves
-
-                // rook moves
-
-                // queen moves
             }
+
+            // capture moves
+            attacks = self.pawns[@intFromEnum(color) * 64 + start_square] & board.occupancy();
+            while (attacks) {
+                end_square = brd.getLSB(attacks);
+                // promotion captures
+                if (start_square < pawn_promo_1 and start_square > pawn_promo_2) {
+                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Queen, true, false, false, false);
+                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Rook, true, false, false, false);
+                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Bishop, true, false, false, false);
+                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Knight, true, false, false, false);
+                } else {
+                    move_list.addEasyMove(start_square, end_square, brd.Pieces.Pawn, true);
+                }
+                brd.popBit(&attacks, end_square);
+            }
+
+            if (board.game_state.en_passant != null) {
+                const ep_square: brd.Square = board.game_state.en_passant orelse 0;
+                const ep_attacks: Bitboard = self.pawns[@intFromEnum(color) * 64 + start_square] & brd.getSquareBB(ep_square);
+
+                if (ep_attacks != 0) {
+                    move_list.addMove(start_square, ep_square, brd.Pieces.Pawn, null, true, false, true, false);
+                }
+            }
+            brd.popBit(&bb, start_square);
         }
+
     }
 
     pub inline fn isAttacked(self: *MoveGen, sq: brd.Square, color: brd.Color, board: *Board) bool {
@@ -177,7 +241,7 @@ pub const MoveGen = struct {
         return false;
 
     }
-    
+
     pub fn printAttackedSquares(self: *MoveGen, color: brd.Color, board: *Bitboard) void {
         for (0..brd.num_squares) |sq| {
             if (self.isAttacked(sq, color, board)) {
