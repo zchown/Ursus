@@ -153,7 +153,7 @@ fn calculateAttacks(rank_dir: isize, file_dir: isize, target_rank: isize, target
     var rank = target_rank + rank_dir;
     var file = target_file + file_dir;
     while ((rank >= 1 and rank <= 6) or (file >= 1 and file <= 6)) {
-        attacks.* |= @as(u64, 1) << @intCast((rank * 8) + file);
+        attacks.* |= brd.getSquareBB(@intCast((rank * 8) + file));
         rank += rank_dir;
         file += file_dir;
     }
@@ -164,7 +164,7 @@ fn calculateAttacksWithBlocks(rank_dir: isize, file_dir: isize, target_rank: isi
     var file = @as(isize, target_file) + file_dir;
     while ((rank >= 1 and rank <= 6) or (file >= 1 and file <= 6)) {
         const sq = (@as(usize, rank) * 8) + @as(usize, file);
-        attacks.* |= 1 << sq;
+        attacks.* |= brd.getSquareBB(sq);
         if (brd.getBit(blockers, sq)) {
             break;
         }
@@ -208,8 +208,8 @@ pub fn setOccupancy(index: Bitboard, bits: usize, attack_mask: Bitboard) Bitboar
     for (0..bits) |i| {
         const square = brd.getLSB(atm);
         brd.popBit(&atm, square);
-        if (index & (@as(u64, 1) << @intCast(i)) != 0) {
-            occupancy |= @as(u64, 1) << @intCast(square);
+        if (index & brd.getSquareBB(i) != 0) {
+            occupancy |= brd.getSquareBB(square);
         }
     }
     return occupancy;

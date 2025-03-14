@@ -8,6 +8,7 @@ pub const num_squares = 64;
 pub const num_files = 8;
 pub const num_ranks = 8;
 pub const max_pieces = 32;
+pub const max_game_moves = 2048;
 
 // Castling rights
 pub const CastleRights = enum(usize) {
@@ -20,34 +21,8 @@ pub const CastleRights = enum(usize) {
     NumCastles = 16,
 };
 
-// Move constants
-pub const max_game_moves = 2048;
-pub const max_legal_moves = 255;
-pub const max_move_rule = 100;
-
-// Bitboard constants
-const bb_all = 0xFFFFFFFFFFFFFFFF;
-const bb_file_a = 0x0101010101010101;
-const bb_file_h = 0x8080808080808080;
-const bb_rank_1 = 0x00000000000000FF;
-const bb_rank_8 = 0xFF00000000000000;
-const bb_diag_a1h8 = 0x8040201008040201;
-const bb_diag_h1a8 = 0x0102040810204080;
-
 pub const Square = usize;
 pub const Bitboard = u64;
-
-pub const bb_empty: Bitboard = 0;
-
-fn init_bb_squares() [num_squares]Bitboard {
-    var squares: [num_squares]Bitboard = @splat(0);
-    for (0..num_squares) |i| {
-        squares[i] = 1 << i;
-    }
-    return squares;
-}
-
-pub const bb_squares = init_bb_squares();
 
 pub const Pieces = enum(u3) {
     Pawn = 0,

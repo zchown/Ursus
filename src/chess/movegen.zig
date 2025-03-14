@@ -98,7 +98,7 @@ pub const MoveGen = struct {
     }
 
     fn kingAttacks(sq: brd.Square) Bitboard {
-        const b = brd.bb_squares[sq];
+        const b = brd.getSquareBB(sq);
         var attacks: Bitboard = 0;
 
         if (b & not_h_file != 0) {
@@ -135,7 +135,7 @@ pub const MoveGen = struct {
     }
 
     fn knightAttacks(sq: brd.Square) Bitboard {
-        const b = brd.bb_squares[sq];
+        const b = brd.getSquareBB(sq);
         var attacks: Bitboard = 0;
 
         if (b & not_h_file != 0) {
@@ -167,7 +167,7 @@ pub const MoveGen = struct {
     }
 
     fn pawnAttacks(sq: brd.Square, color: brd.Color) Bitboard {
-        const b = brd.bb_squares[sq];
+        const b = brd.getSquareBB(sq);
         var attacks: Bitboard = 0;
 
         if (color == brd.Color.White) {
