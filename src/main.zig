@@ -5,6 +5,6 @@ pub fn main() void {
 
     chess.debugPrintBoard(&board);
 
-    // const mg = chess.MoveGen.new();
-    // chess.printBitboard(mg.pawns[28]);
+    const mg = chess.MoveGen.new();
+    chess.printBitboard(mg.pawns[28]);
 }

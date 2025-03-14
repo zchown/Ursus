@@ -153,7 +153,7 @@ fn calculateAttacks(rank_dir: isize, file_dir: isize, target_rank: isize, target
     var rank = target_rank + rank_dir;
     var file = target_file + file_dir;
     while ((rank >= 1 and rank <= 6) or (file >= 1 and file <= 6)) {
-        attacks.* |= brd.getSquareBB(@intCast((rank * 8) + file));
+        attacks.* |= @as(u64, 1) << @intCast((rank * 8) + file);
         rank += rank_dir;
         file += file_dir;
     }

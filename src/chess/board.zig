@@ -10,7 +10,6 @@ pub const num_ranks = 8;
 pub const max_pieces = 32;
 pub const max_game_moves = 2048;
 
-// Castling rights
 pub const CastleRights = enum(usize) {
     NoCastling = 0,
     WhiteKingside = 1,
@@ -133,7 +132,7 @@ pub const Board = struct {
         return self.piece_bb.get(color).get(piece);
     }
 
-    pub fn occupency(self: Board) Bitboard {
+    pub fn occupancy(self: Board) Bitboard {
         return self.color_bb.get(Color.White) | self.color_bb.get(Color.Black);
     }
 

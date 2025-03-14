@@ -40,9 +40,41 @@ pub const MoveGen = struct {
         return mg;
     }
 
-    // pub inline fn isAttacked(self: *MoveGen, sq: brd.Square, color: brd.Color, board: *Bitboard) bool {
-    // }
+    pub inline fn isAttacked(self: *MoveGen, sq: brd.Square, color: brd.Color, board: *Bitboard) bool {
+        const op_color = brd.flipColor(color);
 
+        if (self.kings[sq] & board.piece_bb[color][brd.Piece.King] != 0) {
+            return true;
+        }
+
+        if (self.knights[sq] & board.piece_bb[color][brd.Piece.Knight] != 0) {
+            return true;
+        }
+
+        if (self.pawns[@intFromEnum(op_color) * 64 + sq] 
+            & board.piece_bb[color][brd.Piece.Pawn] != 0) {
+            return true;
+        }
+
+        if (self.getBishopAttacks(sq, board.occupany())
+            & board.piece_bb[color][brd.Piece.Bishop] != 0) {
+            return true;
+        }
+
+        if (self.getRookAttacks(sq, board.occupany())
+            & board.piece_bb[color][brd.Piece.Rook] != 0) {
+            return true;
+        }
+
+        if (self.getQueenAttacks(sq, board.occupany())
+            & board.piece_bb[color][brd.Piece.Queen] != 0) {
+            return true;
+        }
+
+        return false;
+
+    }
+    
     pub fn printAttackedSquares(self: *MoveGen, color: brd.Color, board: *Bitboard) void {
         for (0..brd.num_squares) |sq| {
             if (self.isAttacked(sq, color, board)) {
