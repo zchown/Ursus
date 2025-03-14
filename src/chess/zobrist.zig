@@ -51,7 +51,7 @@ pub const ZobristKeyStruct = struct {
             keys.castle.set(castle, rng);
         }
 
-        for (0..brd.num_squares) |square| {
+        for (0..brd.num_squares + 1) |square| {
             rng = splitMix64(rng);
             keys.en_passant[square] = rng;
         }

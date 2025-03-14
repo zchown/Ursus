@@ -1,4 +1,5 @@
 const std = @import("std");
+const EnumArray = std.EnumArray;
 const zob = @import("zobrist.zig");
 
 pub const num_colors = 2;
@@ -109,15 +110,15 @@ pub const History = struct {
 };
 
 pub const Board = struct {
-    piece_bb: [num_colors][num_pieces]Bitboard,
-    color_bb: [num_colors]Bitboard,
+    piece_bb: EnumArray(Color, EnumArray(Pieces, Bitboard)),
+    color_bb: EnumArray(Color, Bitboard),
     game_state: GameState,
     history: History,
 
     pub fn new() Board {
         return .{
-            .piece_bb = @splat(@splat(0)),
-            .color_bb = @splat(0),
+            .piece_bb = std.mem.zeroes(EnumArray(Color, EnumArray(Pieces, Bitboard))),
+            .color_bb = std.mem.zeroes(EnumArray(Color, Bitboard)),
             .game_state = GameState.new(),
             .history = History.new(),
         };
@@ -137,7 +138,7 @@ pub const Board = struct {
                 var piece_found: bool = false;
                 for (0..num_colors) |color| {
                     for (0..num_pieces) |piece| {
-                        if (getBit(self.piece_bb[color][piece], rank * num_files + file)) {
+                        if (getBit(self.piece_bb.get(color).get(piece), rank * num_files + file)) {
                             std.debug.print("{c}", .{piece_chars[color][piece]});
                             piece_found = true;
                             break;
@@ -154,11 +155,11 @@ pub const Board = struct {
     }
 
     pub fn getPieces(self: Board, color: Color, piece: Pieces) Bitboard {
-        return self.piece_bb[@intFromEnum(color)][@intFromEnum(piece)];
+        return self.piece_bb.get(color).get(piece);
     }
 
     pub fn occupency(self: Board) Bitboard {
-        return self.color_bb[@intFromEnum(Color.White)] | self.color_bb[@intFromEnum(Color.Black)];
+        return self.color_bb.get(Color.White) | self.color_bb.get(Color.Black);
     }
 
     pub fn toMove(self: Board) Color {
@@ -174,14 +175,14 @@ pub const Board = struct {
     }
 
     pub fn removePiece(self: *Board, color: Color, piece: Pieces, square: Square) void {
-        self.piece_bb[@intFromEnum(color)][@intFromEnum(piece)] &= !(@as(u64, 1) << @intCast(square));
-        self.color_bb[@intFromEnum(color)] &= !(@as(u64, 1) << @intCast(square));
+        self.piece_bb.get(color).set(piece, self.piece_bb.get(color).get(piece) & !(1 << square));
+        self.color_bb.getPtr(color).* &= !getSquareBB(square);
         self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
     }
 
     pub fn addPiece(self: *Board, color: Color, piece: Pieces, square: Square) void {
-        self.piece_bb[@intFromEnum(color)][@intFromEnum(piece)] |= @as(u64, 1) << @intCast(square);
-        self.color_bb[@intFromEnum(color)] |= @as(u64, 1) << @intCast(square);
+        self.piece_bb.getPtr(color).set(piece, self.piece_bb.get(color).get(piece) | getSquareBB(square));
+        self.color_bb.getPtr(color).* |= getSquareBB(square);
         const newkey = zob.ZobristKeys.pieceKeys(color, piece, square);
         self.game_state.zobrist ^= newkey;
     }
@@ -229,14 +230,14 @@ pub const Board = struct {
         var list: [max_pieces]?Piece = undefined;
         var count: usize = 0;
 
-        for (0..num_colors) |color_i| {
-            for (0..num_pieces) |piece_i| {
-                var bb: Bitboard = self.piece_bb[color_i][piece_i];
+        for (std.meta.tags(Color)) |color| {
+            for (std.meta.tags(Pieces)) |piece| {
+                var bb: Bitboard = self.piece_bb.get(color).get(piece);
                 while (bb != 0) {
                     const sq = getLSB(bb);
                     list[count] = Piece{
-                        .color = @enumFromInt(color_i),
-                        .piece = @enumFromInt(piece_i),
+                        .color = color,
+                        .piece = piece,
                         .square = sq,
                     };
                     count += 1;
@@ -266,11 +267,11 @@ pub const Board = struct {
     }
 
     pub fn printBitBoards(self: Board) void {
-        for (0..num_colors) |color| {
-            std.debug.print("Color: {d}\n", .{color});
-            for (0..num_pieces) |piece| {
+        for (std.meta.tags(Color)) |color| {
+            for (std.meta.tags(Pieces)) |piece| {
+                std.debug.print("Color: {d}\n", .{color});
                 std.debug.print("Piece: {d}\n", .{piece});
-                printBitboard(self.piece_bb[color][piece]);
+                printBitboard(self.piece_bb.get(color).get(piece));
             }
         }
     }
@@ -278,6 +279,10 @@ pub const Board = struct {
 
 pub inline fn flipColor(color: Color) Color {
     return if (color == Color.White) Color.Black else Color.White;
+}
+
+pub inline fn getSquareBB(square: Square) Bitboard {
+    return @as(u64, 1) << @intCast(square);
 }
 
 pub inline fn countBits(bb: Bitboard) u32 {
@@ -289,8 +294,7 @@ pub inline fn getLSB(bb: Bitboard) u32 {
 }
 
 pub inline fn getBit(bb: Bitboard, square: Square) bool {
-    const b: u64 = @as(u64, 1) << @intCast(square);
-    return (bb & b) != 0;
+    return (bb & getSquareBB(square)) != 0;
 }
 
 pub inline fn clearBit(bb: *Bitboard, square: Square) void {
@@ -303,7 +307,7 @@ pub inline fn setBit(bb: *Bitboard, square: Square) void {
 
 pub inline fn popBit(bb: *Bitboard, sq: Square) void {
     if (getBit(bb.*, sq)) {
-        bb.* ^= @as(u64, 1) << @intCast(sq);
+        bb.* ^= getSquareBB(sq);
     }
 }
 
@@ -329,3 +333,4 @@ pub fn printBitboard(bb: Bitboard) void {
         std.debug.print("\n", .{});
     }
 }
+
