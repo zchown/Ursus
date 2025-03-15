@@ -14,6 +14,9 @@ const not_first_rank: Bitboard = 0xffffffffffffff00;
 const not_eighth_rank: Bitboard = 0x00ffffffffffffff;
 const dark_squares: Bitboard = 0xaa55aa55aa55aa55;
 
+const allMoves = false;
+const onlyCaptures = true;
+
 pub const EncodedMove = packed struct (u32) {
     start_square: u6,
     end_square: u6,
@@ -107,30 +110,31 @@ pub const MoveGen = struct {
         return mg;
     }
 
-    pub inline fn generateMoves(self: *MoveGen, board: *Board) MoveList {
+    // pseudo-legal move generation
+    pub fn generateMoves(self: *MoveGen, board: *Board, move_flag: bool) MoveList {
         var move_list = MoveList.new();
 
-        for (std.meta.tags(brd.Color)) |color| {
-            // pawn moves
-            self.generatePawnMoves(board, &move_list, color);
+        const color = board.game_state.side_to_move;
 
-            // king moves
+        // pawn moves
+        self.generatePawnMoves(&self, board, &move_list, color, move_flag);
 
-            // knight moves
+        // king moves
+        self.generateKingMoves(board, &move_list, color, move_flag);
 
-            // bishop moves
+        // knight moves
+        self.generateKnightMoves(&self, board, &move_list, color, move_flag);
 
-            // rook moves
+        // bishop, rook, queen moves
+        self.generateSlideMoves(&self, board, &move_list, color, move_flag);
 
-            // queen moves
-
-            // castling moves
-        }
+        // castling moves
+        generateCastleMoves(board, &move_list, color);
 
         return move_list;
     }
 
-    pub inline fn generatePawnMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color) void {
+    pub fn generatePawnMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
         var bb = board.piece_bb[color][brd.Pieces.Pawn];
         var start_square: brd.Square = undefined;
         var end_square: brd.Square = undefined;
@@ -142,12 +146,12 @@ pub const MoveGen = struct {
 
         if (color == brd.Color.White) {
             end_square_update = -8;
-            pawn_promo_1 = 56;
-            pawn_promo_2 = 47;
+            pawn_promo_1 = @intFromEnum(brd.Squares.a8);
+            pawn_promo_2 = @intFromEnum(brd.Squares.h6);
         } else {
             end_square_update = 8;
-            pawn_promo_1 = 7;
-            pawn_promo_2 = 0;
+            pawn_promo_1 = @intFromEnum(brd.Squares.a3);
+            pawn_promo_2 = @intFromEnum(brd.Squares.h1);
         }
 
         while (bb != 0) {
@@ -155,7 +159,7 @@ pub const MoveGen = struct {
             end_square = start_square + end_square_update;
 
             // quite moves
-            if (!(end_square < 0) and !brd.getBit(board.occupancy(), end_square)) {
+            if (!move_flag and !(end_square < 0) and !(end_square < 63) and !brd.getBit(board.occupancy(), end_square)) {
                 //pawn promotion
                 if (start_square < pawn_promo_1 and start_square > pawn_promo_2) {
                     move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Queen, false, false, false, false);
@@ -163,15 +167,18 @@ pub const MoveGen = struct {
                     move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Bishop, false, false, false, false);
                     move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Knight, false, false, false, false);
                 } else {
+                    // normal pawn move
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Pawn, false);
 
                     // double pawn push
                     if (color == brd.Color.White) {
-                        if (start_square < 16 and !brd.getBit(board.occupancy(), end_square + end_square_update)) {
+                        if (start_square < @intFromEnum(brd.Squares.a3) 
+                            and !brd.getBit(board.occupancy(), end_square + end_square_update)) {
                             move_list.addMove(start_square, end_square - 8, brd.Pieces.Pawn, null, false, true, false, false);
                         }
                     } else {
-                        if (start_square > 47 and !brd.getBit(board.occupancy(), end_square + end_square_update)) {
+                        if (start_square > @intFromEnum(brd.Squares.h6)
+                            and !brd.getBit(board.occupancy(), end_square + end_square_update)) {
                             move_list.addMove(start_square, end_square + 8, brd.Pieces.Pawn, null, false, true, false, false);
                         }
                     }
@@ -204,10 +211,103 @@ pub const MoveGen = struct {
             }
             brd.popBit(&bb, start_square);
         }
-
     }
 
-    pub inline fn isAttacked(self: *MoveGen, sq: brd.Square, color: brd.Color, board: *Board) bool {
+    pub fn generateKingMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
+        var bb = board.piece_bb[color][brd.Pieces.King];
+        var start_square: brd.Square = undefined;
+        var end_square: brd.Square = undefined;
+        var attacks: Bitboard = undefined;
+
+        while (bb != 0) {
+            start_square = brd.getLSB(bb);
+            attacks = self.kings[start_square] & ~board.color_bb[color];
+
+            while (attacks) {
+                end_square = brd.getLSB(attacks);
+
+                // quite move
+                if (!move_flag and !brd.getBit(board.color_bb[brd.flipColor(color)], end_square)) {
+                    move_list.addEasyMove(start_square, end_square, brd.Pieces.King, false);
+                } else {
+                    // capture move
+                    move_list.addEasyMove(start_square, end_square, brd.Pieces.King, true);
+                }
+
+                brd.popBit(&attacks, end_square);
+            }
+
+            brd.popBit(&bb, start_square);
+        }
+    }
+
+    pub fn generateSlideMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
+        var bb: Bitboard = undefined;
+        var start_square: brd.Square = undefined;
+        var end_square: brd.Square = undefined;
+        var attacks: Bitboard = undefined;
+
+        const pieces = [_]brd.Pieces{brd.Pieces.Bishop, brd.Pieces.Rook, brd.Pieces.Queen};
+        const funcs = [_](fn (*MoveGen, brd.Square, Bitboard) Bitboard){
+            self.getBishopAttacks,
+            self.getRookAttacks,
+            self.getQueenAttacks,
+        };
+
+        for (0..4) |i| {
+            bb = board.piece_bb[color][pieces[i]];
+            while (bb != 0) {
+                start_square = brd.getLSB(bb);
+                attacks = funcs[i](self, start_square, board.occupancy()) & ~board.color_bb[color];
+
+                while (attacks) {
+                    end_square = brd.getLSB(attacks);
+
+                    // quite move
+                    if (!move_flag and !brd.getBit(board.color_bb[brd.flipColor(color)], end_square)) {
+                        move_list.addEasyMove(start_square, end_square, pieces[i], false);
+                    } else {
+                        // capture move
+                        move_list.addEasyMove(start_square, end_square, pieces[i], true);
+                    }
+
+                    brd.popBit(&attacks, end_square);
+                }
+
+                brd.popBit(&bb, start_square);
+            }
+        }
+    }
+
+    pub fn generateKnightMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
+        var bb = board.piece_bb[color][brd.Pieces.Knight];
+        var start_square: brd.Square = undefined;
+        var end_square: brd.Square = undefined;
+        var attacks: Bitboard = undefined;
+
+        while (bb != 0) {
+            start_square = brd.getLSB(bb);
+            attacks = self.knights[start_square] & ~board.color_bb[color];
+
+            while (attacks) {
+                end_square = brd.getLSB(attacks);
+
+                // quite move
+                if (!move_flag and !brd.getBit(board.color_bb[brd.flipColor(color)], end_square)) {
+                    move_list.addEasyMove(start_square, end_square, brd.Pieces.Knight, false);
+                } else {
+                    // capture move
+                    move_list.addEasyMove(start_square, end_square, brd.Pieces.Knight, true);
+                }
+
+                brd.popBit(&attacks, end_square);
+            }
+
+            brd.popBit(&bb, start_square);
+        }
+    }
+
+    pub fn isAttacked(self: *MoveGen, sq: brd.Square, color: brd.Color, board: *Board) bool {
         const op_color = brd.flipColor(color);
 
         if (self.kings[sq] & board.piece_bb[color][brd.Piece.King] != 0) {
@@ -239,7 +339,6 @@ pub const MoveGen = struct {
         }
 
         return false;
-
     }
 
     pub fn printAttackedSquares(self: *MoveGen, color: brd.Color, board: *Bitboard) void {
@@ -416,3 +515,42 @@ pub const MoveGen = struct {
         }
     }
 };
+
+pub fn generateCastleMoves(board: *Board, move_list: *MoveList, color: brd.Color) void {
+    if (color == brd.Color.White) {
+        if (board.game_state.castling_rights & brd.CastlingRights.WhiteKingSide != 0) {
+            if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f1))
+                and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g1))) {
+                move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.g1), brd.Pieces.King, null, false, false, false, true);
+            }
+        }
+
+        if (board.game_state.castling_rights & brd.CastlingRights.WhiteQueenSide != 0) {
+            if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.d1))
+                and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.c1))
+                and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.b1))) {
+                move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.c1), brd.Pieces.King, null, false, false, false, true);
+            }
+        }
+
+    } else {
+        if (board.game_state.castling_rights & brd.CastlingRights.BlackKingSide != 0) {
+            if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f8))
+                and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g8))) {
+                move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.g8), brd.Pieces.King, null, false, false, false, true);
+            }
+        }
+
+        if (board.game_state.castling_rights & brd.CastlingRights.BlackQueenSide != 0) {
+            if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.d8))
+                and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.c8))
+                and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.b8))) {
+                move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.c8), brd.Pieces.King, null, false, false, false, true);
+            }
+        }
+    }
+}
+
+// pub fn makeMove(board: *Board, mv: EncodedMove) void {
+
+// }
