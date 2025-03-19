@@ -62,48 +62,48 @@ pub const Istari = struct {
         var occupancies = [_]Bitboard{0} ** 4096;
         var attacks = [_]Bitboard{0} ** 4096;
 
-        const attack_mask: Bitboard = if (bishop) 
-            maskBishopAttacks(sq) 
-            else 
-                maskRookAttacks(sq);
+        const attack_mask: Bitboard = if (bishop)
+            maskBishopAttacks(sq)
+        else
+            maskRookAttacks(sq);
 
-            const occupancy_index: u64 = @as(u64, 1) << @intCast(relevant_bits);
+        const occupancy_index: u64 = @as(u64, 1) << @intCast(relevant_bits);
 
-            for (0..@intCast(occupancy_index)) |index| {
-                occupancies[index] = setOccupancy(@intCast(index), relevant_bits, attack_mask);
-                attacks[index] = if (bishop)
-                    bishopAttacks(sq, occupancies[index])
-                    else
-                        rookAttacks(sq, occupancies[index]);
+        for (0..@intCast(occupancy_index)) |index| {
+            occupancies[index] = setOccupancy(@intCast(index), relevant_bits, attack_mask);
+            attacks[index] = if (bishop)
+                bishopAttacks(sq, occupancies[index])
+            else
+                rookAttacks(sq, occupancies[index]);
+        }
+
+        for (0..100000000) |_| {
+            const magic: u64 = self.generateMagicNum();
+
+            if (brd.countBits((attack_mask *% magic) & 0xFF00000000000000) < 6) {
+                continue;
             }
 
-            for (0..100000000) |_| {
-                const magic: u64 = self.generateMagicNum();
+            var fail: bool = false;
+            var used_attacks: [4096]Bitboard = [_]Bitboard{0} ** 4096;
 
-                if (brd.countBits((attack_mask *% magic) & 0xFF00000000000000) < 6) {
-                    continue;
+            for (0..@intCast(occupancy_index)) |i| {
+                const index = ((occupancies[i] *% magic) >> @as(u6, @intCast(64 - relevant_bits)));
+                if (used_attacks[index] == 0) {
+                    used_attacks[index] = attacks[i];
+                } else if (used_attacks[index] != attacks[i]) {
+                    fail = true;
+                    break;
                 }
-
-                var fail: bool = false;
-                var used_attacks: [4096]Bitboard = [_]Bitboard{0} ** 4096;
-
-                for (0..@intCast(occupancy_index)) |i| {
-                    const index = ((occupancies[i] *% magic) >> @as(u6, @intCast(64 - relevant_bits)));
-                    if (used_attacks[index] == 0) {
-                        used_attacks[index] = attacks[i];
-                    } else if (used_attacks[index] != attacks[i]) {
-                        fail = true;
-                        break;
-                    }
-                }
-
-                if (!fail) {
-                    return magic;
-                }
-            } else {
-                std.debug.print("Failed to find magic number for square {d}\n", .{sq});
-                return 0;
             }
+
+            if (!fail) {
+                return magic;
+            }
+        } else {
+            std.debug.print("Failed to find magic number for square {d}\n", .{sq});
+            return 0;
+        }
     }
     pub fn initMagicNumbers(self: *Istari) void {
         for (0..64) |sq| {
@@ -149,10 +149,9 @@ pub fn maskRookAttacks(sq: brd.Square) Bitboard {
 fn calculateAttacks(rank_dir: isize, file_dir: isize, target_rank: isize, target_file: isize, attacks: *Bitboard) void {
     var rank = target_rank + rank_dir;
     var file = target_file + file_dir;
-    while (
-        (rank_dir == 0 or (rank >= 1 and rank <= 6)) and 
-        (file_dir == 0 or (file >= 1 and file <= 6))
-    ) {
+    while ((rank_dir == 0 or (rank >= 1 and rank <= 6)) and
+        (file_dir == 0 or (file >= 1 and file <= 6)))
+    {
         const sq = @as(usize, @intCast(rank)) * 8 + @as(usize, @intCast(file));
         attacks.* |= brd.getSquareBB(sq);
         rank += rank_dir;

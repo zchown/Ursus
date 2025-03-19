@@ -227,6 +227,17 @@ pub const Board = struct {
         return list;
     }
 
+    pub fn getPieceFromSquare(self: Board, square: Square) ?Pieces {
+        for (std.meta.tags(Color)) |color| {
+            for (std.meta.tags(Pieces)) |piece| {
+                if (getBit(self.piece_bb.get(color).get(piece), square)) {
+                    return piece;
+                }
+            }
+        }
+        return null;
+    }
+
     pub fn reinitZobrist(self: *Board) void {
         self.game_state.zobrist ^= zob.ZobristKeys.sideKeys(self.game_state.side_to_move);
         self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
@@ -375,4 +386,3 @@ pub const Squares = enum(usize) {
     g8,
     h8,
 };
-
