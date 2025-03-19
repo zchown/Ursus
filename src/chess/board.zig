@@ -1,6 +1,7 @@
 const std = @import("std");
 const EnumArray = std.EnumArray;
 const zob = @import("zobrist.zig");
+const EncodedMove = @import("moves.zig").EncodedMove;
 
 pub const num_colors = 2;
 pub const num_pieces = 6;
@@ -73,7 +74,7 @@ pub const GameState = struct {
 };
 
 pub const History = struct {
-    history_list: [max_game_moves]GameState,
+    history_list: [max_game_moves].{GameState, EncodedMove},
     history_count: usize,
 
     pub fn new() History {
@@ -81,6 +82,11 @@ pub const History = struct {
             .history_list = undefined,
             .history_count = 0,
         };
+    }
+
+    pub fn addToHistory(self: *History, state: GameState, move: EncodedMove) void {
+        self.history_list[self.history_count] = .{state, move};
+        self.history_count += 1;
     }
 };
 
