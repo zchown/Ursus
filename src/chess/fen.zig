@@ -184,21 +184,21 @@ pub fn toFEN(board: *Board, allocator: std.mem.Allocator) ![]u8 {
     try fen.append(' ');
     var has_castling_rights = false;
 
-    if (@intFromEnum(board.game_state.castling_rights) &
+    if ((board.game_state.castling_rights) &
         @intFromEnum(brd.CastleRights.WhiteKingside) != 0)
     {
         try fen.append('K');
         has_castling_rights = true;
     }
-    if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) {
+    if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) {
         try fen.append('Q');
         has_castling_rights = true;
     }
-    if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
+    if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
         try fen.append('k');
         has_castling_rights = true;
     }
-    if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) {
+    if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) {
         try fen.append('q');
         has_castling_rights = true;
     }

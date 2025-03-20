@@ -11,14 +11,13 @@ pub const num_ranks = 8;
 pub const max_pieces = 32;
 pub const max_game_moves = 2048;
 
-pub const CastleRights = enum(usize) {
+pub const CastleRights = enum(u4) {
     NoCastling = 0,
     WhiteKingside = 1,
     WhiteQueenside = 2,
     BlackKingside = 4,
     BlackQueenside = 8,
     AllCastling = 15,
-    NumCastles = 16,
 };
 
 pub const Square = usize;
@@ -47,7 +46,7 @@ pub const Piece = struct {
 
 pub const GameState = struct {
     side_to_move: Color,
-    castling_rights: CastleRights,
+    castling_rights: u4,
     en_passant_square: ?u8,
     halfmove_clock: u8,
     fullmove_number: u16,
@@ -56,7 +55,7 @@ pub const GameState = struct {
     pub fn new() GameState {
         return .{
             .side_to_move = Color.White,
-            .castling_rights = CastleRights.AllCastling,
+            .castling_rights = @intFromEnum(CastleRights.AllCastling),
             .en_passant_square = null,
             .halfmove_clock = 0,
             .fullmove_number = 1,
@@ -73,19 +72,27 @@ pub const GameState = struct {
     }
 };
 
+pub const HistoryNode = struct {
+    state: GameState,
+    move: EncodedMove,
+};
+
 pub const History = struct {
-    history_list: [max_game_moves].{GameState, EncodedMove},
+    history_list: [max_game_moves] HistoryNode,
     history_count: usize,
 
     pub fn new() History {
         return .{
-            .history_list = undefined,
+            .history_list = std.mem.zeroes([max_game_moves] HistoryNode),
             .history_count = 0,
         };
     }
 
     pub fn addToHistory(self: *History, state: GameState, move: EncodedMove) void {
-        self.history_list[self.history_count] = .{state, move};
+        self.history_list[self.history_count] = HistoryNode{
+            .state = state,
+            .move = move,
+        };
         self.history_count += 1;
     }
 };
@@ -156,8 +163,8 @@ pub const Board = struct {
     }
 
     pub fn removePiece(self: *Board, color: Color, piece: Pieces, square: Square) void {
-        self.piece_bb.get(color).set(piece, self.piece_bb.get(color).get(piece) & !(1 << square));
-        self.color_bb.getPtr(color).* &= !getSquareBB(square);
+        self.piece_bb.getPtr(color).set(piece, self.piece_bb.get(color).get(piece) & ~getSquareBB(square));
+        self.color_bb.getPtr(color).* &= ~getSquareBB(square);
         self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
     }
 
@@ -186,13 +193,13 @@ pub const Board = struct {
 
     pub fn flipSideToMove(self: *Board) void {
         self.game_state.zobrist ^= zob.ZobristKeys.sideKeys(self.game_state.side_to_move);
-        self.game_state.side_to_move ^= 1;
+        self.game_state.side_to_move = flipColor(self.game_state.side_to_move);
         self.game_state.zobrist ^= zob.ZobristKeys.sideKeys(self.game_state.side_to_move);
     }
 
     pub fn updateCastlingRights(self: *Board, castling: CastleRights) void {
         self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
-        self.game_state.castling_rights = castling;
+        self.game_state.castling_rights = self.game_state.castling_rights & ~@intFromEnum(castling);
         self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
     }
 

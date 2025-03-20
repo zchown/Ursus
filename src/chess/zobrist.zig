@@ -5,7 +5,7 @@ pub const ZobristKey = u64;
 
 // const PieceRandoms = [brd.num_colors][brd.num_pieces][brd.num_squares]ZobristKey;
 const PieceRandoms = EnumArray(brd.Color, std.EnumArray(brd.Pieces, [brd.num_squares]ZobristKey));
-const CastleRandoms = EnumArray(brd.CastleRights, ZobristKey);
+const CastleRandoms = [16]ZobristKey;
 const ColorRandoms = EnumArray(brd.Color, ZobristKey);
 const EnPassantRandoms = [brd.num_squares + 1]ZobristKey;
 
@@ -46,9 +46,9 @@ pub const ZobristKeyStruct = struct {
             }
         }
 
-        inline for (std.meta.tags(brd.CastleRights)) |castle| {
+        inline for (0..16) |castle| {
             rng = splitMix64(rng);
-            keys.castle.set(castle, rng);
+            keys.castle[castle] = rng;
         }
 
         for (0..brd.num_squares + 1) |square| {
@@ -66,8 +66,8 @@ pub const ZobristKeyStruct = struct {
         return self.en_passant[ep orelse brd.num_squares];
     }
 
-    pub inline fn castleKeys(self: ZobristKeyStruct, castles: brd.CastleRights) ZobristKey {
-        return self.castle.get(castles);
+    pub inline fn castleKeys(self: ZobristKeyStruct, castles: u4) ZobristKey {
+        return self.castle[@intCast(castles)];
     }
 
     pub inline fn pieceKeys(self: ZobristKeyStruct, color: brd.Color, piece: brd.Pieces, square: usize) ZobristKey {

@@ -243,11 +243,11 @@ pub const MoveGen = struct {
                     // double pawn push
                     if (color == brd.Color.White) {
                         if (start_square < @intFromEnum(brd.Squares.a3) and !brd.getBit(board.occupancy(), @as(u64, @intCast(end_square + end_square_update)))) {
-                            move_list.addMove(start_square, @as(u64, @intCast(end_square - 8)), brd.Pieces.Pawn, null, false, null, true, false, false);
+                            move_list.addMove(start_square, @as(u64, @intCast(end_square + 8)), brd.Pieces.Pawn, null, false, null, true, false, false);
                         }
                     } else {
                         if (start_square > @intFromEnum(brd.Squares.h6) and !brd.getBit(board.occupancy(), @as(u64, @intCast(end_square + end_square_update)))) {
-                            move_list.addMove(start_square, @as(u64, @intCast(end_square + 8)), brd.Pieces.Pawn, null, false, null, true, false, false);
+                            move_list.addMove(start_square, @as(u64, @intCast(end_square - 8)), brd.Pieces.Pawn, null, false, null, true, false, false);
                         }
                     }
                 }
@@ -385,27 +385,27 @@ pub const MoveGen = struct {
     pub fn isAttacked(self: *MoveGen, sq: brd.Square, color: brd.Color, board: *Board) bool {
         const op_color = brd.flipColor(color);
 
-        if (self.kings[sq] & board.piece_bb.get(color).get(brd.Piece.King) != 0) {
+        if (self.kings[sq] & board.piece_bb.get(color).get(brd.Pieces.King) != 0) {
             return true;
         }
 
-        if (self.knights[sq] & board.piece_bb.get(color).get(brd.Piece.Knight) != 0) {
+        if (self.knights[sq] & board.piece_bb.get(color).get(brd.Pieces.Knight) != 0) {
             return true;
         }
 
-        if (self.pawns[@intFromEnum(op_color) * 64 + sq] & board.piece_bb.get(color).get(brd.Piece.Pawn) != 0) {
+        if (self.pawns[@as(u64, @intCast(@intFromEnum(op_color))) * 64 + sq] & board.piece_bb.get(color).get(brd.Pieces.Pawn) != 0) {
             return true;
         }
 
-        if (self.getBishopAttacks(sq, board.occupany()) & board.piece_bb.get(color).get(brd.Piece.Bishop) != 0) {
+        if (self.getBishopAttacks(sq, board.occupancy()) & board.piece_bb.get(color).get(brd.Pieces.Bishop) != 0) {
             return true;
         }
 
-        if (self.getRookAttacks(sq, board.occupany()) & board.piece_bb.get(color).get(brd.Piece.Rook) != 0) {
+        if (self.getRookAttacks(sq, board.occupancy()) & board.piece_bb.get(color).get(brd.Pieces.Rook) != 0) {
             return true;
         }
 
-        if (self.getQueenAttacks(sq, board.occupany()) & board.piece_bb.get(color).get(brd.Piece.Queen) != 0) {
+        if (self.getQueenAttacks(sq, board.occupancy()) & board.piece_bb.get(color).get(brd.Pieces.Queen) != 0) {
             return true;
         }
 
@@ -591,25 +591,25 @@ pub const MoveGen = struct {
 
 pub fn generateCastleMoves(board: *Board, move_list: *MoveList, color: brd.Color) void {
     if (color == brd.Color.White) {
-        if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteKingside) != 0) {
+        if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteKingside) != 0) {
             if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g1))) {
                 move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.g1), brd.Pieces.King, null, false, null, false, false, true);
             }
         }
 
-        if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) {
+        if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) {
             if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.d1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.c1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.b1))) {
                 move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.c1), brd.Pieces.King, null, false, null, false, false, true);
             }
         }
     } else {
-        if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
+        if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
             if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g8))) {
                 move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.g8), brd.Pieces.King, null, false, null, false, false, true);
             }
         }
 
-        if (@intFromEnum(board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) {
+        if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) {
             if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.d8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.c8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.b8))) {
                 move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.c8), brd.Pieces.King, null, false, null, false, false, true);
             }
@@ -617,5 +617,187 @@ pub fn generateCastleMoves(board: *Board, move_list: *MoveList, color: brd.Color
     }
 }
 
-// pub fn makeMove(board: *Board, move: EncodedMove) void {
-// }
+pub fn makeMove(board: *Board, move: EncodedMove) void {
+    board.history.addToHistory(board.game_state, move);
+
+    // Convert fields to appropriate types
+    const from_square = @as(brd.Square, @intCast(move.start_square));
+    const to_square = @as(brd.Square, @intCast(move.end_square));
+    const piece_type = @as(brd.Pieces, @enumFromInt(move.piece));
+    const moving_color = board.toMove();
+
+    // Increment halfmove clock for non-capture, non-pawn moves
+    if (piece_type != brd.Pieces.Pawn and move.capture == 0) {
+        board.game_state.halfmove_clock += 1;
+    } else {
+        // Reset halfmove clock for captures and pawn moves
+        board.game_state.halfmove_clock = 0;
+    }
+
+    // Handle castling moves
+    if (move.castling == 1) {
+        board.movePiece(moving_color, brd.Pieces.King, from_square, to_square);
+
+        if (to_square > from_square) {
+            // Kingside castling
+            const rook_from = if (moving_color == brd.Color.White) @as(brd.Square, 7) else @as(brd.Square, 63);
+            const rook_to = if (moving_color == brd.Color.White) @as(brd.Square, 5) else @as(brd.Square, 61);
+            board.movePiece(moving_color, brd.Pieces.Rook, rook_from, rook_to);
+        } else {
+            // Queenside castling
+            const rook_from = if (moving_color == brd.Color.White) @as(brd.Square, 0) else @as(brd.Square, 56);
+            const rook_to = if (moving_color == brd.Color.White) @as(brd.Square, 3) else @as(brd.Square, 59);
+            board.movePiece(moving_color, brd.Pieces.Rook, rook_from, rook_to);
+        }
+
+        // Update castling rights
+        if (moving_color == brd.Color.White) {
+            board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.WhiteKingside) | @intFromEnum(brd.CastleRights.WhiteQueenside)))));
+        } else {
+            board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.BlackKingside) | @intFromEnum(brd.CastleRights.BlackQueenside)))));
+        }
+    }
+    // Handle double pawn push
+    else if (move.double_pawn_push == 1) {
+        board.movePiece(moving_color, piece_type, from_square, to_square);
+
+        // Set en passant square
+        const ep_square = if (moving_color == brd.Color.White) to_square - 8 else to_square + 8;
+        board.setEnPassantSquare(@intCast(ep_square));
+    }
+    // Handle en passant capture
+    else if (move.en_passant == 1) {
+        board.movePiece(moving_color, brd.Pieces.Pawn, from_square, to_square);
+
+        const captured_pawn_square = if (moving_color == brd.Color.White) to_square - 8 else to_square + 8;
+        board.removePiece(brd.flipColor(moving_color), brd.Pieces.Pawn, captured_pawn_square);
+
+        board.clearEnPassantSquare();
+    }
+    // Handle promotion
+    else if (move.promoted_piece != 0) {
+        board.removePiece(moving_color, brd.Pieces.Pawn, from_square);
+        const promoted_piece_type = @as(brd.Pieces, @enumFromInt(move.promoted_piece));
+
+        // Handle capture during promotion
+        if (move.capture == 1) {
+            const captured_piece_type = @as(brd.Pieces, @enumFromInt(move.captured_piece));
+            board.removePiece(brd.flipColor(moving_color), captured_piece_type, to_square);
+        }
+
+        board.addPiece(moving_color, promoted_piece_type, to_square);
+
+        // Clear en passant square
+        board.clearEnPassantSquare();
+    }
+    // Handle general move
+    else {
+        if (move.capture == 1) {
+            const captured_piece_type = @as(brd.Pieces, @enumFromInt(move.captured_piece));
+            board.removePiece(brd.flipColor(moving_color), captured_piece_type, to_square);
+        }
+
+        board.movePiece(moving_color, piece_type, from_square, to_square);
+
+        // Update castling rights if rook or king moves
+        if (piece_type == brd.Pieces.King) {
+            if (moving_color == brd.Color.White) {
+                board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.WhiteKingside) | @intFromEnum(brd.CastleRights.WhiteQueenside)))));
+            } else {
+                board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.BlackKingside) | @intFromEnum(brd.CastleRights.BlackQueenside)))));
+            }
+        } else if (piece_type == brd.Pieces.Rook) {
+            if (moving_color == brd.Color.White) {
+                if (from_square == @intFromEnum(brd.Squares.a1)) {
+                    board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~@intFromEnum(brd.CastleRights.WhiteQueenside))));
+                } else if (from_square == @intFromEnum(brd.Squares.h1)) {
+                    board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~@intFromEnum(brd.CastleRights.WhiteKingside))));
+                }
+            } else {
+                if (from_square == @intFromEnum(brd.Squares.a8)) {
+                    board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~@intFromEnum(brd.CastleRights.BlackQueenside))));
+                } else if (from_square == @intFromEnum(brd.Squares.h8)) {
+                    board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~@intFromEnum(brd.CastleRights.BlackKingside))));
+                }
+            }
+        }
+
+        board.clearEnPassantSquare();
+    }
+
+    if (moving_color == brd.Color.Black) {
+        board.game_state.fullmove_number += 1;
+    }
+
+    board.flipSideToMove();
+}
+
+pub fn undoMove(board: *Board, move: EncodedMove) void {
+    // Restore the previous game state
+    if (board.history.history_count > 0) {
+        board.history.history_count -= 1;
+        const previous_state = board.history.history_list[board.history.history_count].state;
+        board.game_state = previous_state;
+    }
+
+    const from_square = move.start_square;
+    const to_square = move.end_square;
+    const piece_type = @as(brd.Pieces, @enumFromInt(move.piece));
+    const side_to_undo = brd.flipColor(board.justMoved());
+    // std.debug.print("Side to undo: {}\n", .{@intFromEnum(side_to_undo)});
+
+    // Handle castling
+    if (move.castling == 1) {
+        // Move the king back
+        board.movePiece(side_to_undo, brd.Pieces.King, to_square, from_square);
+
+        // Move the rook back
+        if (to_square > from_square) {
+            // Kingside castling
+            const rook_from = if (side_to_undo == brd.Color.White) @as(brd.Square, 5) else @as(brd.Square, 61);
+            const rook_to = if (side_to_undo == brd.Color.White) @as(brd.Square, 7) else @as(brd.Square, 63);
+            board.movePiece(side_to_undo, brd.Pieces.Rook, rook_from, rook_to);
+        } else {
+            // Queenside castling
+            const rook_from = if (side_to_undo == brd.Color.White) @as(brd.Square, 3) else @as(brd.Square, 59);
+            const rook_to = if (side_to_undo == brd.Color.White) @as(brd.Square, 0) else @as(brd.Square, 56);
+            board.movePiece(side_to_undo, brd.Pieces.Rook, rook_from, rook_to);
+        }
+    }
+    // Handle en passant
+    else if (move.en_passant == 1) {
+        // Move the pawn back
+        board.movePiece(side_to_undo, brd.Pieces.Pawn, to_square, from_square);
+
+        // Restore the captured pawn
+        const captured_pawn_square = if (side_to_undo == brd.Color.White) to_square - 8 else to_square + 8;
+        board.addPiece(brd.flipColor(side_to_undo), brd.Pieces.Pawn, captured_pawn_square);
+    }
+    // Handle promotion
+    else if (move.promoted_piece != 0) {
+        // Remove the promoted piece
+        const promoted_piece_type = @as(brd.Pieces, @enumFromInt(move.promoted_piece));
+        board.removePiece(side_to_undo, promoted_piece_type, to_square);
+
+        // Add the pawn back
+        board.addPiece(side_to_undo, brd.Pieces.Pawn, from_square);
+
+        // Restore captured piece if there was one
+        if (move.capture == 1) {
+            const captured_piece_type = @as(brd.Pieces, @enumFromInt(move.captured_piece));
+            board.addPiece(brd.flipColor(side_to_undo), captured_piece_type, to_square);
+        }
+    }
+    // Handle regular moves and captures
+    else {
+        // Move the piece back
+        board.movePiece(side_to_undo, piece_type, to_square, from_square);
+
+        // Restore captured piece if there was one
+        if (move.capture == 1) {
+            // std.debug.print("Restoring captured piece\n", .{});
+            const captured_piece_type = @as(brd.Pieces, @enumFromInt(move.captured_piece));
+            board.addPiece(brd.flipColor(side_to_undo), captured_piece_type, to_square);
+        }
+    }
+}
