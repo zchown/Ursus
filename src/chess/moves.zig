@@ -254,7 +254,7 @@ pub const MoveGen = struct {
             }
 
             // capture moves
-            attacks = self.pawns[@as(usize, @intFromEnum(color)) * 64 + start_square] & board.occupancy();
+            attacks = self.pawns[@as(usize, @intFromEnum(color)) * 64 + start_square] & board.color_bb.get(brd.flipColor(color));
             while (attacks != 0) {
                 end_square = brd.getLSB(attacks);
                 const esq: u64 = @as(u64, @intCast(end_square));

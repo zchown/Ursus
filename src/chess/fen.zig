@@ -285,3 +285,13 @@ pub fn debugPrintBoard(board: *Board) void {
 
     _ = stdout.print("{s}\n", .{fen}) catch {};
 }
+
+pub fn compareFEN(f1: []u8, f2: []u8) bool {
+    for (0..f1.len) |i| {
+        if (i >= f2.len or f1[i] != f2[i]) {
+            std.debug.print("FEN mismatch at index {d}: {c} != {c}\n", .{i, f1[i], f2[i]});
+            return true;
+        }
+    }
+    return false;
+}
