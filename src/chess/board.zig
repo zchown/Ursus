@@ -72,27 +72,20 @@ pub const GameState = struct {
     }
 };
 
-pub const HistoryNode = struct {
-    state: GameState,
-    move: EncodedMove,
-};
 
 pub const History = struct {
-    history_list: [max_game_moves] HistoryNode,
+    history_list: [max_game_moves] GameState,
     history_count: usize,
 
     pub fn new() History {
         return .{
-            .history_list = std.mem.zeroes([max_game_moves] HistoryNode),
+            .history_list = std.mem.zeroes([max_game_moves] GameState),
             .history_count = 0,
         };
     }
 
-    pub fn addToHistory(self: *History, state: GameState, move: EncodedMove) void {
-        self.history_list[self.history_count] = HistoryNode{
-            .state = state,
-            .move = move,
-        };
+    pub inline fn addToHistory(self: *History, state: GameState) void {
+        self.history_list[self.history_count] = state;
         self.history_count += 1;
     }
 };
@@ -146,58 +139,58 @@ pub const Board = struct {
         return self.piece_bb.get(color).get(piece);
     }
 
-    pub fn occupancy(self: Board) Bitboard {
+    pub inline fn occupancy(self: Board) Bitboard {
         return self.color_bb.get(Color.White) | self.color_bb.get(Color.Black);
     }
 
-    pub fn toMove(self: Board) Color {
+    pub inline fn toMove(self: Board) Color {
         return self.game_state.side_to_move;
     }
 
-    pub fn justMoved(self: Board) Color {
+    pub inline fn justMoved(self: Board) Color {
         return if (self.game_state.side_to_move == Color.White) Color.Black else Color.White;
     }
 
-    pub fn kingSquare(self: Board, color: Color) Square {
+    pub inline fn kingSquare(self: Board, color: Color) Square {
         return @ctz(self.piece_bb[@intFromEnum(color)][Pieces.King]);
     }
 
-    pub fn removePiece(self: *Board, color: Color, piece: Pieces, square: Square) void {
+    pub inline fn removePiece(self: *Board, color: Color, piece: Pieces, square: Square) void {
         self.piece_bb.getPtr(color).set(piece, self.piece_bb.get(color).get(piece) & ~getSquareBB(square));
         self.color_bb.getPtr(color).* &= ~getSquareBB(square);
         self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
     }
 
-    pub fn addPiece(self: *Board, color: Color, piece: Pieces, square: Square) void {
+    pub inline fn addPiece(self: *Board, color: Color, piece: Pieces, square: Square) void {
         self.piece_bb.getPtr(color).set(piece, self.piece_bb.get(color).get(piece) | getSquareBB(square));
         self.color_bb.getPtr(color).* |= getSquareBB(square);
         const newkey = zob.ZobristKeys.pieceKeys(color, piece, square);
         self.game_state.zobrist ^= newkey;
     }
 
-    pub fn movePiece(self: *Board, color: Color, piece: Pieces, from: Square, to: Square) void {
+    pub inline fn movePiece(self: *Board, color: Color, piece: Pieces, from: Square, to: Square) void {
         self.removePiece(color, piece, from);
         self.addPiece(color, piece, to);
     }
 
-    pub fn setEnPassantSquare(self: *Board, square: ?u8) void {
+    pub inline fn setEnPassantSquare(self: *Board, square: ?u8) void {
         self.game_state.en_passant_square = square;
         self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
     }
 
-    pub fn clearEnPassantSquare(self: *Board) void {
+    pub inline fn clearEnPassantSquare(self: *Board) void {
         self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
         self.setEnPassantSquare(null);
         self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
     }
 
-    pub fn flipSideToMove(self: *Board) void {
+    pub inline fn flipSideToMove(self: *Board) void {
         self.game_state.zobrist ^= zob.ZobristKeys.sideKeys(self.game_state.side_to_move);
         self.game_state.side_to_move = flipColor(self.game_state.side_to_move);
         self.game_state.zobrist ^= zob.ZobristKeys.sideKeys(self.game_state.side_to_move);
     }
 
-    pub fn updateCastlingRights(self: *Board, castling: CastleRights) void {
+    pub inline fn updateCastlingRights(self: *Board, castling: CastleRights) void {
         self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
         self.game_state.castling_rights = self.game_state.castling_rights & ~@intFromEnum(castling);
         self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
@@ -210,6 +203,13 @@ pub const Board = struct {
             .game_state = self.game_state,
             .history = self.history,
         };
+    }
+
+    pub fn copyFrom(self: *Board, other: Board) void {
+        self.piece_bb = other.piece_bb;
+        self.color_bb = other.color_bb;
+        self.game_state = other.game_state;
+        self.history = other.history;
     }
 
     // this is not a very zig way to do this

@@ -11,6 +11,6 @@ pub fn main() !void {
 
     var mg = chess.MoveGen.new();
 
-    try chess.testPerft(&mg, &board, 9);
+    try chess.testPerft(&mg, &board, 6);
 
 }

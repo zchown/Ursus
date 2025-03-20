@@ -8,7 +8,6 @@ pub fn runPerft(mg: *mvs.MoveGen, board: *brd.Board, depth: usize, allocator: st
         // check if the side just moved is in check
         const king_square = brd.getLSB(board.piece_bb.get(brd.flipColor(board.game_state.side_to_move)).get(brd.Pieces.King));
         if (mg.isAttacked(king_square, board.game_state.side_to_move, board)) {
-            std.debug.print("Check\n", .{});
             return 0;
         }
         return 1;
