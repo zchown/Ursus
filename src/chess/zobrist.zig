@@ -1,12 +1,13 @@
 const std = @import("std");
-const EnumArray = std.EnumArray;
 const brd = @import("board.zig");
 pub const ZobristKey = u64;
 
 // const PieceRandoms = [brd.num_colors][brd.num_pieces][brd.num_squares]ZobristKey;
-const PieceRandoms = EnumArray(brd.Color, std.EnumArray(brd.Pieces, [brd.num_squares]ZobristKey));
+// const PieceRandoms = EnumArray(brd.Color, std.EnumArray(brd.Pieces, [brd.num_squares]ZobristKey));
+const PieceRandoms = [brd.num_colors][brd.num_pieces][brd.num_squares]ZobristKey;
 const CastleRandoms = [16]ZobristKey;
-const ColorRandoms = EnumArray(brd.Color, ZobristKey);
+// const ColorRandoms = EnumArray(brd.Color, ZobristKey);
+const ColorRandoms = [brd.num_colors]ZobristKey;
 const EnPassantRandoms = [brd.num_squares + 1]ZobristKey;
 
 pub const ZobristKeys: ZobristKeyStruct = ZobristKeyStruct.new();
@@ -27,22 +28,24 @@ pub const ZobristKeyStruct = struct {
         var rng = 0xdeadbeefdeadbeef;
         rng = splitMix64(rng);
         // white
-        keys.color.set(brd.Color.White, rng);
+        // keys.color.set(brd.Color.White, rng);
+        keys.color[0] = rng;
         rng = splitMix64(rng);
         // black
-        keys.color.set(brd.Color.Black, rng);
+        // keys.color.set(brd.Color.Black, rng);
+        keys.color[1] = rng;
 
         @setEvalBranchQuota(1000000);
         inline for (std.meta.tags(brd.Pieces)) |piece| {
             for (0..brd.num_squares) |square| {
                 rng = splitMix64(rng);
                 // white
-                // keys.piece[0][piece.value][square] = rng;
-                keys.piece.getPtr(brd.Color.White).getPtr(piece).*[square] = rng;
+                keys.piece[0][@intFromEnum(piece)][square] = rng;
+                // keys.piece.getPtr(brd.Color.White).getPtr(piece).*[square] = rng;
                 rng = splitMix64(rng);
                 // black
-                // keys.piece[1][piece.value][square] = rng;
-                keys.piece.getPtr(brd.Color.Black).getPtr(piece).*[square] = rng;
+                keys.piece[1][@intFromEnum(piece)][square] = rng;
+                // keys.piece.getPtr(brd.Color.Black).getPtr(piece).*[square] = rng;
             }
         }
 
@@ -59,7 +62,7 @@ pub const ZobristKeyStruct = struct {
     }
 
     pub inline fn sideKeys(self: ZobristKeyStruct, side: brd.Color) ZobristKey {
-        return self.color.get(side);
+        return self.color[@intFromEnum(side)];
     }
 
     pub inline fn enPassantKeys(self: ZobristKeyStruct, ep: ?u8) ZobristKey {
@@ -71,7 +74,8 @@ pub const ZobristKeyStruct = struct {
     }
 
     pub inline fn pieceKeys(self: ZobristKeyStruct, color: brd.Color, piece: brd.Pieces, square: usize) ZobristKey {
-        return self.piece.get(color).getPtrConst(piece).*[square];
+        // return self.piece.get(color).getPtrConst(piece).*[square];
+        return self.piece[@intFromEnum(color)][@intFromEnum(piece)][square];
     }
 };
 

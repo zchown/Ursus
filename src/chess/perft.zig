@@ -6,7 +6,8 @@ const fen = @import("fen.zig");
 pub fn runPerft(mg: *mvs.MoveGen, board: *brd.Board, depth: usize, allocator: std.mem.Allocator) !u64 {
     if (depth == 0) {
         // check if the side just moved is in check
-        const king_square = brd.getLSB(board.piece_bb.get(brd.flipColor(board.game_state.side_to_move)).get(brd.Pieces.King));
+        // const king_square = brd.getLSB(board.piece_bb.get(brd.flipColor(board.game_state.side_to_move)).get(brd.Pieces.King));
+        const king_square = brd.getLSB(board.piece_bb[@intFromEnum(brd.flipColor(board.game_state.side_to_move))][@intFromEnum(brd.Pieces.King)]);
         if (mg.isAttacked(king_square, board.game_state.side_to_move, board)) {
             return 0;
         }
@@ -25,7 +26,8 @@ pub fn runPerft(mg: *mvs.MoveGen, board: *brd.Board, depth: usize, allocator: st
 
         // fen.debugPrintBoard(board);
 
-        const king_square = brd.getLSB(board.piece_bb.get(brd.flipColor(board.game_state.side_to_move)).get(brd.Pieces.King));
+        // const king_square = brd.getLSB(board.piece_bb.get(brd.flipColor(board.game_state.side_to_move)).get(brd.Pieces.King));
+        const king_square = brd.getLSB(board.piece_bb[@intFromEnum(brd.flipColor(board.game_state.side_to_move))][@intFromEnum(brd.Pieces.King)]);
         // std.debug.print("King square: {}\n", .{king_square});
         if (mg.isAttacked(king_square, board.game_state.side_to_move, board)) {
             // std.debug.print("Illegal move\n", .{});
