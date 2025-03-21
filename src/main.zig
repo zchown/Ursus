@@ -7,10 +7,10 @@ pub fn main() !void {
     var board = chess.Board.new();
     chess.setupStartingPosition(&board);
 
-    chess.debugPrintBoard(&board);
+    // chess.debugPrintBoard(&board);
 
     var mg = chess.MoveGen.new();
 
-    try chess.testPerft(&mg, &board, 10);
+    try chess.testPerft(&mg, &board, 7);
 
 }
