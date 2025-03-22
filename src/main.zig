@@ -9,8 +9,6 @@ pub fn main() !void {
 
     // chess.debugPrintBoard(&board);
 
-    var mg = chess.MoveGen.new();
-
-    try chess.testPerft(&mg, &board, 7);
+    try chess.runPerftTest();
 
 }

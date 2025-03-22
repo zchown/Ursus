@@ -204,10 +204,12 @@ pub const MoveGen = struct {
         var pawn_promo_2: brd.Square = undefined;
 
         if (color == brd.Color.White) {
+            @branchHint(.unpredictable);
             end_square_update = 8;
             pawn_promo_1 = @intFromEnum(brd.Squares.a8);
             pawn_promo_2 = @intFromEnum(brd.Squares.h6);
         } else {
+            @branchHint(.unpredictable);
             end_square_update = -8;
             pawn_promo_1 = @intFromEnum(brd.Squares.a3);
             pawn_promo_2 = @intFromEnum(brd.Squares.h1);
@@ -234,10 +236,12 @@ pub const MoveGen = struct {
 
                     // double pawn push
                     if (color == brd.Color.White) {
+                        @branchHint(.unlikely);
                         if (start_square < @intFromEnum(brd.Squares.a3) and !brd.getBit(board.occupancy(), @as(u64, @intCast(end_square + end_square_update)))) {
                             move_list.addMove(start_square, @as(u64, @intCast(end_square + 8)), brd.Pieces.Pawn, null, false, null, true, false, false);
                         }
                     } else {
+                        @branchHint(.unlikely);
                         if (start_square > @intFromEnum(brd.Squares.h6) and !brd.getBit(board.occupancy(), @as(u64, @intCast(end_square + end_square_update)))) {
                             move_list.addMove(start_square, @as(u64, @intCast(end_square - 8)), brd.Pieces.Pawn, null, false, null, true, false, false);
                         }
@@ -605,6 +609,7 @@ pub const MoveGen = struct {
 
 pub fn generateCastleMoves(board: *Board, move_list: *MoveList, color: brd.Color) void {
     if (color == brd.Color.White) {
+        @branchHint(.unpredictable);
         if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteKingside) != 0) {
             if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g1))) {
                 @branchHint(.unlikely);
@@ -619,6 +624,7 @@ pub fn generateCastleMoves(board: *Board, move_list: *MoveList, color: brd.Color
             }
         }
     } else {
+        @branchHint(.unpredictable);
         if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
             if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g8))) {
                 @branchHint(.unlikely);
@@ -672,6 +678,7 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
 
         // Update castling rights
         if (moving_color == brd.Color.White) {
+            @branchHint(.unpredictable);
             // @branchHint(.unpredictable);
             board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.WhiteKingside) | @intFromEnum(brd.CastleRights.WhiteQueenside)))));
         } else {
@@ -727,12 +734,14 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
         // Update castling rights if rook or king moves
         if (piece_type == brd.Pieces.King) {
             if (moving_color == brd.Color.White) {
+                @branchHint(.unpredictable);
                 board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.WhiteKingside) | @intFromEnum(brd.CastleRights.WhiteQueenside)))));
             } else {
                 board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.BlackKingside) | @intFromEnum(brd.CastleRights.BlackQueenside)))));
             }
         } else if (piece_type == brd.Pieces.Rook) {
             if (moving_color == brd.Color.White) {
+                @branchHint(.unpredictable);
                 if (from_square == @intFromEnum(brd.Squares.a1)) {
                     board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~@intFromEnum(brd.CastleRights.WhiteQueenside))));
                 } else if (from_square == @intFromEnum(brd.Squares.h1)) {
@@ -751,7 +760,7 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
     }
 
     if (moving_color == brd.Color.Black) {
-        // @branchHint(.unpredictable);
+        @branchHint(.unpredictable);
         board.game_state.fullmove_number += 1;
     }
 
