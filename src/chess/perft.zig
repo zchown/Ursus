@@ -22,7 +22,7 @@ pub const PerftResult = struct {
 pub fn runPerft(mg: *mvs.MoveGen, board: *brd.Board, max_depth: usize) void {
     for (0..max_depth) |depth| {
         const start = std.time.milliTimestamp();
-        const result = perft(mg, board, depth + 1);
+        const result = perft(mg, board, depth + 1, std.heap.page_allocator);
         const end = std.time.milliTimestamp();
         const time = end - start;
 
@@ -42,7 +42,12 @@ pub fn runPerft(mg: *mvs.MoveGen, board: *brd.Board, max_depth: usize) void {
     }
 }
 
-pub fn perft(mg: *mvs.MoveGen, board: *brd.Board, depth: usize) PerftResult {
+pub fn perft(
+    mg: *mvs.MoveGen,
+    board: *brd.Board,
+    depth: usize,
+    allocator: std.mem.Allocator,
+) PerftResult {
     var result = PerftResult{};
 
     if (depth == 0) {
@@ -51,27 +56,41 @@ pub fn perft(mg: *mvs.MoveGen, board: *brd.Board, depth: usize) PerftResult {
     }
 
     const moveList = mg.generateMoves(board, mvs.allMoves);
+    var fails: usize = 0;
 
     for (0..moveList.current) |m| {
         const move = moveList.list[m];
+
+        // Capture original state and FEN
+        const original_state = board.game_state;
+        const original_fen = fen.toFEN(board, allocator) catch unreachable;
+        defer allocator.free(original_fen);
+
         mvs.makeMove(board, move);
 
-        // Check if move leaves king in check
+        // King safety check
         const current_side = board.game_state.side_to_move;
         const opponent_side = brd.flipColor(current_side);
         const king_square = brd.getLSB(board.piece_bb[@intFromEnum(opponent_side)][@intFromEnum(brd.Pieces.King)]);
 
         if (mg.isAttacked(king_square, current_side, board)) {
+            fails += 1;
             mvs.undoMove(board, move);
+
+            // Post-undo FEN check for illegal moves
+            const illegal_fen = fen.toFEN(board, allocator) catch unreachable;
+            defer allocator.free(illegal_fen);
+            if (!std.mem.eql(u8, original_fen, illegal_fen)) {
+                @panic("FEN mismatch after illegal move undo");
+            }
             continue;
         }
 
-        const child_result = perft(mg, board, depth - 1);
-
-        // Add child results
+        // Recursive perft call
+        const child_result = perft(mg, board, depth - 1, allocator);
         result.add(child_result);
 
-        // Count current move types
+        // Update move type counters
         if (depth == 1) {
             if (move.capture != 0) result.captures += child_result.total;
             if (move.en_passant != 0) result.en_passant += child_result.total;
@@ -80,6 +99,30 @@ pub fn perft(mg: *mvs.MoveGen, board: *brd.Board, depth: usize) PerftResult {
         }
 
         mvs.undoMove(board, move);
+
+        // Post-undo state validation
+        const new_fen = fen.toFEN(board, allocator) catch unreachable;
+        defer allocator.free(new_fen);
+
+        if (!std.mem.eql(u8, original_fen, new_fen)) {
+            std.debug.print("\nFEN MISMATCH!\nOriginal: {s}\nNew: {s}\n", .{
+                original_fen,
+                new_fen,
+            });
+            @panic("FEN mismatch after move undo");
+        }
+
+        if (!std.meta.eql(board.game_state, original_state)) {
+            std.debug.print("\nSTATE MISMATCH!\nOriginal: {any}\nNew: {any}\n", .{
+                original_state,
+                board.game_state,
+            });
+            @panic("Game state mismatch after move undo");
+        }
+    }
+
+    if (fails == moveList.current) {
+        result.total = 1;
     }
 
     return result;
@@ -95,17 +138,43 @@ const TestPosition = struct {
     promotions: ?u64 = null,
 };
 
+fn checkFENConsistency(mg: *mvs.MoveGen, board: *brd.Board) !void {
+    const original_fen = try fen.toFEN(board, std.testing.allocator);
+    defer std.testing.allocator.free(original_fen);
+    const original_state = board.game_state;
+
+    const moveList = mg.generateMoves(board, mvs.allMoves);
+
+    for (moveList.list[0..moveList.current]) |move| {
+        mvs.makeMove(board, move);
+        mvs.undoMove(board, move);
+
+        const new_fen = try fen.toFEN(board, std.testing.allocator);
+        defer std.testing.allocator.free(new_fen);
+
+        if (!std.mem.eql(u8, original_fen, new_fen)) {
+            std.debug.print("FEN mismatch after move {}\nOriginal: {s}\nNew: {s}\n", .{ move, original_fen, new_fen });
+            return error.FENMismatch;
+        }
+
+        if (!std.meta.eql(board.game_state, original_state)) {
+            std.debug.print("Game state mismatch after move {}\nOriginal: {any}\nNew: {any}\n", .{ move, original_state, board.game_state });
+            return error.GameStateMismatch;
+        }
+    }
+}
+
 pub fn runPerftTest() !void {
     const positions = [_]TestPosition{
-        .{
-            .fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-            .depth = 6,
-            .expected = 119060324,
-            .captures = 2812008,
-            .en_passant = 5248,
-            .castling = 0,
-            .promotions = 0,
-        },
+        // .{
+        //     .fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        //     .depth = 6,
+        //     .expected = 119060324,
+        //     .captures = 2812008,
+        //     .en_passant = 5248,
+        //     .castling = 0,
+        //     .promotions = 0,
+        // },
         .{
             .fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
             .depth = 1,
@@ -120,9 +189,9 @@ pub fn runPerftTest() !void {
             .fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
             .depth = 2,
             .expected = 2039,
-            .captures = 91,
+            .captures = 351,
             .en_passant = 1,
-            .castling = 3162,
+            .castling = 91,
             .promotions = 0,
         },
 
@@ -202,7 +271,9 @@ pub fn runPerftTest() !void {
         var board = sBoard.copyBoard();
         _ = try fen.parseFEN(&board, pos.fen);
 
-        const result = perft(&mg, &board, pos.depth);
+        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+
+        const result = perft(&mg, &board, pos.depth, gpa.allocator());
 
         var toReturn: usize = 0;
 

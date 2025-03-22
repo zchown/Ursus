@@ -52,7 +52,7 @@ pub const GameState = struct {
     zobrist: zob.ZobristKey,
 
     pub fn new() GameState {
-        return .{
+        var toReturn = GameState {
             .side_to_move = Color.White,
             .castling_rights = @intFromEnum(CastleRights.AllCastling),
             .en_passant_square = null,
@@ -60,6 +60,8 @@ pub const GameState = struct {
             .fullmove_number = 1,
             .zobrist = 0,
         };
+        toReturn.zobrist = toReturn.initZobrist();
+        return toReturn;
     }
 
     pub fn initZobrist(self: GameState) zob.ZobristKey {
