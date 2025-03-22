@@ -194,7 +194,13 @@ pub const Board = struct {
         self.game_state.zobrist ^= zob.ZobristKeys.sideKeys(self.game_state.side_to_move);
     }
 
-    pub inline fn updateCastlingRights(self: *Board, castling: CastleRights) void {
+    pub inline fn addCastlingRights(self: *Board, castling: CastleRights) void {
+        self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
+        self.game_state.castling_rights |= @intFromEnum(castling);
+        self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
+    }
+
+    pub inline fn removeCastlingRights(self: *Board, castling: CastleRights) void {
         self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
         self.game_state.castling_rights &= ~@intFromEnum(castling);
         self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);

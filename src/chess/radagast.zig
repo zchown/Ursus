@@ -173,7 +173,7 @@ fn calculateAttacksWithBlocks(rank_dir: isize, file_dir: isize, target_rank: isi
     }
 }
 
-pub fn bishopAttacks(sq: brd.Square, blocks: Bitboard) Bitboard {
+pub inline fn bishopAttacks(sq: brd.Square, blocks: Bitboard) Bitboard {
     var attacks: Bitboard = 0;
     const target_rank: isize = @intCast(sq / 8);
     const target_file: isize = @intCast(sq % 8);

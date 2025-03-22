@@ -84,24 +84,28 @@ fn parsePiecePlacement(board: *Board, piece_placement: []const u8) !void {
 }
 
 fn parseCastlingRights(board: *Board, castling_rights: []const u8) !void {
-    var rights: u8 = 0;
-
     if (std.mem.eql(u8, castling_rights, "-")) {
-        board.updateCastlingRights(brd.CastleRights.NoCastling);
+        board.addCastlingRights(brd.CastleRights.NoCastling);
         return;
     }
 
     for (castling_rights) |char| {
         switch (char) {
-            'K' => rights |= @intFromEnum(brd.CastleRights.WhiteKingside),
-            'Q' => rights |= @intFromEnum(brd.CastleRights.WhiteQueenside),
-            'k' => rights |= @intFromEnum(brd.CastleRights.BlackKingside),
-            'q' => rights |= @intFromEnum(brd.CastleRights.BlackQueenside),
+            'K' => {
+                board.addCastlingRights(brd.CastleRights.WhiteKingside);
+            },
+            'Q' => {
+                board.addCastlingRights(brd.CastleRights.WhiteQueenside);
+            },
+            'k' => {
+                board.addCastlingRights(brd.CastleRights.BlackKingside);
+            },
+            'q' => {
+                board.addCastlingRights(brd.CastleRights.BlackQueenside);
+            },
             else => return error.InvalidFEN,
         }
     }
-
-    board.updateCastlingRights(@enumFromInt(rights));
 }
 
 fn parseEnPassant(board: *Board, en_passant: []const u8) !void {
@@ -289,7 +293,7 @@ pub fn debugPrintBoard(board: *Board) void {
 pub fn compareFEN(f1: []u8, f2: []u8) bool {
     for (0..f1.len) |i| {
         if (i >= f2.len or f1[i] != f2[i]) {
-            std.debug.print("FEN mismatch at index {d}: {c} != {c}\n", .{i, f1[i], f2[i]});
+            std.debug.print("FEN mismatch at index {d}: {c} != {c}\n", .{ i, f1[i], f2[i] });
             return true;
         }
     }

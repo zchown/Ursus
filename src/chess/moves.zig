@@ -188,7 +188,7 @@ pub const MoveGen = struct {
         self.generateSlideMoves(board, &move_list, color, move_flag);
 
         // castling moves
-        generateCastleMoves(board, &move_list, color);
+        self.generateCastleMoves(board, &move_list, color);
 
         return move_list;
     }
@@ -399,6 +399,47 @@ pub const MoveGen = struct {
             brd.popBit(&bb, start_square);
         }
     }
+    pub fn generateCastleMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color) void {
+        // std.debug.print("Generating castling moves\n", .{});
+        // std.debug.print("Castling rights: {d}\n", .{board.game_state.castling_rights});
+        if (color == brd.Color.White) {
+            @branchHint(.unpredictable);
+            if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteKingside) != 0) {
+                if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g1)) and !self.isAttacked(@intFromEnum(brd.Squares.e1), brd.Color.Black, board) and !self.isAttacked(@intFromEnum(brd.Squares.f1), brd.Color.Black, board) and !self.isAttacked(@intFromEnum(brd.Squares.g1), brd.Color.Black, board)) {
+                    @branchHint(.unlikely);
+                    move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.g1), brd.Pieces.King, null, false, null, false, false, true);
+                    // std.debug.print("Kingside castling available\n", .{});
+                }
+            }
+
+            if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) {
+                if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.d1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.c1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.b1)) and !self.isAttacked(@intFromEnum(brd.Squares.e1), brd.Color.Black, board) and !self.isAttacked(@intFromEnum(brd.Squares.d1), brd.Color.Black, board) and !self.isAttacked(@intFromEnum(brd.Squares.c1), brd.Color.Black, board)) {
+                    @branchHint(.unlikely);
+                    move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.c1), brd.Pieces.King, null, false, null, false, false, true);
+                    // std.debug.print("Queenside castling available\n", .{});
+                }
+            }
+        } else {
+            @branchHint(.unpredictable);
+            if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
+                // std.debug.print("Checking kingside castling for black\n", .{});
+                if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g8)) and !self.isAttacked(@intFromEnum(brd.Squares.e8), brd.Color.White, board) and !self.isAttacked(@intFromEnum(brd.Squares.f8), brd.Color.White, board) and !self.isAttacked(@intFromEnum(brd.Squares.g8), brd.Color.White, board)) {
+                    @branchHint(.unlikely);
+                    move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.g8), brd.Pieces.King, null, false, null, false, false, true);
+                    // std.debug.print("Kingside castling available\n", .{});
+                }
+            }
+
+            if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) {
+                // std.debug.print("Checking queenside castling for black\n", .{});
+                if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.d8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.c8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.b8)) and !self.isAttacked(@intFromEnum(brd.Squares.e8), brd.Color.White, board) and !self.isAttacked(@intFromEnum(brd.Squares.d8), brd.Color.White, board) and !self.isAttacked(@intFromEnum(brd.Squares.c8), brd.Color.White, board)) {
+                    @branchHint(.unlikely);
+                    move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.c8), brd.Pieces.King, null, false, null, false, false, true);
+                    // std.debug.print("Queenside castling available\n", .{});
+                }
+            }
+        }
+    }
 
     pub inline fn isAttacked(self: *MoveGen, sq: brd.Square, color: brd.Color, board: *Board) bool {
         const op_color = brd.flipColor(color);
@@ -607,40 +648,6 @@ pub const MoveGen = struct {
     }
 };
 
-pub fn generateCastleMoves(board: *Board, move_list: *MoveList, color: brd.Color) void {
-    if (color == brd.Color.White) {
-        @branchHint(.unpredictable);
-        if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteKingside) != 0) {
-            if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g1))) {
-                @branchHint(.unlikely);
-                move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.g1), brd.Pieces.King, null, false, null, false, false, true);
-            }
-        }
-
-        if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) {
-            if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.d1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.c1)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.b1))) {
-                @branchHint(.unlikely);
-                move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.c1), brd.Pieces.King, null, false, null, false, false, true);
-            }
-        }
-    } else {
-        @branchHint(.unpredictable);
-        if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
-            if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.f8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.g8))) {
-                @branchHint(.unlikely);
-                move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.g8), brd.Pieces.King, null, false, null, false, false, true);
-            }
-        }
-
-        if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) {
-            if (!brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.d8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.c8)) and !brd.getBit(board.occupancy(), @intFromEnum(brd.Squares.b8))) {
-                @branchHint(.unlikely);
-                move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.c8), brd.Pieces.King, null, false, null, false, false, true);
-            }
-        }
-    }
-}
-
 pub fn makeMove(board: *Board, move: EncodedMove) void {
     board.history.addToHistory(board.game_state);
 
@@ -680,10 +687,12 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
         if (moving_color == brd.Color.White) {
             @branchHint(.unpredictable);
             // @branchHint(.unpredictable);
-            board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.WhiteKingside) | @intFromEnum(brd.CastleRights.WhiteQueenside)))));
+            board.removeCastlingRights(brd.CastleRights.WhiteKingside);
+            board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
         } else {
-            // @branchHint(.unpredictable);
-            board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.BlackKingside) | @intFromEnum(brd.CastleRights.BlackQueenside)))));
+            @branchHint(.unpredictable);
+            board.removeCastlingRights(brd.CastleRights.BlackKingside);
+            board.removeCastlingRights(brd.CastleRights.BlackQueenside);
         }
     }
     // Handle double pawn push
@@ -735,23 +744,22 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
         if (piece_type == brd.Pieces.King) {
             if (moving_color == brd.Color.White) {
                 @branchHint(.unpredictable);
-                board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.WhiteKingside) | @intFromEnum(brd.CastleRights.WhiteQueenside)))));
-            } else {
-                board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~(@intFromEnum(brd.CastleRights.BlackKingside) | @intFromEnum(brd.CastleRights.BlackQueenside)))));
-            }
+                board.removeCastlingRights(brd.CastleRights.WhiteKingside);
+                board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
+            } else {}
         } else if (piece_type == brd.Pieces.Rook) {
             if (moving_color == brd.Color.White) {
                 @branchHint(.unpredictable);
                 if (from_square == @intFromEnum(brd.Squares.a1)) {
-                    board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~@intFromEnum(brd.CastleRights.WhiteQueenside))));
+                    board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
                 } else if (from_square == @intFromEnum(brd.Squares.h1)) {
-                    board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~@intFromEnum(brd.CastleRights.WhiteKingside))));
+                    board.removeCastlingRights(brd.CastleRights.WhiteKingside);
                 }
             } else {
                 if (from_square == @intFromEnum(brd.Squares.a8)) {
-                    board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~@intFromEnum(brd.CastleRights.BlackQueenside))));
+                    board.removeCastlingRights(brd.CastleRights.BlackQueenside);
                 } else if (from_square == @intFromEnum(brd.Squares.h8)) {
-                    board.updateCastlingRights(@as(brd.CastleRights, @enumFromInt((board.game_state.castling_rights) & ~@intFromEnum(brd.CastleRights.BlackKingside))));
+                    board.removeCastlingRights(brd.CastleRights.BlackKingside);
                 }
             }
         }
