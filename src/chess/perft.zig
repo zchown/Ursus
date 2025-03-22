@@ -90,6 +90,11 @@ pub fn perft(
         const child_result = perft(mg, board, depth - 1, allocator);
         result.add(child_result);
 
+        // if (depth == 4) {
+        //     move.printAlgebraic();
+        //     std.debug.print(" -> {} nodes\n", .{child_result.total});
+        // }
+
         // Update move type counters
         if (depth == 1) {
             if (move.capture != 0) result.captures += child_result.total;
@@ -119,10 +124,6 @@ pub fn perft(
             });
             @panic("Game state mismatch after move undo");
         }
-    }
-
-    if (fails == moveList.current) {
-        result.total = 1;
     }
 
     return result;
@@ -166,15 +167,15 @@ fn checkFENConsistency(mg: *mvs.MoveGen, board: *brd.Board) !void {
 
 pub fn runPerftTest() !void {
     const positions = [_]TestPosition{
-        // .{
-        //     .fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        //     .depth = 6,
-        //     .expected = 119060324,
-        //     .captures = 2812008,
-        //     .en_passant = 5248,
-        //     .castling = 0,
-        //     .promotions = 0,
-        // },
+        .{
+            .fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            .depth = 6,
+            .expected = 119060324,
+            .captures = 2812008,
+            .en_passant = 5248,
+            .castling = 0,
+            .promotions = 0,
+        },
         .{
             .fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
             .depth = 1,

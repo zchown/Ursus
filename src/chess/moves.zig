@@ -448,7 +448,6 @@ pub const MoveGen = struct {
                     move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.g8), brd.Pieces.King, null, false, null, false, false, true);
                 }
             }
-
             // Black Queenside (O-O-O)
             if ((board.game_state.castling_rights & @intFromEnum(brd.CastleRights.BlackQueenside)) != 0) {
                 const d8 = @intFromEnum(brd.Squares.d8);
@@ -794,6 +793,16 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
                     board.removeCastlingRights(brd.CastleRights.BlackKingside);
                 }
             }
+        }
+
+        if (to_square == @intFromEnum(brd.Squares.a1)) {
+            board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
+        } else if (to_square == @intFromEnum(brd.Squares.h1)) {
+            board.removeCastlingRights(brd.CastleRights.WhiteKingside);
+        } else if (to_square == @intFromEnum(brd.Squares.a8)) {
+            board.removeCastlingRights(brd.CastleRights.BlackQueenside);
+        } else if (to_square == @intFromEnum(brd.Squares.h8)) {
+            board.removeCastlingRights(brd.CastleRights.BlackKingside);
         }
 
         board.clearEnPassantSquare();
