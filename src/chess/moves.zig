@@ -795,17 +795,17 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
             }
         }
 
-        if (to_square == @intFromEnum(brd.Squares.a1)) {
-            board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
-        } else if (to_square == @intFromEnum(brd.Squares.h1)) {
-            board.removeCastlingRights(brd.CastleRights.WhiteKingside);
-        } else if (to_square == @intFromEnum(brd.Squares.a8)) {
-            board.removeCastlingRights(brd.CastleRights.BlackQueenside);
-        } else if (to_square == @intFromEnum(brd.Squares.h8)) {
-            board.removeCastlingRights(brd.CastleRights.BlackKingside);
-        }
-
         board.clearEnPassantSquare();
+    }
+
+    if (to_square == @intFromEnum(brd.Squares.a1)) {
+        board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
+    } else if (to_square == @intFromEnum(brd.Squares.h1)) {
+        board.removeCastlingRights(brd.CastleRights.WhiteKingside);
+    } else if (to_square == @intFromEnum(brd.Squares.a8)) {
+        board.removeCastlingRights(brd.CastleRights.BlackQueenside);
+    } else if (to_square == @intFromEnum(brd.Squares.h8)) {
+        board.removeCastlingRights(brd.CastleRights.BlackKingside);
     }
 
     if (moving_color == brd.Color.Black) {

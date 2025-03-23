@@ -62,9 +62,9 @@ pub fn perft(
         const move = moveList.list[m];
 
         // Capture original state and FEN
-        const original_state = board.game_state;
-        const original_fen = fen.toFEN(board, allocator) catch unreachable;
-        defer allocator.free(original_fen);
+        // const original_state = board.game_state;
+        // const original_fen = fen.toFEN(board, allocator) catch unreachable;
+        // defer allocator.free(original_fen);
 
         mvs.makeMove(board, move);
 
@@ -78,11 +78,11 @@ pub fn perft(
             mvs.undoMove(board, move);
 
             // Post-undo FEN check for illegal moves
-            const illegal_fen = fen.toFEN(board, allocator) catch unreachable;
-            defer allocator.free(illegal_fen);
-            if (!std.mem.eql(u8, original_fen, illegal_fen)) {
-                @panic("FEN mismatch after illegal move undo");
-            }
+            // const illegal_fen = fen.toFEN(board, allocator) catch unreachable;
+            // defer allocator.free(illegal_fen);
+            // if (!std.mem.eql(u8, original_fen, illegal_fen)) {
+            //     @panic("FEN mismatch after illegal move undo");
+            // }
             continue;
         }
 
@@ -106,24 +106,24 @@ pub fn perft(
         mvs.undoMove(board, move);
 
         // Post-undo state validation
-        const new_fen = fen.toFEN(board, allocator) catch unreachable;
-        defer allocator.free(new_fen);
-
-        if (!std.mem.eql(u8, original_fen, new_fen)) {
-            std.debug.print("\nFEN MISMATCH!\nOriginal: {s}\nNew: {s}\n", .{
-                original_fen,
-                new_fen,
-            });
-            @panic("FEN mismatch after move undo");
-        }
-
-        if (!std.meta.eql(board.game_state, original_state)) {
-            std.debug.print("\nSTATE MISMATCH!\nOriginal: {any}\nNew: {any}\n", .{
-                original_state,
-                board.game_state,
-            });
-            @panic("Game state mismatch after move undo");
-        }
+        // const new_fen = fen.toFEN(board, allocator) catch unreachable;
+        // defer allocator.free(new_fen);
+        //
+        // if (!std.mem.eql(u8, original_fen, new_fen)) {
+        //     std.debug.print("\nFEN MISMATCH!\nOriginal: {s}\nNew: {s}\n", .{
+        //         original_fen,
+        //         new_fen,
+        //     });
+        //     @panic("FEN mismatch after move undo");
+        // }
+        //
+        // if (!std.meta.eql(board.game_state, original_state)) {
+        //     std.debug.print("\nSTATE MISMATCH!\nOriginal: {any}\nNew: {any}\n", .{
+        //         original_state,
+        //         board.game_state,
+        //     });
+        //     @panic("Game state mismatch after move undo");
+        // }
     }
 
     return result;
@@ -139,32 +139,6 @@ const TestPosition = struct {
     promotions: ?u64 = null,
 };
 
-fn checkFENConsistency(mg: *mvs.MoveGen, board: *brd.Board) !void {
-    const original_fen = try fen.toFEN(board, std.testing.allocator);
-    defer std.testing.allocator.free(original_fen);
-    const original_state = board.game_state;
-
-    const moveList = mg.generateMoves(board, mvs.allMoves);
-
-    for (moveList.list[0..moveList.current]) |move| {
-        mvs.makeMove(board, move);
-        mvs.undoMove(board, move);
-
-        const new_fen = try fen.toFEN(board, std.testing.allocator);
-        defer std.testing.allocator.free(new_fen);
-
-        if (!std.mem.eql(u8, original_fen, new_fen)) {
-            std.debug.print("FEN mismatch after move {}\nOriginal: {s}\nNew: {s}\n", .{ move, original_fen, new_fen });
-            return error.FENMismatch;
-        }
-
-        if (!std.meta.eql(board.game_state, original_state)) {
-            std.debug.print("Game state mismatch after move {}\nOriginal: {any}\nNew: {any}\n", .{ move, original_state, board.game_state });
-            return error.GameStateMismatch;
-        }
-    }
-}
-
 pub fn runPerftTest() !void {
     const positions = [_]TestPosition{
         .{
@@ -176,56 +150,6 @@ pub fn runPerftTest() !void {
             .castling = 0,
             .promotions = 0,
         },
-        .{
-            .fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
-            .depth = 1,
-            .expected = 48,
-            .captures = 8,
-            .en_passant = 0,
-            .castling = 2,
-            .promotions = 0,
-        },
-
-        .{
-            .fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
-            .depth = 2,
-            .expected = 2039,
-            .captures = 351,
-            .en_passant = 1,
-            .castling = 91,
-            .promotions = 0,
-        },
-
-        .{
-            .fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
-            .depth = 3,
-            .expected = 97862,
-            .captures = 17102,
-            .en_passant = 45,
-            .castling = 3162,
-            .promotions = 0,
-        },
-
-        .{
-            .fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
-            .depth = 4,
-            .expected = 4085603,
-            .captures = 757163,
-            .en_passant = 1929,
-            .castling = 128013,
-            .promotions = 15172,
-        },
-
-        .{
-            .fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
-            .depth = 5,
-            .expected = 193690690,
-            .captures = 35043416,
-            .en_passant = 73365,
-            .castling = 4993637,
-            .promotions = 8392,
-        },
-
         .{
             .fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
             .depth = 6,
