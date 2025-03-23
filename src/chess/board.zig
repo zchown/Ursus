@@ -51,7 +51,7 @@ pub const GameState = struct {
     fullmove_number: u16,
     zobrist: zob.ZobristKey,
 
-    pub fn new() GameState {
+    pub fn init() GameState {
         var toReturn = GameState {
             .side_to_move = Color.White,
             .castling_rights = @intFromEnum(CastleRights.AllCastling),
@@ -77,7 +77,7 @@ pub const History = struct {
     history_list: [max_game_moves]GameState,
     history_count: usize,
 
-    pub fn new() History {
+    pub fn init() History {
         return .{
             .history_list = std.mem.zeroes([max_game_moves]GameState),
             .history_count = 0,
@@ -96,12 +96,12 @@ pub const Board = struct {
     game_state: GameState,
     history: History,
 
-    pub fn new() Board {
+    pub fn init() Board {
         return .{
             .piece_bb = std.mem.zeroes([num_colors][num_pieces]Bitboard),
             .color_bb = std.mem.zeroes([num_colors]Bitboard),
-            .game_state = GameState.new(),
-            .history = History.new(),
+            .game_state = GameState.init(),
+            .history = History.init(),
         };
     }
 

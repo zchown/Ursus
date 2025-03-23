@@ -188,8 +188,8 @@ pub fn runPerftTest() !void {
         },
     };
 
-    var mg = mvs.MoveGen.new();
-    const sBoard = brd.Board.new();
+    var mg = mvs.MoveGen.init();
+    const sBoard = brd.Board.init();
 
     for (positions) |pos| {
         std.debug.print("\nTesting position: {s}\n", .{pos.fen});

@@ -7,7 +7,7 @@ const CastleRandoms = [16]ZobristKey;
 const ColorRandoms = [brd.num_colors]ZobristKey;
 const EnPassantRandoms = [brd.num_squares + 1]ZobristKey;
 
-pub const ZobristKeys: ZobristKeyStruct = ZobristKeyStruct.new();
+pub const ZobristKeys: ZobristKeyStruct = ZobristKeyStruct.init();
 
 pub const ZobristKeyStruct = struct {
     piece: PieceRandoms,
@@ -15,7 +15,7 @@ pub const ZobristKeyStruct = struct {
     color: ColorRandoms,
     en_passant: EnPassantRandoms,
 
-    pub fn new() ZobristKeyStruct {
+    pub fn init() ZobristKeyStruct {
         var keys: ZobristKeyStruct = ZobristKeyStruct{
             .piece = undefined,
             .castle = undefined,

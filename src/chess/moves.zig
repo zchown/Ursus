@@ -115,7 +115,7 @@ pub const MoveList = struct {
     list: [218:EncodedMove{}]EncodedMove,
     current: usize = 0,
 
-    pub fn new() MoveList {
+    pub fn init() MoveList {
         var ml = MoveList{ .list = undefined, .current = 0 };
         ml.list[0] = EncodedMove{};
         return ml;
@@ -152,7 +152,7 @@ pub const MoveGen = struct {
     bishop_masks: [brd.num_squares]Bitboard,
     rook_masks: [brd.num_squares]Bitboard,
 
-    pub fn new() MoveGen {
+    pub fn init() MoveGen {
         var mg: MoveGen = undefined;
         mg.kings = undefined;
         mg.knights = undefined;
@@ -171,7 +171,7 @@ pub const MoveGen = struct {
 
     // pseudo-legal move generation
     pub fn generateMoves(self: *MoveGen, board: *Board, move_flag: bool) MoveList {
-        var move_list = MoveList.new();
+        var move_list = MoveList.init();
 
         const color = board.game_state.side_to_move;
 

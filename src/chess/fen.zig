@@ -6,7 +6,7 @@ const brd = @import("board.zig");
 pub fn parseFEN(board: *Board, fen: []const u8) !void {
     var it = std.mem.tokenizeAny(u8, fen, " ");
 
-    board.* = Board.new();
+    board.* = Board.init();
 
     const piece_placement = it.next() orelse return error.InvalidFEN;
     try parsePiecePlacement(board, piece_placement);

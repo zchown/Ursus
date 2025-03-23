@@ -29,7 +29,7 @@ pub const Istari = struct {
     bishop_magics: [64]u64,
     rook_magics: [64]u64,
 
-    pub fn new() Istari {
+    pub fn init() Istari {
         return .{
             .state = 1804289383,
             .bishop_magics = [_]u64{0} ** 64,
