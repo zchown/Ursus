@@ -84,14 +84,12 @@ fn parsePiecePlacement(board: *Board, piece_placement: []const u8) !void {
 }
 
 fn parseCastlingRights(board: *Board, castling_rights: []const u8) !void {
-
     board.game_state.zobrist ^= zob.ZobristKeys.castleKeys(board.game_state.castling_rights);
     board.game_state.castling_rights = 0;
 
     if (std.mem.eql(u8, castling_rights, "-")) {
         return;
     }
-
 
     for (castling_rights) |char| {
         switch (char) {

@@ -21,20 +21,20 @@ pub const TranspositionTableStats = struct {
     hits: usize,
     misses: usize,
     collisions: usize,
-    depthRewrites: usize,
-    currentFill: usize,
-    updateCount: usize,
-    lookupCount: usize,
+    depth_rewrites: usize,
+    current_fill: usize,
+    update_count: usize,
+    lookup_count: usize,
 
     pub fn init() TranspositionTableStats {
         return TranspositionTableStats{
             .hits = 0,
             .misses = 0,
             .collisions = 0,
-            .depthRewrites = 0,
-            .currentFill = 0,
-            .updateCount = 0,
-            .lookupCount = 0,
+            .depth_rewrites = 0,
+            .current_fill = 0,
+            .update_count = 0,
+            .lookup_count = 0,
         };
     }
 };
@@ -64,12 +64,12 @@ pub const TranspositionTable = struct {
     }
 
     pub fn get(self: *TranspositionTable, zobrist: zob.ZobristKey) ?TranspositionEntry {
-        self.stats.lookupCount += 1;
+        self.stats.lookup_count += 1;
         const index = self.zobristToIndex(zobrist);
 
         for (0..self.retries) |i| {
-            const probeIndex = (index + i) % self.capacity;
-            const entry = self.entries[probeIndex];
+            const probe_index = (index + i) % self.capacity;
+            const entry = self.entries[probe_index];
 
             if (entry.zobrist == zobrist) {
                 self.stats.hits += 1;
@@ -77,17 +77,17 @@ pub const TranspositionTable = struct {
             } else if (entry.zobrist == 0) {
                 self.stats.misses += 1;
                 return null;
-            } 
+            }
         }
         self.stats.misses += 1;
         return null;
     }
 
     pub fn set(self: *TranspositionTable, estimation: EstimationType, move: mv.EncodedMove, depth: usize, score: f64, zobrist: zob.ZobristKey) void {
-        self.stats.updateCount += 1;
+        self.stats.update_count += 1;
         const index = self.zobristToIndex(zobrist);
 
-        const newEntry = TranspositionEntry{
+        const new_entry = TranspositionEntry{
             .estimation = estimation,
             .move = move,
             .depth = depth,
@@ -95,32 +95,31 @@ pub const TranspositionTable = struct {
             .zobrist = zobrist,
         };
 
-        var lowestDepthIndex = index;
-        var lowestDepth = self.entries[index].depth;
+        var lowest_depth_index = index;
+        var lowest_depth = self.entries[index].depth;
 
         for (0..self.retries) |i| {
-            const probeIndex = (index + i) & (self.capcity - 1);
+            const probe_index = (index + i) & (self.capcity - 1);
 
-            if (self.entries[probeIndex].zobrist == 0) {
-                self.stats.currentFill += 1;
-                self.entries[probeIndex] = newEntry;
+            if (self.entries[probe_index].zobrist == 0) {
+                self.stats.current_fill += 1;
+                self.entries[probe_index] = new_entry;
                 return;
-            }
-            else if ((self.entries[probeIndex].zobrist == zobrist) and (self.entries[probeIndex].depth < depth)) {
-                self.stats.depthRewrites += 1;
-                self.entries[probeIndex] = newEntry;
+            } else if ((self.entries[probe_index].zobrist == zobrist) and (self.entries[probe_index].depth < depth)) {
+                self.stats.depth_rewrites += 1;
+                self.entries[probe_index] = new_entry;
                 return;
             } else {
-                if (self.entries[probeIndex].depth < lowestDepth) {
-                    lowestDepth = self.entries[probeIndex].depth;
-                    lowestDepthIndex = probeIndex;
+                if (self.entries[probe_index].depth < lowest_depth) {
+                    lowest_depth = self.entries[probe_index].depth;
+                    lowest_depth_index = probe_index;
                 }
             }
         }
         self.stats.collisions += 1;
-        if (lowestDepth < depth) {
+        if (lowest_depth < depth) {
             self.stats.depthRewrites += 1;
-            self.entries[lowestDepthIndex] = newEntry;
+            self.entries[lowest_depth_index] = new_entry;
         }
     }
 };

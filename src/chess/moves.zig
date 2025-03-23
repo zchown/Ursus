@@ -818,7 +818,7 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
 
 pub fn undoMove(board: *Board, move: EncodedMove) void {
     // Restore the previous game state
-    
+
     const from_square = move.start_square;
     const to_square = move.end_square;
     const piece_type = @as(brd.Pieces, @enumFromInt(move.piece));
@@ -888,5 +888,4 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
         const previous_state = board.history.history_list[board.history.history_count];
         board.game_state = previous_state;
     }
-
 }

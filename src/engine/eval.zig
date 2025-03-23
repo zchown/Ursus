@@ -1,7 +1,6 @@
-const std = @import("std");
 const brd = @import("../chess/board.zig");
 
-pub const PieceValues = enum (f64) {
+pub const PieceValues = enum(f64) {
     Pawn = 100,
     Knight = 320,
     Bishop = 330,
