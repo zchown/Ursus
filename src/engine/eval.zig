@@ -1,6 +1,6 @@
 const brd = @import("../chess/board.zig");
 
-pub const PieceValues = enum(f64) {
+pub const PieceValues = enum(usize) {
     Pawn = 100,
     Knight = 320,
     Bishop = 330,
@@ -15,25 +15,21 @@ pub fn evaluate(board: *brd.Board) f64 {
 
 pub fn evaluateMaterial(board: *brd.Board) f64 {
     var score: f64 = 0;
-
     // pawns
-    score += @popCount(board.piece_bb[0][0]) * PieceValues.Pawn;
-    score -= @popCount(board.piece_bb[1][0]) * PieceValues.Pawn;
-
+    score += @as(f64, @floatFromInt(@popCount(board.piece_bb[0][0]) * @intFromEnum(PieceValues.Pawn)));
+    score -= @as(f64, @floatFromInt(@popCount(board.piece_bb[1][0]) * @intFromEnum(PieceValues.Pawn)));
     // knights
-    score += @popCount(board.piece_bb[0][1]) * PieceValues.Knight;
-    score -= @popCount(board.piece_bb[1][1]) * PieceValues.Knight;
-
+    score += @as(f64, @floatFromInt(@popCount(board.piece_bb[0][1]) * @intFromEnum(PieceValues.Knight)));
+    score -= @as(f64, @floatFromInt(@popCount(board.piece_bb[1][1]) * @intFromEnum(PieceValues.Knight)));
     // bishops
-    score += @popCount(board.piece_bb[0][2]) * PieceValues.Bishop;
-    score -= @popCount(board.piece_bb[1][2]) * PieceValues.Bishop;
-
+    score += @as(f64, @floatFromInt(@popCount(board.piece_bb[0][2]) * @intFromEnum(PieceValues.Bishop)));
+    score -= @as(f64, @floatFromInt(@popCount(board.piece_bb[1][2]) * @intFromEnum(PieceValues.Bishop)));
     // rooks
-    score += @popCount(board.piece_bb[0][3]) * PieceValues.Rook;
-    score -= @popCount(board.piece_bb[1][3]) * PieceValues.Rook;
-
+    score += @as(f64, @floatFromInt(@popCount(board.piece_bb[0][3]) * @intFromEnum(PieceValues.Rook)));
+    score -= @as(f64, @floatFromInt(@popCount(board.piece_bb[1][3]) * @intFromEnum(PieceValues.Rook)));
     // queens
-    score += @popCount(board.piece_bb[0][4]) * PieceValues.Queen;
-    score -= @popCount(board.piece_bb[1][4]) * PieceValues.Queen;
+    score += @as(f64, @floatFromInt(@popCount(board.piece_bb[0][4]) * @intFromEnum(PieceValues.Queen)));
+    score -= @as(f64, @floatFromInt(@popCount(board.piece_bb[1][4]) * @intFromEnum(PieceValues.Queen)));
+
     return score;
 }

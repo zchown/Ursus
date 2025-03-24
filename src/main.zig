@@ -1,24 +1,27 @@
 const std = @import("std");
-const perft = @import("chess/perft.zig");
+const brd = @import("chess/board.zig");
+const fen = @import("chess/fen.zig");
+const mvs = @import("chess/moves.zig");
+const srch = @import("engine/search.zig");
+const tt = @import("engine/transposition.zig");
 
 pub fn main() !void {
-    // var rad = chess.Istari.init();
-    // rad.initMagicNumbers();
-    // var board = chess.Board.init();
-    // _ = try chess.parseFEN(&board, "r3k2r/p1ppNpb1/1n2pn2/3P4/1pb1P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 2");
-    //
-    // var mg = chess.MoveGen.init();
-    // const moveList = mg.generateMoves(&board, false);
-    //
-    // std.debug.print("Moves generated: {d}\n", .{moveList.current});
-    // for (0..moveList.current) |m| {
-    //     const move = moveList.list[m];
-    //     move.printAlgebraic();
-    // }
+    var board = brd.Board.init();
+    fen.setupStartingPosition(&board);
 
-    // chess.setupStartingPosition(&board);
+    var move_gen = mvs.MoveGen.init();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-    // chess.debugPrintBoard(&board);
+    var table = try tt.TranspositionTable.init(gpa.allocator(), 1 << 10, null);
 
-    try perft.runPerftTest();
+    const tsr = srch.search(&board, &move_gen, &table, 1000);
+
+    tsr.search_result.bestMove.printAlgebraic();
+    std.debug.print("\n", .{});
+
+    tsr.stats.print();
+    std.debug.print("\n", .{});
+
+    table.stats.print();
+
 }

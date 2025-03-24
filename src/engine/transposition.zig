@@ -12,7 +12,7 @@ pub const EstimationType = enum(u2) {
 pub const TranspositionEntry = struct {
     estimation: EstimationType,
     move: mv.EncodedMove,
-    depth: usize,
+    depth: isize,
     score: f64,
     zobrist: zob.ZobristKey,
 };
@@ -37,10 +37,21 @@ pub const TranspositionTableStats = struct {
             .lookup_count = 0,
         };
     }
+
+    pub fn print(self: TranspositionTableStats) void {
+        std.debug.print("TranspositionTableStats:\n", .{});
+        std.debug.print("  Hits: {}\n", .{self.hits});
+        std.debug.print("  Misses: {}\n", .{self.misses});
+        std.debug.print("  Collisions: {}\n", .{self.collisions});
+        std.debug.print("  Depth Rewrites: {}\n", .{self.depth_rewrites});
+        std.debug.print("  Current Fill: {}\n", .{self.current_fill});
+        std.debug.print("  Update Count: {}\n", .{self.update_count});
+        std.debug.print("  Lookup Count: {}\n", .{self.lookup_count});
+    }
 };
 
 pub const TranspositionTable = struct {
-    entries: [*]TranspositionEntry,
+    entries: []TranspositionEntry,
     capacity: u64,
     stats: TranspositionTableStats,
     retries: usize,
@@ -83,7 +94,7 @@ pub const TranspositionTable = struct {
         return null;
     }
 
-    pub fn set(self: *TranspositionTable, estimation: EstimationType, move: mv.EncodedMove, depth: usize, score: f64, zobrist: zob.ZobristKey) void {
+    pub fn set(self: *TranspositionTable, estimation: EstimationType, move: mv.EncodedMove, depth: isize, score: f64, zobrist: zob.ZobristKey) void {
         self.stats.update_count += 1;
         const index = self.zobristToIndex(zobrist);
 
@@ -99,7 +110,7 @@ pub const TranspositionTable = struct {
         var lowest_depth = self.entries[index].depth;
 
         for (0..self.retries) |i| {
-            const probe_index = (index + i) & (self.capcity - 1);
+            const probe_index = (index + i) & (self.capacity - 1);
 
             if (self.entries[probe_index].zobrist == 0) {
                 self.stats.current_fill += 1;
@@ -118,7 +129,7 @@ pub const TranspositionTable = struct {
         }
         self.stats.collisions += 1;
         if (lowest_depth < depth) {
-            self.stats.depthRewrites += 1;
+            self.stats.depth_rewrites += 1;
             self.entries[lowest_depth_index] = new_entry;
         }
     }
