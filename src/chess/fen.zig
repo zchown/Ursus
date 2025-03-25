@@ -40,8 +40,6 @@ fn parsePiecePlacement(board: *Board, piece_placement: []const u8) !void {
     var rank: usize = 7;
     var file: usize = 0;
 
-    std.debug.print("Parsing piece placement: {s}\n", .{piece_placement});
-
     for (piece_placement) |char| {
         switch (char) {
             '/' => {

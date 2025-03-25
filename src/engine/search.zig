@@ -7,10 +7,9 @@ const tt = @import("transposition.zig");
 pub const inf: f64 = 100000.0;
 
 pub const SearchStats = struct {
+    maxDepth: usize,
     nodes: usize,
-    qnodes: usize,
     captures: usize,
-    quiets: usize,
     alphabeta_cutoffs: usize,
     transposition_cutoffs: usize,
     failed_high: usize,
@@ -18,10 +17,9 @@ pub const SearchStats = struct {
 
     pub fn init() SearchStats {
         return SearchStats{
+            .maxDepth = 0,
             .nodes = 0,
-            .qnodes = 0,
             .captures = 0,
-            .quiets = 0,
             .alphabeta_cutoffs = 0,
             .transposition_cutoffs = 0,
             .failed_high = 0,
@@ -31,10 +29,9 @@ pub const SearchStats = struct {
 
     pub fn print(self: SearchStats) void {
         std.debug.print("Search Stats:\n", .{});
+        std.debug.print("  Max Depth: {}\n", .{self.maxDepth});
         std.debug.print("  Nodes: {}\n", .{self.nodes});
-        std.debug.print("  QNodes: {}\n", .{self.qnodes});
         std.debug.print("  Captures: {}\n", .{self.captures});
-        std.debug.print("  Quiet Moves: {}\n", .{self.quiets});
         std.debug.print("  Alpha-Beta Cutoffs: {}\n", .{self.alphabeta_cutoffs}); 
     }
 };
@@ -63,12 +60,13 @@ pub const TotalSearchResult = struct {
 
 pub fn search(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, max_time: isize) TotalSearchResult {
     var result = TotalSearchResult.init();
-    var depth: isize = 1;
+    var depth: isize = 0;
     const start_time = std.time.milliTimestamp();
     while (std.time.milliTimestamp() - start_time < max_time) {
-        result.search_result = searchDepth(board, move_gen, table, depth, &result.stats, start_time, max_time);
         depth += 1;
+        result.search_result = searchDepth(board, move_gen, table, depth, &result.stats, start_time, max_time);
     }
+    result.stats.maxDepth = @intCast(depth);
     return result;
 }
 
@@ -101,7 +99,7 @@ fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositi
         if (std.time.milliTimestamp() - start_time >= max_time) {
             mvs.undoMove(board, move);
             break;
-        }
+       }
 
         if (kingInCheck(board, move_gen, brd.flipColor(board.game_state.side_to_move))) {
             mvs.undoMove(board, move);
@@ -119,6 +117,7 @@ fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositi
     }
 
     if (!valid_move_found) {
+        @branchHint(.cold);
         if (kingInCheck(board, move_gen, board.game_state.side_to_move)) {
             return SearchResult{
                 .bestMove = mvs.EncodedMove{},
@@ -152,7 +151,6 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
     const tt_entry = table.get(zobrist_key);
     if (tt_entry != null and tt_entry.?.depth >= depth) {
         stats.transposition_cutoffs += 1;
-
         if (tt_entry.?.estimation == tt.EstimationType.Exact) {
             return tt_entry.?.score;
         } else if (tt_entry.?.estimation == tt.EstimationType.Under and tt_entry.?.score >= beta) {
@@ -165,7 +163,7 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
     }
 
     if (depth <= 0) {
-        return quiescenceSearch(board, move_gen, table, alpha, beta, color, stats, start_time, max_time);
+        return eval.evaluate(board) * color;
     }
 
     var a = alpha;
@@ -208,6 +206,7 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
     }
 
     if (valid_move_count == 0) {
+        @branchHint(.cold);
         if (kingInCheck(board, move_gen, board.game_state.side_to_move)) {
             return (-inf + @as(f64, @floatFromInt(depth))) * color;
         } else {
@@ -220,55 +219,6 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
     }
 
     return best_score;
-}
-
-fn quiescenceSearch(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, alpha: f64, beta: f64, color: f64, stats: *SearchStats, start_time: isize, max_time: isize) f64 {
-    stats.qnodes += 1;
-
-    // Check for time limit
-    if (std.time.milliTimestamp() - start_time >= max_time) {
-        return eval.evaluate(board) * color;
-    }
-
-    // Stand-pat evaluation
-    const stand_pat = eval.evaluate(board) * color;
-
-    if (stand_pat >= beta) {
-        return stand_pat;
-    }
-
-    var a = alpha;
-    if (stand_pat > a) {
-        a = stand_pat;
-    }
-
-    // Generate only capture moves
-    const move_list = move_gen.generateMoves(board, true);
-
-    for (0..move_list.current) |m| {
-        const move = move_list.list[m];
-        stats.captures += 1;
-
-        mvs.makeMove(board, move);
-
-        if (kingInCheck(board, move_gen, brd.flipColor(board.game_state.side_to_move))) {
-            mvs.undoMove(board, move);
-            continue;
-        }
-
-        const score = -quiescenceSearch(board, move_gen, table, -beta, -a, -color, stats, start_time, max_time);
-        mvs.undoMove(board, move);
-
-        if (score >= beta) {
-            return score;
-        }
-
-        if (score > a) {
-            a = score;
-        }
-    }
-
-    return a;
 }
 
 // color is the color of the king

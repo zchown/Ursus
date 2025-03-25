@@ -14,7 +14,7 @@ pub fn main() !void {
 
     var table = try tt.TranspositionTable.init(gpa.allocator(), 1 << 10, null);
 
-    const tsr = srch.search(&board, &move_gen, &table, 1000);
+    const tsr = srch.search(&board, &move_gen, &table, 5000);
 
     tsr.search_result.bestMove.printAlgebraic();
     std.debug.print("\n", .{});
