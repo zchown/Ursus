@@ -889,3 +889,111 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
         board.game_state = previous_state;
     }
 }
+
+pub fn parseMove(board: *brd.Board, moveStr: []const u8) ?EncodedMove {
+    if (moveStr.len < 4) {
+        return null;
+    }
+
+    const from = parseSquare(moveStr[0..2]);
+    const to = parseSquare(moveStr[2..4]);
+
+    if (from == null or to == null) {
+        return null;
+    }
+
+    const piece: usize = undefined;
+    const color = board.game_state.side_to_move;
+
+    const fromBB = brd.getSquareBB(from);
+    const toBB = brd.getSquareBB(to);
+
+    if (board.piece_bb[color][0] & fromBB != 0) {
+        piece = 0;
+    } else if (board.piece_bb[color][1] & fromBB != 0) {
+        piece = 1;
+    } else if (board.piece_bb[color][2] & fromBB != 0) {
+        piece = 2;
+    } else if (board.piece_bb[color][3] & fromBB != 0) {
+        piece = 3;
+    } else if (board.piece_bb[color][4] & fromBB != 0) {
+        piece = 4;
+    } else if (board.piece_bb[color][5] & fromBB != 0) {
+        piece = 5;
+    } else {
+        return null;
+    }
+
+    var capture = (board.color_bb[brd.flipColor(color)] & toBB) != 0;
+    var captured_piece: u4 = undefined;
+
+    if (capture) {
+        if (board.piece_bb[brd.flipColor(color)][0] & toBB != 0) {
+            captured_piece = 0;
+        } else if (board.piece_bb[brd.flipColor(color)][1] & toBB != 0) {
+            captured_piece = 1;
+        } else if (board.piece_bb[brd.flipColor(color)][2] & toBB != 0) {
+            captured_piece = 2;
+        } else if (board.piece_bb[brd.flipColor(color)][3] & toBB != 0) {
+            captured_piece = 3;
+        } else if (board.piece_bb[brd.flipColor(color)][4] & toBB != 0) {
+            captured_piece = 4;
+        } else if (board.piece_bb[brd.flipColor(color)][5] & toBB != 0) {
+            captured_piece = 5;
+        } else {
+            return null;
+        }
+    }
+
+    const promoted_piece = if (moveStr.len == 5) {
+        const promoted_piece_char = moveStr[4];
+        if (promoted_piece_char == 'q') {
+            4;
+        } else if (promoted_piece_char == 'r') {
+            3;
+        } else if (promoted_piece_char == 'b') {
+            2;
+        } else if (promoted_piece_char == 'n') {
+            1;
+        } else {
+            return null;
+        }
+    } else {
+        0;
+    };
+
+    const promotion = if (promoted_piece != 0) {
+        1;
+    } else {
+        0;
+    };
+
+    const double_pawn_push = (piece == 0 and (from <= brd.Squares.h2 or from <= brd.Squares.a7) and (to >= brd.Squares.a4 or to <= brd.Squares.h5));
+
+    const en_passant = (to == board.game_state.en_passant_square and piece == 0);
+
+    if (en_passant) {
+        capture = true;
+        captured_piece = 0;
+    }
+
+    const castling = (piece == 5 and (from == brd.Squares.e1 or from == brd.Squares.e8) and (to == brd.Squares.g1 or to == brd.Squares.g8 or to == brd.Squares.c1 or to == brd.Squares.c8));
+
+
+
+}
+
+fn parseSquare(squareStr: []const u8) ?brd.Square {
+    if (squareStr.len != 2) {
+        return null;
+    }
+
+    const file = squareStr[0];
+    const rank = squareStr[1];
+
+    if (file < 'a' or file > 'h' or rank < '1' or rank > '8') {
+        return null;
+    }
+
+    return brd.Square{ .file = file - 'a', .rank = rank - '1' };
+}

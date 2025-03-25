@@ -53,4 +53,60 @@ pub const UciProtocol = struct {
         std.io.getStdOut().write(response);
         std.io.getStdOut().write("\n");
     }
+
+    fn newGame(self: UciProtocol) void {
+        self.allocator.free(self.table);
+        self.table = self.table.init(self.allocator, 1 << 15, null);
+        self.board = self.board.init();
+        fen.setupStartingPosition(&self.board);
+    }
+
+    fn handlePosition(self: UciProtocol, parts: [][]const u8) void {
+        if (parts.len < 2) {
+            UciProtocol.respond("Error: position command requires at least 2 arguments");
+            return;
+        }
+
+        if (std.mem.eql(u8, parts[1], "startpos")) {
+            fen.setupStartingPosition(&self.board);
+            if (parts.len > 2 and std.mem.eql(u8, parts[2], "moves")) {
+                for (3..parts.len) |i| {
+                    const move = mvs.parseMove(&self.board, parts[i]);
+                    if (move == null) {
+                        UciProtocol.respond("Error: invalid move in position command");
+                        return;
+                    }
+                    mvs.makeMove(&self.board, move);
+                }
+            }
+        } else if (std.mem.eql(u8, parts[1], "fen")) {
+            if (parts.len < 3) {
+                UciProtocol.respond("Error: position fen command requires a fen string");
+                return;
+            }
+
+            const fenStr = parts[2];
+            if (!fen.parseFEN(&self.board, fenStr)) {
+                UciProtocol.respond("Error: invalid fen string");
+                return;
+            }
+
+            if (parts.len > 3 and std.mem.eql(u8, parts[3], "moves")) {
+                for (4..parts.len) |i| {
+                    const move = mvs.parseMove(&self.board, parts[i]);
+                    if (move == null) {
+                        UciProtocol.respond("Error: invalid move in position command");
+                        return;
+                    }
+                    mvs.makeMove(&self.board, move);
+                }
+            }
+        } else {
+            UciProtocol.respond("Error: invalid position command");
+            return;
+        }
+    }
 };
+
+
+
