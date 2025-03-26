@@ -8,105 +8,130 @@ const tt = @import("../engine/transposition.zig");
 pub const UciProtocol = struct {
     board: brd.Board,
     table: tt.TranspositionTable,
-    move_gen: mvs.MoveGenerator,
+    move_gen: mvs.MoveGen,
     allocator: std.mem.Allocator,
 
-    pub fn init(self: UciProtocol, allocator: std.mem.Allocator) UciProtocol {
-        var toReturn = UciProtocol{
-            .table = self.table.init(allocator, 1 << 15, null),
-            .board = self.board.init(),
-            .move_gen = self.move_gen.init(),
+    pub fn init(allocator: std.mem.Allocator) !UciProtocol {
+        return UciProtocol{
+            .table = try tt.TranspositionTable.init(allocator, 1 << 15, null),
+            .board = brd.Board.init(),
+            .move_gen = mvs.MoveGen.init(),
             .allocator = allocator,
         };
-        fen.setupStartingPosition(&toReturn.board);
-        return toReturn;
     }
 
-    pub fn receiveCommand(self: UciProtocol, command: []const u8) void {
-        const commandStr = std.heap.dupStr(self.allocator, command);
-        const parts = std.mem.splitScalar(commandStr, " ");
+    pub fn deinit(self: *UciProtocol) void {
+        self.table.deinit();
+    }
 
-        const commandName = parts[0];
+    pub fn receiveCommand(self: *UciProtocol, command: []const u8) !void {
+        var tokenizer = std.mem.tokenizeScalar(u8, command, ' ');
+        var parts = std.ArrayList([]const u8).init(self.allocator);
+        defer parts.deinit();
+
+        while (tokenizer.next()) |token| {
+            try parts.append(token);
+        }
+        if (parts.items.len == 0) return;
+
+        const commandName = parts.items[0];
+        const args = parts.items[1..];
 
         if (std.mem.eql(u8, commandName, "uci")) {
-            UciProtocol.respond("uciok");
+            try respond("id name Ursus");
+            try respond("id author Zander");
+            try respond("uciok");
+            try self.newGame();
         } else if (std.mem.eql(u8, commandName, "isready")) {
-            UciProtocol.respond("readyok");
+            try respond("readyok");
         } else if (std.mem.eql(u8, commandName, "ucinewgame")) {
-            self.newGame();
+            try self.newGame();
         } else if (std.mem.eql(u8, commandName, "position")) {
-            self.handlePosition(parts);
+            try self.handlePosition(args);
         } else if (std.mem.eql(u8, commandName, "go")) {
-            self.handleGo(parts);
+            try self.handleGo(args);
         } else if (std.mem.eql(u8, commandName, "stop")) {
-            self.handleStop();
+            // Handle stop command
         } else if (std.mem.eql(u8, commandName, "quit")) {
-            return;
+            // Handle quit command
         } else if (std.mem.eql(u8, commandName, "d")) {
-            std.io.getStdOut().write(fen.printBoard(&self.board));
+            try self.printBoard();
         } else {
-            UciProtocol.respond("Unknown command");
+            try respond("Unknown command");
         }
-    } 
-
-    fn respond(response: []const u8) void {
-        std.io.getStdOut().write(response);
-        std.io.getStdOut().write("\n");
     }
 
-    fn newGame(self: UciProtocol) void {
-        self.allocator.free(self.table);
-        self.table = self.table.init(self.allocator, 1 << 15, null);
-        self.board = self.board.init();
+    fn respond(response: []const u8) !void {
+        const stdout = std.io.getStdOut().writer();
+        try stdout.print("{s}\n", .{response});
+    }
+
+    fn newGame(self: *UciProtocol) !void {
+        self.table.deinit(self.allocator);
+        self.table = try tt.TranspositionTable.init(self.allocator, 1 << 15, null);
+        self.board = brd.Board.init();
         fen.setupStartingPosition(&self.board);
     }
 
-    fn handlePosition(self: UciProtocol, parts: [][]const u8) void {
-        if (parts.len < 2) {
-            UciProtocol.respond("Error: position command requires at least 2 arguments");
+    fn handlePosition(self: *UciProtocol, args: [][]const u8) !void {
+        if (args.len == 0) {
+            try respond("Error: position command requires arguments");
             return;
         }
 
-        if (std.mem.eql(u8, parts[1], "startpos")) {
+        if (std.mem.eql(u8, args[0], "startpos")) {
+            self.board = brd.Board.init();
             fen.setupStartingPosition(&self.board);
-            if (parts.len > 2 and std.mem.eql(u8, parts[2], "moves")) {
-                for (3..parts.len) |i| {
-                    const move = mvs.parseMove(&self.board, parts[i]);
-                    if (move == null) {
-                        UciProtocol.respond("Error: invalid move in position command");
+            var i: usize = 1;
+            if (i < args.len and std.mem.eql(u8, args[i], "moves")) {
+                std.debug.print("Parsing moves\n", .{});
+                i += 1;
+                for (args[i..]) |move_str| {
+                    const move = mvs.parseMove(&self.board, move_str) orelse {
+                        try respond("Error: invalid move");
                         return;
-                    }
+                    };
                     mvs.makeMove(&self.board, move);
                 }
             }
-        } else if (std.mem.eql(u8, parts[1], "fen")) {
-            if (parts.len < 3) {
-                UciProtocol.respond("Error: position fen command requires a fen string");
-                return;
+        } else if (std.mem.eql(u8, args[0], "fen")) {
+            var fen_parts = std.ArrayList([]const u8).init(self.allocator);
+            defer fen_parts.deinit();
+
+            var i: usize = 1;
+            while (i < args.len and !std.mem.eql(u8, args[i], "moves")) : (i += 1) {
+                try fen_parts.append(args[i]);
             }
 
-            const fenStr = parts[2];
-            if (!fen.parseFEN(&self.board, fenStr)) {
-                UciProtocol.respond("Error: invalid fen string");
-                return;
-            }
+            const fen_str = try std.mem.join(self.allocator, " ", fen_parts.items);
+            defer self.allocator.free(fen_str);
 
-            if (parts.len > 3 and std.mem.eql(u8, parts[3], "moves")) {
-                for (4..parts.len) |i| {
-                    const move = mvs.parseMove(&self.board, parts[i]);
-                    if (move == null) {
-                        UciProtocol.respond("Error: invalid move in position command");
+            try fen.parseFEN(&self.board, fen_str);
+
+            if (i < args.len and std.mem.eql(u8, args[i], "moves")) {
+                i += 1;
+                for (args[i..]) |move_str| {
+                    const move = mvs.parseMove(&self.board, move_str) orelse {
+                        try respond("Error: invalid move");
                         return;
-                    }
+                    };
                     mvs.makeMove(&self.board, move);
                 }
             }
         } else {
-            UciProtocol.respond("Error: invalid position command");
-            return;
+            try respond("Error: invalid position command");
         }
     }
+
+    fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
+        _ = args; // TODO: Parse search parameters
+        const result = srch.search(&self.board, &self.move_gen, &self.table, 1000);
+        const stdout = std.io.getStdOut().writer();
+        try stdout.print("bestmove {s}\n", .{try result.search_result.bestMove.uciToString(self.allocator)});
+        mvs.makeMove(&self.board, result.search_result.bestMove);
+    }
+
+    fn printBoard(self: *UciProtocol) !void {
+        fen.debugPrintBoard(&self.board);
+    }
 };
-
-
-

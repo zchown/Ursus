@@ -120,11 +120,9 @@ pub const TranspositionTable = struct {
                 self.stats.depth_rewrites += 1;
                 self.entries[probe_index] = new_entry;
                 return;
-            } else {
-                if (self.entries[probe_index].depth < lowest_depth) {
-                    lowest_depth = self.entries[probe_index].depth;
-                    lowest_depth_index = probe_index;
-                }
+            } else if (self.entries[probe_index].depth < lowest_depth) {
+                lowest_depth = self.entries[probe_index].depth;
+                lowest_depth_index = probe_index;
             }
         }
         self.stats.collisions += 1;

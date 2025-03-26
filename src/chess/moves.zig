@@ -56,6 +56,28 @@ pub const EncodedMove = packed struct(u32) {
         std.debug.print("Castling: {}\n", .{self.castling});
     }
 
+    pub fn uciToString(self: EncodedMove, allocator: std.mem.Allocator) ![]const u8 {
+        const start_file: u8 = self.start_square % 8;
+        const end_file: u8 = self.end_square % 8;
+        const start_rank: u8 = @as(u8, @intCast((self.start_square / 8) + 1));
+        const end_rank: u8 = @as(u8, @intCast((self.end_square / 8) + 1));
+        const start_file_letter: u8 = 'a' + start_file;
+        const end_file_letter: u8 = 'a' + end_file;
+
+        if (self.promoted_piece != 0) {
+            const promo = switch (self.promoted_piece) {
+                1 => "n",
+                2 => "b",
+                3 => "r",
+                4 => "q",
+                else => unreachable,
+            };
+            return std.fmt.allocPrint(allocator, "{c}{d}{c}{d}{s}", .{ start_file_letter, start_rank, end_file_letter, end_rank, promo });
+        }
+
+        return std.fmt.allocPrint(allocator, "{c}{d}{c}{d}", .{ start_file_letter, start_rank, end_file_letter, end_rank });
+    }
+
     pub fn printAlgebraic(self: EncodedMove) void {
         if (self.castling != 0) {
             const startFile: u8 = self.start_square % 8;
@@ -891,96 +913,74 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
 }
 
 pub fn parseMove(board: *brd.Board, moveStr: []const u8) ?EncodedMove {
-    if (moveStr.len < 4) {
-        return null;
-    }
+    if (moveStr.len < 4) return null;
 
-    const from = parseSquare(moveStr[0..2]);
-    const to = parseSquare(moveStr[2..4]);
+    const from = parseSquare(moveStr[0..2]) orelse return null;
+    const to = parseSquare(moveStr[2..4]) orelse return null;
 
-    if (from == null or to == null) {
-        return null;
-    }
-
-    const piece: usize = undefined;
     const color = board.game_state.side_to_move;
-
     const fromBB = brd.getSquareBB(from);
+    var piece: usize = undefined;
+    inline for (0..6) |i| {
+        if (board.piece_bb[@intFromEnum(color)][i] & fromBB != 0) {
+            piece = i;
+            break;
+        }
+    } else return null;
+
+    const op_color = brd.flipColor(color);
     const toBB = brd.getSquareBB(to);
+    var capture = (board.color_bb[@intFromEnum(op_color)] & toBB) != 0;
+    var captured_piece: u4 = 0;
 
-    if (board.piece_bb[color][0] & fromBB != 0) {
-        piece = 0;
-    } else if (board.piece_bb[color][1] & fromBB != 0) {
-        piece = 1;
-    } else if (board.piece_bb[color][2] & fromBB != 0) {
-        piece = 2;
-    } else if (board.piece_bb[color][3] & fromBB != 0) {
-        piece = 3;
-    } else if (board.piece_bb[color][4] & fromBB != 0) {
-        piece = 4;
-    } else if (board.piece_bb[color][5] & fromBB != 0) {
-        piece = 5;
-    } else {
-        return null;
-    }
-
-    var capture = (board.color_bb[brd.flipColor(color)] & toBB) != 0;
-    var captured_piece: u4 = undefined;
-
-    if (capture) {
-        if (board.piece_bb[brd.flipColor(color)][0] & toBB != 0) {
-            captured_piece = 0;
-        } else if (board.piece_bb[brd.flipColor(color)][1] & toBB != 0) {
-            captured_piece = 1;
-        } else if (board.piece_bb[brd.flipColor(color)][2] & toBB != 0) {
-            captured_piece = 2;
-        } else if (board.piece_bb[brd.flipColor(color)][3] & toBB != 0) {
-            captured_piece = 3;
-        } else if (board.piece_bb[brd.flipColor(color)][4] & toBB != 0) {
-            captured_piece = 4;
-        } else if (board.piece_bb[brd.flipColor(color)][5] & toBB != 0) {
-            captured_piece = 5;
-        } else {
-            return null;
-        }
-    }
-
-    const promoted_piece = if (moveStr.len == 5) {
-        const promoted_piece_char = moveStr[4];
-        if (promoted_piece_char == 'q') {
-            4;
-        } else if (promoted_piece_char == 'r') {
-            3;
-        } else if (promoted_piece_char == 'b') {
-            2;
-        } else if (promoted_piece_char == 'n') {
-            1;
-        } else {
-            return null;
-        }
-    } else {
-        0;
-    };
-
-    const promotion = if (promoted_piece != 0) {
-        1;
-    } else {
-        0;
-    };
-
-    const double_pawn_push = (piece == 0 and (from <= brd.Squares.h2 or from <= brd.Squares.a7) and (to >= brd.Squares.a4 or to <= brd.Squares.h5));
-
-    const en_passant = (to == board.game_state.en_passant_square and piece == 0);
-
+    const en_passant = (piece == 0) and
+        (board.game_state.en_passant_square != null) and
+        (to == board.game_state.en_passant_square.?);
     if (en_passant) {
         capture = true;
         captured_piece = 0;
     }
 
-    const castling = (piece == 5 and (from == brd.Squares.e1 or from == brd.Squares.e8) and (to == brd.Squares.g1 or to == brd.Squares.g8 or to == brd.Squares.c1 or to == brd.Squares.c8));
+    if (capture and !en_passant) {
+        inline for (0..6) |i| {
+            if (board.piece_bb[@intFromEnum(op_color)][i] & toBB != 0) {
+                captured_piece = @intCast(i);
+                break;
+            }
+        } else return null;
+    }
 
+    var promoted_piece: u4 = 0;
+    if (moveStr.len == 5) {
+        promoted_piece = switch (moveStr[4]) {
+            'q' => 4,
+            'r' => 3,
+            'b' => 2,
+            'n' => 1,
+            else => return null,
+        };
+    }
 
+    const castling = (piece == 5) and
+        ((from == @intFromEnum(brd.Squares.e1) and (to == @intFromEnum(brd.Squares.g1) or to == @intFromEnum(brd.Squares.c1))) or
+            (from == @intFromEnum(brd.Squares.e8) and (to == @intFromEnum(brd.Squares.g8) or to == @intFromEnum(brd.Squares.c8))));
 
+    const rank_from = (from) / 8;
+    const double_pawn_push = (piece == 0) and
+        ((color == .White and rank_from == 1 and (to) / 8 == 3) or
+            (color == .Black and rank_from == 6 and (to) / 8 == 4));
+
+    return EncodedMove{
+        .start_square = @intCast(from),
+        .end_square = @intCast(to),
+        .piece = @intCast(piece),
+        .promoted_piece = promoted_piece,
+        .capture = @intFromBool(capture),
+        .captured_piece = captured_piece,
+        .double_pawn_push = @intFromBool(double_pawn_push),
+        .en_passant = @intFromBool(en_passant),
+        .castling = @intFromBool(castling),
+    };
 }
 
 fn parseSquare(squareStr: []const u8) ?brd.Square {
@@ -995,5 +995,5 @@ fn parseSquare(squareStr: []const u8) ?brd.Square {
         return null;
     }
 
-    return brd.Square{ .file = file - 'a', .rank = rank - '1' };
+    return (file - 'a') + (rank - '1') * 8;
 }

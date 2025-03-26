@@ -1,27 +1,29 @@
 const std = @import("std");
-const brd = @import("chess/board.zig");
-const fen = @import("chess/fen.zig");
-const mvs = @import("chess/moves.zig");
-const srch = @import("engine/search.zig");
-const tt = @import("engine/transposition.zig");
+const uci = @import("uci/uci.zig");
+const prft = @import("chess/perft.zig");
 
 pub fn main() !void {
-    var board = brd.Board.init();
-    fen.setupStartingPosition(&board);
-
-    var move_gen = mvs.MoveGen.init();
+    // try prft.runPerftTest();
+    std.debug.print("Here we go!\n", .{});
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
 
-    var table = try tt.TranspositionTable.init(gpa.allocator(), 1 << 10, null);
+    var engine = try uci.UciProtocol.init(gpa.allocator());
 
-    const tsr = srch.search(&board, &move_gen, &table, 5000);
+    const stdin = std.io.getStdIn().reader();
+    var buffer = std.ArrayList(u8).init(gpa.allocator());
+    defer buffer.deinit();
 
-    tsr.search_result.bestMove.printAlgebraic();
-    std.debug.print("\n", .{});
+    while (true) {
+        buffer.clearRetainingCapacity();
 
-    tsr.stats.print();
-    std.debug.print("\n", .{});
+        // Use readUntilDelimiterArrayList instead
+        try stdin.readUntilDelimiterArrayList(&buffer, '\n', 4096 // Maximum chunk size to read at once
+        );
 
-    table.stats.print();
+        const trimmed = std.mem.trim(u8, buffer.items, " \r\n");
+        if (std.mem.eql(u8, trimmed, "quit")) break;
 
+        try engine.receiveCommand(trimmed);
+    }
 }
