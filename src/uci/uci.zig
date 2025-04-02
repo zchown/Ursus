@@ -125,7 +125,7 @@ pub const UciProtocol = struct {
 
     fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
         _ = args; // TODO: Parse search parameters
-        const result = srch.search(&self.board, &self.move_gen, &self.table, 1000);
+        const result = srch.search(&self.board, &self.move_gen, &self.table, 2500);
         const stdout = std.io.getStdOut().writer();
         try stdout.print("bestmove {s}\n", .{try result.search_result.bestMove.uciToString(self.allocator)});
         mvs.makeMove(&self.board, result.search_result.bestMove);

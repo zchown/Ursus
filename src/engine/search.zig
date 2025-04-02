@@ -14,6 +14,7 @@ pub const SearchStats = struct {
     transposition_cutoffs: usize,
     failed_high: usize,
     failed_low: usize,
+    quiescence_nodes: usize,
 
     pub fn init() SearchStats {
         return SearchStats{
@@ -24,6 +25,7 @@ pub const SearchStats = struct {
             .transposition_cutoffs = 0,
             .failed_high = 0,
             .failed_low = 0,
+            .quiescence_nodes = 0,
         };
     }
 
@@ -33,6 +35,7 @@ pub const SearchStats = struct {
         std.debug.print("  Nodes: {}\n", .{self.nodes});
         std.debug.print("  Captures: {}\n", .{self.captures});
         std.debug.print("  Alpha-Beta Cutoffs: {}\n", .{self.alphabeta_cutoffs});
+        std.debug.print("  Quiescence Nodes: {}\n", .{self.quiescence_nodes});
     }
 };
 
@@ -66,10 +69,11 @@ pub fn search(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositio
         depth += 1;
         std.debug.print("Depth: {}\n", .{depth});
         const temp = searchDepth(board, move_gen, table, depth, &result.stats, start_time, max_time);
-        if (temp.bestMove == mvs.EncodedMove{}) {
+        if (temp.bestMove == mvs.EncodedMove{} or std.time.milliTimestamp() - start_time >= max_time) {
             break;
+        } else {
+            result.search_result = temp;
         }
-        result.search_result = temp;
     }
     result.stats.maxDepth = @intCast(depth);
     result.search_result.bestMove.printAlgebraic();
@@ -86,18 +90,6 @@ fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositi
     var depth = d;
 
     const zobrist_key = board.game_state.zobrist;
-    // const tt_entry = table.get(zobrist_key);
-    // if (tt_entry != null and tt_entry.?.depth >= depth) {
-    //     if (tt_entry.?.estimation == tt.EstimationType.Exact) {
-    //         return SearchResult{
-    //             .bestMove = tt_entry.?.move,
-    //             .eval = tt_entry.?.score,
-    //         };
-    //     } else if (tt_entry.?.estimation == tt.EstimationType.Under and tt_entry.?.score > best_eval) {
-    //         best_eval = tt_entry.?.score;
-    //         best_move = tt_entry.?.move;
-    //     }
-    // }
 
     std.debug.print("Move List: {}\n", .{move_list.current});
     std.debug.print("color: {}\n", .{color});
@@ -133,6 +125,7 @@ fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositi
         }
 
         const score = -alphaBeta(board, move_gen, table, depth - 1, -inf, -best_eval, -color, stats, start_time, max_time);
+        std.debug.print("Score: {}\n", .{score});
         mvs.undoMove(board, move);
 
         if (score > best_eval) {
@@ -170,27 +163,38 @@ fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositi
 fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, depth: isize, alpha: f64, beta: f64, color: f64, stats: *SearchStats, start_time: isize, max_time: isize) f64 {
     stats.nodes += 1;
 
+    const zobrist_key = board.game_state.zobrist;
+    const entry = table.get(zobrist_key);
+    if (entry != null) {
+        if (entry.?.depth >= depth) {
+            switch (entry.?.estimation) {
+                tt.EstimationType.Exact => {
+                    stats.transposition_cutoffs += 1;
+                    return entry.?.score;
+                },
+                tt.EstimationType.Over => {
+                    if (entry.?.score >= beta) {
+                        stats.transposition_cutoffs += 1;
+                        return entry.?.score;
+                    }
+                },
+                tt.EstimationType.Under => {
+                    if (entry.?.score <= alpha) {
+                        stats.transposition_cutoffs += 1;
+                        return entry.?.score;
+                    }
+                },
+            }
+        }
+    }
+
     if (std.time.milliTimestamp() - start_time >= max_time) {
         return eval.evaluate(board) * color;
     }
 
-    const zobrist_key = board.game_state.zobrist;
-    // const tt_entry = table.get(zobrist_key);
-    // if (tt_entry != null and tt_entry.?.depth >= depth) {
-    //     stats.transposition_cutoffs += 1;
-    //     if (tt_entry.?.estimation == tt.EstimationType.Exact) {
-    //         return tt_entry.?.score;
-    //     } else if (tt_entry.?.estimation == tt.EstimationType.Under and tt_entry.?.score >= beta) {
-    //         stats.failed_high += 1;
-    //         return tt_entry.?.score;
-    //     } else if (tt_entry.?.estimation == tt.EstimationType.Over and tt_entry.?.score <= alpha) {
-    //         stats.failed_low += 1;
-    //         return tt_entry.?.score;
-    //     }
-    // }
-
     if (depth <= 0) {
-        return eval.evaluate(board) * color;
+        // Instead of immediately evaluating, continue with quiescence search
+        return -quiescenceSearch(board, move_gen, table, alpha, beta, -color, stats, start_time, max_time);
     }
 
     var a = alpha;
@@ -248,7 +252,70 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
     return best_score;
 }
 
-// color is the color of the king
+// Quiescence search function - continues search on capture moves to reach quiet positions
+fn quiescenceSearch(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, alpha: f64, beta: f64, color: f64, stats: *SearchStats, start_time: isize, max_time: isize) f64 {
+    stats.quiescence_nodes += 1;
+
+    if (std.time.milliTimestamp() - start_time >= max_time) {
+        return eval.evaluate(board) * color;
+    }
+
+    const stand_pat = eval.evaluate(board) * color;
+
+    if (stand_pat >= beta) {
+        return stand_pat;
+    }
+
+    var a = alpha;
+    if (stand_pat > a) {
+        a = stand_pat;
+    }
+
+    const move_list = move_gen.generateMoves(board, true);
+
+    for (0..move_list.current) |m| {
+        const move = move_list.list[m];
+        stats.captures += 1;
+
+        if (!isLikelyGoodCapture(move)) {
+            continue;
+        }
+
+        mvs.makeMove(board, move);
+
+        if (kingInCheck(board, move_gen, brd.flipColor(board.game_state.side_to_move))) {
+            mvs.undoMove(board, move);
+            continue;
+        }
+
+        const score = -quiescenceSearch(board, move_gen, table, -beta, -a, -color, stats, start_time, max_time);
+        mvs.undoMove(board, move);
+
+        if (score >= beta) {
+            return score;
+        }
+        if (score > a) {
+            a = score;
+        }
+    }
+
+    return a;
+}
+
+fn isLikelyGoodCapture(move: mvs.EncodedMove) bool {
+    const attacker = move.piece;
+
+    const victim = move.captured_piece;
+
+    const piece_values = [_]i32{ 0, 100, 320, 330, 500, 900, 20000 };
+
+    if (piece_values[victim] >= piece_values[(attacker)]) {
+        return true;
+    }
+
+    return false;
+}
+
 inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) bool {
     const king_square = brd.getLSB(board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.King)]);
     return move_gen.isAttacked(king_square, brd.flipColor(color), board);
