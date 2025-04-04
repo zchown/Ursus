@@ -204,7 +204,7 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
     var best_move: ?mvs.EncodedMove = null;
     var estimation_type = tt.EstimationType.Over;
 
-    const move_list = move_gen.generateMoves(board, false);
+    var move_list = move_gen.generateMoves(board, false);
     sortMoveList(&move_list);
     var valid_move_count: usize = 0;
 
@@ -212,7 +212,7 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
     var reduction_flag = false;
 
     for (0..move_list.current) |m| {
-        if (!reduction_flag and move_list.current * late_move_reduction < m) {
+        if (!reduction_flag and @as(f64, @floatFromInt(move_list.current)) * late_move_reduction < @as(f64, @floatFromInt(m))) {
             d = depth - late_move_reduction_depth;
             reduction_flag = true;
         }
@@ -333,7 +333,7 @@ inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Colo
 }
 
 inline fn scoreMove(move: mvs.EncodedMove) f64 {
-    var score = 0.0;
+    var score: f64 = 0.0;
 
     const piece_values = [_]f64{ 0.0, 1.0, 3.2, 3.3, 5.0, 9.0, 20000.0 };
 
@@ -349,7 +349,7 @@ inline fn scoreMove(move: mvs.EncodedMove) f64 {
 
 inline fn sortMoveList(move_list: *mvs.MoveList) void {
     const move_count = move_list.current;
-    var scored_moves = [218]f64{0} ** move_list.current;
+    var scored_moves: [218]f64 = undefined;
 
     // Score all moves first
     for (0..move_count) |i| {
@@ -360,7 +360,7 @@ inline fn sortMoveList(move_list: *mvs.MoveList) void {
     quickSortMoves(move_list.list[0..move_count], scored_moves[0..move_count], 0, @as(isize, (@intCast(move_count))) - 1);
 }
 
-fn quickSortMoves(moves: []mvs.Move, scores: []f64, low: isize, high: isize) void {
+fn quickSortMoves(moves: []mvs.EncodedMove, scores: []f64, low: isize, high: isize) void {
     if (low < high) {
         const pi = partition(moves, scores, low, high);
         quickSortMoves(moves, scores, low, pi - 1);
@@ -368,7 +368,7 @@ fn quickSortMoves(moves: []mvs.Move, scores: []f64, low: isize, high: isize) voi
     }
 }
 
-fn partition(moves: []mvs.Move, scores: []f64, low: isize, high: isize) isize {
+fn partition(moves: []mvs.EncodedMove, scores: []f64, low: isize, high: isize) isize {
     const pivot = scores[@as(usize, @intCast(high))];
     var i = low - 1;
 
@@ -384,7 +384,7 @@ fn partition(moves: []mvs.Move, scores: []f64, low: isize, high: isize) isize {
     return i + 1;
 }
 
-fn swapMoves(moves: []mvs.Move, scores: []f64, a: usize, b: usize) void {
+fn swapMoves(moves: []mvs.EncodedMove, scores: []f64, a: usize, b: usize) void {
     const temp_score = scores[a];
     scores[a] = scores[b];
     scores[b] = temp_score;
