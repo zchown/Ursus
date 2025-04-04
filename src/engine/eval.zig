@@ -29,12 +29,7 @@ const king_pst_mg = [64]i32{ -30, -40, -40, -50, -50, -40, -40, -30, -30, -40, -
 // King position values for endgame (encourages king activity)
 const king_pst_eg = [64]i32{ -50, -40, -30, -20, -20, -30, -40, -50, -30, -20, -10, 0, 0, -10, -20, -30, -30, -10, 20, 30, 30, 20, -10, -30, -30, -10, 30, 40, 40, 30, -10, -30, -30, -10, 30, 40, 40, 30, -10, -30, -30, -10, 20, 30, 30, 20, -10, -30, -30, -30, 0, 0, 0, 0, -30, -30, -50, -30, -30, -30, -30, -30, -30, -50 };
 
-const DOUBLED_PAWN_PENALTY = 10;
-const ISOLATED_PAWN_PENALTY = 20;
 const BISHOP_PAIR_BONUS = 30;
-const KNIGHT_OUTPOST_BONUS = 15;
-const ROOK_ON_OPEN_FILE_BONUS = 20;
-const ROOK_ON_SEMI_OPEN_FILE_BONUS = 10;
 const ENDGAME_MATERIAL_THRESHOLD = 1500;
 var total_material: u32 = 0;
 

@@ -5,6 +5,8 @@ const eval = @import("eval.zig");
 const tt = @import("transposition.zig");
 
 pub const inf: f64 = 100000.0;
+const late_move_reduction: f64 = 0.5;
+const late_move_reduction_depth: isize = 3;
 
 pub const SearchStats = struct {
     maxDepth: usize,
@@ -203,9 +205,18 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
     var estimation_type = tt.EstimationType.Over;
 
     const move_list = move_gen.generateMoves(board, false);
+    sortMoveList(&move_list);
     var valid_move_count: usize = 0;
 
+    var d = depth;
+    var reduction_flag = false;
+
     for (0..move_list.current) |m| {
+        if (!reduction_flag and move_list.current * late_move_reduction < m) {
+            d = depth - late_move_reduction_depth;
+            reduction_flag = true;
+        }
+
         const move = move_list.list[m];
         mvs.makeMove(board, move);
 
@@ -216,7 +227,7 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
 
         valid_move_count += 1;
 
-        const score = -alphaBeta(board, move_gen, table, depth - 1, -beta, -a, -color, stats, start_time, max_time);
+        const score = -alphaBeta(board, move_gen, table, d - 1, -beta, -a, -color, stats, start_time, max_time);
         mvs.undoMove(board, move);
 
         if (score > best_score) {
@@ -319,4 +330,66 @@ fn isLikelyGoodCapture(move: mvs.EncodedMove) bool {
 inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) bool {
     const king_square = brd.getLSB(board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.King)]);
     return move_gen.isAttacked(king_square, brd.flipColor(color), board);
+}
+
+inline fn scoreMove(move: mvs.EncodedMove) f64 {
+    var score = 0.0;
+
+    const piece_values = [_]f64{ 0.0, 1.0, 3.2, 3.3, 5.0, 9.0, 20000.0 };
+
+    if (move.capture == 1) {
+        score += piece_values[move.captured_piece];
+        score -= piece_values[move.piece];
+    }
+    if (move.promoted_piece != 0) {
+        score += piece_values[move.promoted_piece];
+    }
+    return score;
+}
+
+inline fn sortMoveList(move_list: *mvs.MoveList) void {
+    const move_count = move_list.current;
+    var scored_moves = [218]f64{0} ** move_list.current;
+
+    // Score all moves first
+    for (0..move_count) |i| {
+        scored_moves[i] = scoreMove(move_list.list[i]);
+    }
+
+    // Now quick sort them
+    quickSortMoves(move_list.list[0..move_count], scored_moves[0..move_count], 0, @as(isize, (@intCast(move_count))) - 1);
+}
+
+fn quickSortMoves(moves: []mvs.Move, scores: []f64, low: isize, high: isize) void {
+    if (low < high) {
+        const pi = partition(moves, scores, low, high);
+        quickSortMoves(moves, scores, low, pi - 1);
+        quickSortMoves(moves, scores, pi + 1, high);
+    }
+}
+
+fn partition(moves: []mvs.Move, scores: []f64, low: isize, high: isize) isize {
+    const pivot = scores[@as(usize, @intCast(high))];
+    var i = low - 1;
+
+    var j: isize = low;
+    while (j <= high - 1) : (j += 1) {
+        if (scores[@as(usize, @intCast(j))] > pivot) {
+            i += 1;
+            swapMoves(moves, scores, @as(usize, @intCast(i)), @as(usize, @intCast(j)));
+        }
+    }
+
+    swapMoves(moves, scores, @as(usize, @intCast(i + 1)), @as(usize, @intCast(high)));
+    return i + 1;
+}
+
+fn swapMoves(moves: []mvs.Move, scores: []f64, a: usize, b: usize) void {
+    const temp_score = scores[a];
+    scores[a] = scores[b];
+    scores[b] = temp_score;
+
+    const temp_move = moves[a];
+    moves[a] = moves[b];
+    moves[b] = temp_move;
 }
