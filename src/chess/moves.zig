@@ -122,7 +122,7 @@ pub const EncodedMove = packed struct(u32) {
                 4 => "Q",
                 else => "?",
             };
-            std.debug.print("={c}", .{promoAbbrev});
+            std.debug.print("={s}", .{promoAbbrev});
         }
 
         if (self.en_passant == 1) {

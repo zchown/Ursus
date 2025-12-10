@@ -126,8 +126,8 @@ fn parseEnPassant(board: *Board, en_passant: []const u8) !void {
 }
 
 pub fn toFEN(board: *Board, allocator: std.mem.Allocator) ![]u8 {
-    var fen = std.ArrayList(u8).init(allocator);
-    defer fen.deinit();
+    var fen = try std.ArrayList(u8).initCapacity(allocator, 256);
+    defer fen.deinit(allocator);
 
     for (0..8) |rank_idx| {
         const rank = 7 - rank_idx;
@@ -143,7 +143,7 @@ pub fn toFEN(board: *Board, allocator: std.mem.Allocator) ![]u8 {
                     const piece: brd.Pieces = @enumFromInt(piece_idx);
                     if ((board.getPieces(color, piece) & (@as(u64, 1) << @intCast(square))) != 0) {
                         if (empty_count > 0) {
-                            try fen.append('0' + empty_count);
+                            try fen.append(allocator, '0' + empty_count);
                             empty_count = 0;
                         }
 
@@ -160,7 +160,7 @@ pub fn toFEN(board: *Board, allocator: std.mem.Allocator) ![]u8 {
                             piece_char = std.ascii.toLower(piece_char);
                         }
 
-                        try fen.append(piece_char);
+                        try fen.append(allocator, piece_char);
                         found_piece = true;
                         break;
                     }
@@ -174,71 +174,74 @@ pub fn toFEN(board: *Board, allocator: std.mem.Allocator) ![]u8 {
         }
 
         if (empty_count > 0) {
-            try fen.append('0' + empty_count);
+            try fen.append(allocator, '0' + empty_count);
         }
 
         if (rank_idx < 7) {
-            try fen.append('/');
+            try fen.append(allocator, '/');
         }
     }
 
-    try fen.append(' ');
-    try fen.append(if (board.game_state.side_to_move == brd.Color.White) 'w' else 'b');
+    try fen.append(allocator, ' ');
+    try fen.append(allocator, if (board.game_state.side_to_move == brd.Color.White) 'w' else 'b');
 
-    try fen.append(' ');
+    try fen.append(allocator, ' ');
     var has_castling_rights = false;
 
     if ((board.game_state.castling_rights) &
         @intFromEnum(brd.CastleRights.WhiteKingside) != 0)
     {
-        try fen.append('K');
+        try fen.append(allocator, 'K');
         has_castling_rights = true;
     }
     if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) {
-        try fen.append('Q');
+        try fen.append(allocator, 'Q');
         has_castling_rights = true;
     }
     if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
-        try fen.append('k');
+        try fen.append(allocator, 'k');
         has_castling_rights = true;
     }
     if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) {
-        try fen.append('q');
+        try fen.append(allocator, 'q');
         has_castling_rights = true;
     }
 
     if (!has_castling_rights) {
-        try fen.append('-');
+        try fen.append(allocator, '-');
     }
 
-    try fen.append(' ');
+    try fen.append(allocator, ' ');
     if (board.game_state.en_passant_square) |square| {
         const file: u8 = square % 8;
         const rank: u8 = square / 8;
-        try fen.append('a' + file);
-        try fen.append('1' + rank);
+        try fen.append(allocator, 'a' + file);
+        try fen.append(allocator, '1' + rank);
     } else {
-        try fen.append('-');
+        try fen.append(allocator, '-');
     }
 
-    try fen.append(' ');
-    try std.fmt.format(fen.writer(), "{d}", .{board.game_state.halfmove_clock});
+    try fen.append(allocator, ' ');
+    try std.fmt.format(fen.writer(allocator), "{d}", .{board.game_state.halfmove_clock});
 
-    try fen.append(' ');
-    try std.fmt.format(fen.writer(), "{d}", .{board.game_state.fullmove_number});
+    try fen.append(allocator, ' ');
+    try std.fmt.format(fen.writer(allocator), "{d}", .{board.game_state.fullmove_number});
 
-    return fen.toOwnedSlice();
+    return fen.toOwnedSlice(allocator);
 }
 
 pub fn setupStartingPosition(board: *Board) void {
     _ = parseFEN(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") catch {};
 }
 
-pub fn debugPrintBoard(board: *Board) void {
-    const stdout = std.io.getStdOut().writer();
+pub fn debugPrintBoard(board: *Board) !void {
+    var stdout_buf: [4096]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buf);
+    const stdout = &stdout_writer.interface;
+
     for (0..8) |rank_idx| {
         const rank = 7 - rank_idx;
-        _ = stdout.print("{d} ", .{rank + 1}) catch {};
+        try stdout.print("{d} ", .{rank + 1});
 
         for (0..8) |file| {
             const square = rank * 8 + file;
@@ -262,7 +265,7 @@ pub fn debugPrintBoard(board: *Board) void {
                             piece_char = std.ascii.toLower(piece_char);
                         }
 
-                        _ = stdout.print("{c} ", .{piece_char}) catch {};
+                        try stdout.print("{c} ", .{piece_char});
                         printed = true;
                         break;
                     }
@@ -271,24 +274,27 @@ pub fn debugPrintBoard(board: *Board) void {
             }
 
             if (!printed) {
-                _ = stdout.print(". ", .{}) catch {};
+                try stdout.print(". ", .{});
             }
         }
 
-        _ = stdout.print("\n", .{}) catch {};
+        try stdout.print("\n", .{});
     }
 
-    _ = stdout.print("  a b c d e f g h\n", .{}) catch {};
-    _ = stdout.print("FEN: ", .{}) catch {};
+    try stdout.print("  a b c d e f g h\n", .{});
+    try stdout.print("FEN: ", .{});
 
     const fen = toFEN(board, std.heap.page_allocator) catch {
-        _ = stdout.print("<error generating FEN>\n", .{}) catch {};
+        try stdout.print("<error generating FEN>\n", .{});
+        try stdout_writer.interface.flush();
         return;
     };
     defer std.heap.page_allocator.free(fen);
 
-    _ = stdout.print("{s}\n", .{fen}) catch {};
+    try stdout.print("{s}\n", .{fen});
+    try stdout_writer.interface.flush();
 }
+
 
 pub fn compareFEN(f1: []u8, f2: []u8) bool {
     for (0..f1.len) |i| {

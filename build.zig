@@ -6,9 +6,11 @@ pub fn build(b: *std.Build) void {
     // Create the main executable
     const exe = b.addExecutable(.{
         .name = "Ursus",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     b.installArtifact(exe);
@@ -20,9 +22,11 @@ pub fn build(b: *std.Build) void {
     b.step("run", "Run the chess engine").dependOn(&run_cmd.step);
     // === Unit Testing ===
     const test_exe = b.addTest(.{
-        .root_source_file = b.path("src/test.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     // Link the modules to the test executable
     const test_step = b.step("test", "Run unit tests");
