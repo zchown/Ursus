@@ -1,12 +1,43 @@
 const std = @import("std");
-const mvs = @import("../chess/moves.zig");
-const brd = @import("../chess/board.zig");
-const eval = @import("eval.zig");
-const tt = @import("transposition.zig");
+const mvs = @import("moves");
+const brd = @import("board");
+const eval = @import("eval");
+const tt = @import("transposition");
 
 pub const inf: f64 = 100000.0;
 const late_move_reduction: f64 = 0.5;
 const late_move_reduction_depth: isize = 3;
+
+const Stopper = struct {
+    start_ms: i64,
+    stop_after_ms: i64,
+    stop: std.atomic.Value(bool),
+
+    pub fn init(max_time_ms: i64) Stopper {
+        if (max_time_ms <= 10) {
+            return .{
+                .start_ms = std.time.milliTimestamp(),
+                .stop_after_ms = max_time_ms,
+                .stop = std.atomic.Value(bool).init(false),
+            };
+        }
+        return .{
+            .start_ms = std.time.milliTimestamp(),
+            .stop_after_ms = max_time_ms - 10,
+            .stop = std.atomic.Value(bool).init(false),
+        };
+    }
+
+    pub inline fn shouldStop(self: *Stopper) bool {
+        if (self.stop.load(.monotonic)) return true;
+        const now = std.time.milliTimestamp();
+        if (now - self.start_ms >= self.stop_after_ms) {
+            self.stop.store(true, .monotonic);
+            return true;
+        }
+        return false;
+    }
+};
 
 pub const SearchStats = struct {
     maxDepth: usize,
@@ -66,24 +97,32 @@ pub const TotalSearchResult = struct {
 pub fn search(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, max_time: isize) TotalSearchResult {
     var result = TotalSearchResult.init();
     var depth: isize = 0;
-    const start_time = std.time.milliTimestamp();
-    while (std.time.milliTimestamp() - start_time < max_time) {
+
+    var stopper = Stopper.init(@as(i64, max_time));
+
+    while(!stopper.shouldStop()) {
         depth += 1;
-        std.debug.print("Depth: {}\n", .{depth});
-        const temp = searchDepth(board, move_gen, table, depth, &result.stats, start_time, max_time);
-        if (temp.bestMove == mvs.EncodedMove{} or std.time.milliTimestamp() - start_time >= max_time) {
+        // std.debug.print("Searching at depth: {}\n", .{depth});
+        const search_result = searchDepth(board, move_gen, table, depth, &result.stats, &stopper);
+        if (stopper.shouldStop()) {
             break;
-        } else {
-            result.search_result = temp;
         }
+
+        result.search_result = search_result;
+
+        // std.debug.print("Depth {}: Best Move: ", .{depth});
+        // search_result.bestMove.printAlgebraic();
+        // std.debug.print(" Eval: {}\n", .{search_result.eval});
     }
+
+
     result.stats.maxDepth = @intCast(depth);
-    result.search_result.bestMove.printAlgebraic();
+    // result.search_result.bestMove.printAlgebraic();
     return result;
 }
 
 // assumption that board is not checkmate or draw
-fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, d: isize, stats: *SearchStats, start_time: isize, max_time: isize) SearchResult {
+fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, d: isize, stats: *SearchStats, stopper: *Stopper) SearchResult {
     const color: f64 = if (board.game_state.side_to_move == brd.Color.White) 1.0 else -1.0;
     const move_list = move_gen.generateMoves(board, false);
     var best_move: ?mvs.EncodedMove = null;
@@ -93,14 +132,14 @@ fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositi
 
     const zobrist_key = board.game_state.zobrist;
 
-    std.debug.print("Move List: {}\n", .{move_list.current});
-    std.debug.print("color: {}\n", .{color});
+    // std.debug.print("Move List: {}\n", .{move_list.current});
+    // std.debug.print("color: {}\n", .{color});
 
     for (0..move_list.current) |m| {
         const move = move_list.list[m];
         // std.debug.print("Move: {}\n", .{move});
 
-        if (std.time.milliTimestamp() - start_time >= max_time) {
+        if (stopper.shouldStop()) {
             // std.debug.print("Time limit reached\n", .{});
             if (depth > 1) {
                 if (valid_move_found) {
@@ -121,13 +160,13 @@ fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositi
         mvs.makeMove(board, move);
 
         if (kingInCheck(board, move_gen, brd.flipColor(board.game_state.side_to_move))) {
-            std.debug.print("Move puts king in check\n", .{});
+            // std.debug.print("Move puts king in check\n", .{});
             mvs.undoMove(board, move);
             continue;
         }
 
-        const score = -alphaBeta(board, move_gen, table, depth - 1, -inf, -best_eval, -color, stats, start_time, max_time);
-        std.debug.print("Score: {}\n", .{score});
+        const score = -alphaBeta(board, move_gen, table, depth - 1, -inf, -best_eval, -color, stats, stopper);
+        // std.debug.print("Score: {}\n", .{score});
         mvs.undoMove(board, move);
 
         if (score > best_eval) {
@@ -138,7 +177,7 @@ fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositi
     }
 
     if (!valid_move_found) {
-        std.debug.print("No valid moves found\n", .{});
+        // std.debug.print("No valid moves found\n", .{});
         // @panic("No valid moves found");
         if (kingInCheck(board, move_gen, board.game_state.side_to_move)) {
             return SearchResult{
@@ -162,7 +201,7 @@ fn searchDepth(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transpositi
     };
 }
 
-fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, depth: isize, alpha: f64, beta: f64, color: f64, stats: *SearchStats, start_time: isize, max_time: isize) f64 {
+fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, depth: isize, alpha: f64, beta: f64, color: f64, stats: *SearchStats, stopper: *Stopper) f64 {
     stats.nodes += 1;
 
     const zobrist_key = board.game_state.zobrist;
@@ -190,13 +229,13 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
         }
     }
 
-    if (std.time.milliTimestamp() - start_time >= max_time) {
+    if (((stats.nodes & 512) == 0) and stopper.shouldStop()) {
         return eval.evaluate(board) * color;
     }
 
     if (depth <= 0) {
         // Instead of immediately evaluating, continue with quiescence search
-        return -quiescenceSearch(board, move_gen, table, alpha, beta, -color, stats, start_time, max_time);
+        return quiescenceSearch(board, move_gen, table, alpha, beta, -color, stats, stopper);
     }
 
     var a = alpha;
@@ -227,7 +266,7 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
 
         valid_move_count += 1;
 
-        const score = -alphaBeta(board, move_gen, table, d - 1, -beta, -a, -color, stats, start_time, max_time);
+        const score = -alphaBeta(board, move_gen, table, d - 1, -beta, -a, -color, stats, stopper);
         mvs.undoMove(board, move);
 
         if (score > best_score) {
@@ -248,7 +287,6 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
     }
 
     if (valid_move_count == 0) {
-        @branchHint(.cold);
         if (kingInCheck(board, move_gen, board.game_state.side_to_move)) {
             return (-inf + @as(f64, @floatFromInt(depth))) * color;
         } else {
@@ -264,10 +302,10 @@ fn alphaBeta(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transposition
 }
 
 // Quiescence search function - continues search on capture moves to reach quiet positions
-fn quiescenceSearch(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, alpha: f64, beta: f64, color: f64, stats: *SearchStats, start_time: isize, max_time: isize) f64 {
+fn quiescenceSearch(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.TranspositionTable, alpha: f64, beta: f64, color: f64, stats: *SearchStats, stopper: *Stopper) f64 {
     stats.quiescence_nodes += 1;
 
-    if (std.time.milliTimestamp() - start_time >= max_time) {
+    if (((stats.nodes & 512) == 0) and stopper.shouldStop()) {
         return eval.evaluate(board) * color;
     }
 
@@ -299,7 +337,7 @@ fn quiescenceSearch(board: *brd.Board, move_gen: *mvs.MoveGen, table: *tt.Transp
             continue;
         }
 
-        const score = -quiescenceSearch(board, move_gen, table, -beta, -a, -color, stats, start_time, max_time);
+        const score = -quiescenceSearch(board, move_gen, table, -beta, -a, -color, stats, stopper);
         mvs.undoMove(board, move);
 
         if (score >= beta) {

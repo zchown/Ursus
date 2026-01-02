@@ -1,5 +1,5 @@
 const std = @import("std");
-const brd = @import("board.zig");
+const brd = @import("board");
 const Bitboard = brd.Bitboard;
 
 pub const bishop_relevant_bits = [_]usize{
@@ -59,6 +59,11 @@ pub const Istari = struct {
     }
 
     pub fn findMagicNums(self: *Istari, sq: brd.Square, relevant_bits: i32, bishop: bool) u64 {
+
+        if (@inComptime()) {
+            return 0;
+        }
+
         var occupancies = [_]Bitboard{0} ** 4096;
         var attacks = [_]Bitboard{0} ** 4096;
 

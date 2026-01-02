@@ -1,4 +1,4 @@
-const brd = @import("../chess/board.zig");
+const brd = @import("board");
 pub const PieceValues = enum(usize) {
     Pawn = 100,
     Knight = 320,

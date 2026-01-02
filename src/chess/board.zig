@@ -1,6 +1,6 @@
 const std = @import("std");
-const zob = @import("zobrist.zig");
-const EncodedMove = @import("moves.zig").EncodedMove;
+const zob = @import("zobrist");
+const EncodedMove = @import("moves").EncodedMove;
 
 pub const num_colors = 2;
 pub const num_pieces = 6;
@@ -35,6 +35,11 @@ pub const Pieces = enum(u3) {
 pub const Color = enum(u1) {
     White = 0,
     Black = 1,
+
+    pub fn opposite(self: Color) Color {
+        return if (self == Color.White) Color.Black else Color.White;
+    }
+
 };
 
 pub const Piece = struct {

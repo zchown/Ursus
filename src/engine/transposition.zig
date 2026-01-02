@@ -1,7 +1,7 @@
 const std = @import("std");
-const zob = @import("../chess/zobrist.zig");
-const brd = @import("../chess/board.zig");
-const mv = @import("../chess/moves.zig");
+const zob = @import("zobrist");
+const brd = @import("board");
+const mv = @import("moves");
 
 pub const EstimationType = enum(u2) {
     Under = 0,
@@ -68,6 +68,19 @@ pub const TranspositionTable = struct {
 
     pub fn deinit(self: *TranspositionTable, allocator: std.mem.Allocator) void {
         allocator.free(self.entries);
+    }
+
+    pub fn clear(self: *TranspositionTable) void {
+        for (self.entries) |*entry| {
+            entry.* = TranspositionEntry{
+                .estimation = EstimationType.Exact,
+                .move = mv.EncodedMove.fromU32(0),
+                .depth = 0,
+                .score = 0.0,
+                .zobrist = 0,
+            };
+        }
+        self.stats = TranspositionTableStats.init();
     }
 
     inline fn zobristToIndex(self: *TranspositionTable, zobrist: zob.ZobristKey) usize {

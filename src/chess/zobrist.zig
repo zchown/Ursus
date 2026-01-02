@@ -1,5 +1,5 @@
 const std = @import("std");
-const brd = @import("board.zig");
+const brd = @import("board");
 pub const ZobristKey = u64;
 
 const PieceRandoms = [brd.num_colors][brd.num_pieces][brd.num_squares]ZobristKey;

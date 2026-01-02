@@ -1,10 +1,10 @@
 const std = @import("std");
-const brd = @import("board.zig");
+const brd = @import("board");
 const Board = brd.Board;
 const Bitboard = brd.Bitboard;
 const GameState = brd.GameState;
-const magic = @import("magics.zig");
-const rad = @import("radagast.zig");
+const magic = @import("magic");
+const rad = @import("radagast");
 
 const not_a_file: Bitboard = 0xfefefefefefefefe;
 const not_h_file: Bitboard = 0x7f7f7f7f7f7f7f7f;
@@ -29,6 +29,14 @@ pub const EncodedMove = packed struct(u32) {
     castling: u1 = 0,
 
     _padding: u4 = 0,
+
+    pub fn fromU32(value: u32) EncodedMove {
+        return @bitCast(value);
+    }
+
+    pub fn toU32(self: EncodedMove) u32 {
+        return @bitCast(self);
+    }
 
     pub fn encode(start: brd.Square, end: brd.Square, piece: brd.Pieces, promoted_piece: ?brd.Pieces, capture: bool, captured_piece: ?brd.Pieces, double_pawn_push: bool, en_passant: bool, castling: bool) EncodedMove {
         return EncodedMove{
@@ -226,12 +234,10 @@ pub const MoveGen = struct {
         var pawn_promo_2: brd.Square = undefined;
 
         if (color == brd.Color.White) {
-            @branchHint(.unpredictable);
             end_square_update = 8;
             pawn_promo_1 = @intFromEnum(brd.Squares.a8);
             pawn_promo_2 = @intFromEnum(brd.Squares.h6);
         } else {
-            @branchHint(.unpredictable);
             end_square_update = -8;
             pawn_promo_1 = @intFromEnum(brd.Squares.a3);
             pawn_promo_2 = @intFromEnum(brd.Squares.h1);
@@ -246,24 +252,20 @@ pub const MoveGen = struct {
                 const esq: u64 = @as(u64, @intCast(end_square));
                 //pawn promotion
                 if (start_square < pawn_promo_1 and start_square > pawn_promo_2) {
-                    @branchHint(.unlikely);
                     move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Queen, false, null, false, false, false);
                     move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Rook, false, null, false, false, false);
                     move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Bishop, false, null, false, false, false);
                     move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Knight, false, null, false, false, false);
                 } else {
-                    @branchHint(.likely);
                     // normal pawn move
                     move_list.addEasyMove(start_square, esq, brd.Pieces.Pawn, false, null);
 
                     // double pawn push
                     if (color == brd.Color.White) {
-                        @branchHint(.unlikely);
                         if (start_square < @intFromEnum(brd.Squares.a3) and !brd.getBit(board.occupancy(), @as(u64, @intCast(end_square + end_square_update)))) {
                             move_list.addMove(start_square, @as(u64, @intCast(end_square + 8)), brd.Pieces.Pawn, null, false, null, true, false, false);
                         }
                     } else {
-                        @branchHint(.unlikely);
                         if (start_square > @intFromEnum(brd.Squares.h6) and !brd.getBit(board.occupancy(), @as(u64, @intCast(end_square + end_square_update)))) {
                             move_list.addMove(start_square, @as(u64, @intCast(end_square - 8)), brd.Pieces.Pawn, null, false, null, true, false, false);
                         }
@@ -282,13 +284,11 @@ pub const MoveGen = struct {
 
                 // promotion captures
                 if (start_square < pawn_promo_1 and start_square > pawn_promo_2) {
-                    @branchHint(.unlikely);
                     move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Queen, true, captured_piece, false, false, false);
                     move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Rook, true, captured_piece, false, false, false);
                     move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Bishop, true, captured_piece, false, false, false);
                     move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Knight, true, captured_piece, false, false, false);
                 } else {
-                    @branchHint(.likely);
                     move_list.addEasyMove(start_square, esq, brd.Pieces.Pawn, true, captured_piece);
                 }
                 brd.popBit(&attacks, esq);
@@ -299,7 +299,6 @@ pub const MoveGen = struct {
                 const ep_attacks: Bitboard = self.pawns[@as(usize, @intFromEnum(color)) * 64 + start_square] & brd.getSquareBB(ep_square);
 
                 if (ep_attacks != 0) {
-                    @branchHint(.unlikely);
                     const captured_piece: ?brd.Pieces = board.getPieceFromSquare(ep_square);
                     move_list.addMove(start_square, ep_square, brd.Pieces.Pawn, null, true, captured_piece, false, true, false);
                 }
@@ -707,7 +706,6 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
 
     // Increment halfmove clock for non-capture, non-pawn moves
     if (piece_type != brd.Pieces.Pawn and move.capture == 0) {
-        // @branchHint(.unpredictable);
         board.game_state.halfmove_clock += 1;
     } else {
         // Reset halfmove clock for captures and pawn moves
@@ -716,7 +714,6 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
 
     // Handle castling moves
     if (move.castling == 1) {
-        @branchHint(.unlikely);
         board.movePiece(moving_color, brd.Pieces.King, from_square, to_square);
 
         if (to_square > from_square) {
@@ -733,12 +730,9 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
 
         // Update castling rights
         if (moving_color == brd.Color.White) {
-            @branchHint(.unpredictable);
-            // @branchHint(.unpredictable);
             board.removeCastlingRights(brd.CastleRights.WhiteKingside);
             board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
         } else {
-            @branchHint(.unpredictable);
             board.removeCastlingRights(brd.CastleRights.BlackKingside);
             board.removeCastlingRights(brd.CastleRights.BlackQueenside);
         }
@@ -754,7 +748,6 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
     }
     // Handle en passant capture
     else if (move.en_passant == 1) {
-        @branchHint(.unlikely);
         board.movePiece(moving_color, brd.Pieces.Pawn, from_square, to_square);
 
         const captured_pawn_square = if (moving_color == brd.Color.White) to_square - 8 else to_square + 8;
@@ -764,7 +757,6 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
     }
     // Handle promotion
     else if (move.promoted_piece != 0) {
-        @branchHint(.unlikely);
         board.removePiece(moving_color, brd.Pieces.Pawn, from_square);
         const promoted_piece_type = @as(brd.Pieces, @enumFromInt(move.promoted_piece));
 
@@ -781,7 +773,6 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
     }
     // Handle general move
     else {
-        @branchHint(.likely);
         if (move.capture == 1) {
             const captured_piece_type = @as(brd.Pieces, @enumFromInt(move.captured_piece));
             board.removePiece(brd.flipColor(moving_color), captured_piece_type, to_square);
@@ -792,17 +783,14 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
         // Update castling rights if rook or king moves
         if (piece_type == brd.Pieces.King) {
             if (moving_color == brd.Color.White) {
-                @branchHint(.unpredictable);
                 board.removeCastlingRights(brd.CastleRights.WhiteKingside);
                 board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
             } else {
-                @branchHint(.unpredictable);
                 board.removeCastlingRights(brd.CastleRights.BlackKingside);
                 board.removeCastlingRights(brd.CastleRights.BlackQueenside);
             }
         } else if (piece_type == brd.Pieces.Rook) {
             if (moving_color == brd.Color.White) {
-                @branchHint(.unpredictable);
                 if (from_square == @intFromEnum(brd.Squares.a1)) {
                     board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
                 } else if (from_square == @intFromEnum(brd.Squares.h1)) {
@@ -831,7 +819,6 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
     }
 
     if (moving_color == brd.Color.Black) {
-        @branchHint(.unpredictable);
         board.game_state.fullmove_number += 1;
     }
 
@@ -848,7 +835,6 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
 
     // Handle castling
     if (move.castling == 1) {
-        @branchHint(.unlikely);
         // Move the king back
         board.movePiece(side_to_undo, brd.Pieces.King, to_square, from_square);
 
@@ -867,7 +853,6 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
     }
     // Handle en passant
     else if (move.en_passant == 1) {
-        @branchHint(.unlikely);
         // Move the pawn back
         board.movePiece(side_to_undo, brd.Pieces.Pawn, to_square, from_square);
 
@@ -877,7 +862,6 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
     }
     // Handle promotion
     else if (move.promoted_piece != 0) {
-        @branchHint(.unlikely);
         // Remove the promoted piece
         const promoted_piece_type = @as(brd.Pieces, @enumFromInt(move.promoted_piece));
         board.removePiece(side_to_undo, promoted_piece_type, to_square);
@@ -893,7 +877,6 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
     }
     // Handle regular moves and captures
     else {
-        @branchHint(.likely);
         // Move the piece back
         board.movePiece(side_to_undo, piece_type, to_square, from_square);
 

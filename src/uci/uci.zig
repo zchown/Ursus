@@ -1,9 +1,9 @@
 const std = @import("std");
-const brd = @import("../chess/board.zig");
-const mvs = @import("../chess/moves.zig");
-const fen = @import("../chess/fen.zig");
-const srch = @import("../engine/search.zig");
-const tt = @import("../engine/transposition.zig");
+const brd = @import("board");
+const mvs = @import("moves");
+const fen = @import("fen");
+const srch = @import("search");
+const tt = @import("transposition");
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
@@ -17,7 +17,7 @@ pub const SearchLimits = struct {
     movetime: ?u64 = null,
     infinite: bool = false,
     ponder: bool = false,
-    searchmoves: ?[]mvs.Move = null,
+    searchmoves: ?[]mvs.EncodedMove = null,
 };
 
 pub const UciOption = struct {
@@ -39,55 +39,27 @@ pub const UciProtocol = struct {
     is_searching: bool = false,
     hash_size_mb: u32 = 16,
 
-    // UCI options
-    options: std.StringHashMap(UciOption),
 
     pub fn init(allocator: std.mem.Allocator) !UciProtocol {
-        var protocol = UciProtocol{
+        return UciProtocol{
             .table = try tt.TranspositionTable.init(allocator, 1 << 15, null),
             .board = brd.Board.init(),
             .move_gen = mvs.MoveGen.init(),
             .allocator = allocator,
-            .options = std.StringHashMap(UciOption).init(allocator),
         };
-
-        try protocol.initializeOptions();
-        return protocol;
     }
 
     pub fn deinit(self: *UciProtocol) void {
-        self.table.deinit();
-        self.options.deinit();
-    }
-
-    fn initializeOptions(self: *UciProtocol) !void {
-        try self.options.put("Hash", UciOption{
-            .name = "Hash",
-            .type = .spin,
-            .default = "16",
-            .min = 1,
-            .max = 1024,
-        });
-
-        try self.options.put("Clear Hash", UciOption{
-            .name = "Clear Hash",
-            .type = .button,
-        });
-
-        try self.options.put("Ponder", UciOption{
-            .name = "Ponder",
-            .type = .check,
-            .default = "false",
-        });
+        self.table.deinit(self.allocator);
     }
 
     pub fn receiveCommand(self: *UciProtocol, command: []const u8) !void {
         var tokenizer = std.mem.tokenizeScalar(u8, command, ' ');
-        var parts = std.ArrayList([]const u8).init(self.allocator);
-        defer parts.deinit();
+        var parts = try std.ArrayList([]const u8).initCapacity(self.allocator, 32);
+        defer parts.deinit(self.allocator);
 
         while (tokenizer.next()) |token| {
-            try parts.append(token);
+            try parts.append(self.allocator, token);
         }
         if (parts.items.len == 0) return;
 
@@ -130,31 +102,6 @@ pub const UciProtocol = struct {
         try respond("id name Ursus");
         try respond("id author Zander");
 
-        var it = self.options.iterator();
-        while (it.next()) |entry| {
-            const opt = entry.value_ptr.*;
-            var buffer: [512]u8 = undefined;
-            const msg = switch (opt.type) {
-                .check => try std.fmt.bufPrint(&buffer, "option name {s} type check default {s}", .{
-                    opt.name, opt.default.?,
-                }),
-                .spin => try std.fmt.bufPrint(&buffer, "option name {s} type spin default {s} min {d} max {d}", .{
-                    opt.name, opt.default.?, opt.min.?, opt.max.?,
-                }),
-                .button => try std.fmt.bufPrint(&buffer, "option name {s} type button", .{opt.name}),
-                .string => try std.fmt.bufPrint(&buffer, "option name {s} type string default {s}", .{
-                    opt.name, opt.default orelse "",
-                }),
-                .combo => blk: {
-                    const result = try std.fmt.bufPrint(&buffer, "option name {s} type combo default {s}", .{
-                        opt.name, opt.default.?,
-                    });
-                    break :blk result;
-                },
-            };
-            try respond(msg);
-        }
-
         try respond("uciok");
         try self.newGame();
     }
@@ -186,23 +133,21 @@ pub const UciProtocol = struct {
         defer self.allocator.free(option_name);
 
         if (std.mem.eql(u8, option_name, "Hash")) {
-            if (name_end + 1 < args.len) {
-                const hash_mb = try std.fmt.parseInt(u32, args[name_end + 1], 10);
-                self.hash_size_mb = hash_mb;
-                self.table.deinit();
-                const entries = @min(hash_mb * 1024 * 1024 / @sizeOf(tt.TTEntry), 1 << 24);
-                self.table = try tt.TranspositionTable.init(self.allocator, entries, null);
-            }
+            // TODO: handle hash size option
         } else if (std.mem.eql(u8, option_name, "Clear Hash")) {
-            self.table.clear();
+            // TODO: handle clear hash option
         } else if (std.mem.eql(u8, option_name, "Ponder")) {
             // TODO: handle ponder option
         }
     }
 
     fn respond(response: []const u8) !void {
-        const stdout = std.io.getStdOut().writer();
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
+
         try stdout.print("{s}\n", .{response});
+        try stdout.flush();
     }
 
     fn newGame(self: *UciProtocol) !void {
@@ -237,12 +182,12 @@ pub const UciProtocol = struct {
                 }
             }
         } else if (std.mem.eql(u8, args[0], "fen")) {
-            var fen_parts = std.ArrayList([]const u8).init(self.allocator);
-            defer fen_parts.deinit();
+            var fen_parts = try std.ArrayList([]const u8).initCapacity(self.allocator, 32);
+            defer fen_parts.deinit(self.allocator);
 
             var i: usize = 1;
             while (i < args.len and !std.mem.eql(u8, args[i], "moves")) : (i += 1) {
-                try fen_parts.append(args[i]);
+                try fen_parts.append(self.allocator, args[i]);
             }
 
             const fen_str = try std.mem.join(self.allocator, " ", fen_parts.items);
@@ -320,15 +265,15 @@ pub const UciProtocol = struct {
         self.is_searching = true;
 
         // Calculate time to use based on limits
-        var search_time: u64 = 2500; // default
+        var search_time: u64 = 2500; 
         if (limits.movetime) |mt| {
             search_time = mt;
         } else if (limits.wtime != null or limits.btime != null) {
-            const our_time = if (self.board.side_to_move == .white) 
+            const our_time = if (self.board.game_state.side_to_move == .White) 
                 limits.wtime orelse 0 
                 else 
                     limits.btime orelse 0;
-                const our_inc = if (self.board.side_to_move == .white)
+                const our_inc = if (self.board.game_state.side_to_move == .White)
                     limits.winc orelse 0
                     else
                         limits.binc orelse 0;
@@ -336,15 +281,18 @@ pub const UciProtocol = struct {
                     search_time = our_time / 30 + our_inc;
         }
 
-        const result = srch.search(&self.board, &self.move_gen, &self.table, search_time);
+        const result = srch.search(&self.board, &self.move_gen, &self.table, @as(isize, @intCast(search_time)));
 
-        const stdout = std.io.getStdOut().writer();
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
         const move_str = try result.search_result.bestMove.uciToString(self.allocator);
         defer self.allocator.free(move_str);
 
         try stdout.print("bestmove {s}\n", .{move_str});
 
-        self.is_searching = false;
+        try stdout.flush();
+self.is_searching = false;
     }
 
     fn printBoard(self: *UciProtocol) !void {
@@ -352,11 +300,15 @@ pub const UciProtocol = struct {
     }
 
     pub fn sendInfo(self: *UciProtocol, comptime fmt: []const u8, args: anytype) !void {
-        if (self.is_searching) {
-            const stdout = std.io.getStdOut().writer();
-            try stdout.print("info ", .{});
-            try stdout.print(fmt, args);
-            try stdout.print("\n", .{});
-        }
+        if (!self.is_searching) return;
+
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
+
+        try stdout.print("info ", .{});
+        try stdout.print(fmt, args);
+        try stdout.print("", .{});
+        try stdout.flush();
     }
 };

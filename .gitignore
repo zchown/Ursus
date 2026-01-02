@@ -1,6 +1,61 @@
-.zig-cache/
+# Zig build artifacts
+zig-cache/
 zig-out/
-lichess-bot/
+.zig-cache/
 
-.DS_STORE
-temp*
+# Build outputs
+*.o
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+*.wasm
+
+# Test outputs
+test-results/
+*.tracy
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS files
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*
+
+# Temp files
+temp
+**/temp
+*.tmp
+*.temp
+
+# Logs
+*.log
+
+# Coverage
+*.profdata
+*.profraw
+
+engines/
+matches/
+
+lichess-bot/

@@ -1,6 +1,6 @@
 const std = @import("std");
-const uci = @import("uci/uci.zig");
-const prft = @import("chess/perft.zig");
+const uci = @import("uci");
+const prft = @import("perft");
 
 pub fn main() !void {
     // try prft.runPerftTest();
@@ -16,6 +16,7 @@ pub fn main() !void {
     const reader: *std.Io.Reader = &stdin_reader.interface;
 
     while (true) {
+        std.debug.print(">> ", .{});
         const maybe_line = reader.takeDelimiterExclusive('\n') catch |err| switch (err) {
             error.EndOfStream => break,
             error.StreamTooLong => {

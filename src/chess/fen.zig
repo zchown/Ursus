@@ -1,7 +1,7 @@
 const std = @import("std");
-const zob = @import("zobrist.zig");
-const Board = @import("board.zig").Board;
-const brd = @import("board.zig");
+const zob = @import("zobrist");
+const brd = @import("board");
+const Board = brd.Board;
 
 pub fn parseFEN(board: *Board, fen: []const u8) !void {
     var it = std.mem.tokenizeAny(u8, fen, " ");

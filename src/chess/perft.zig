@@ -1,7 +1,7 @@
 const std = @import("std");
-const brd = @import("board.zig");
-const mvs = @import("moves.zig");
-const fen = @import("fen.zig");
+const brd = @import("board");
+const mvs = @import("moves");
+const fen = @import("fen");
 
 pub const PerftResult = struct {
     total: u64 = 0,
