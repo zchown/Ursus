@@ -31,26 +31,36 @@ pub const UciOption = struct {
 
 pub const UciProtocol = struct {
     board: brd.Board,
-    table: tt.TranspositionTable,
-    move_gen: mvs.MoveGen,
     allocator: std.mem.Allocator,
     debug_mode: bool = false,
     should_quit: bool = false,
     is_searching: bool = false,
     hash_size_mb: u32 = 16,
+    searcher: *srch.Searcher,
 
+    pub fn init(a: std.mem.Allocator) !UciProtocol {
+        std.debug.print("Initializing UCI protocol...\n", .{});
 
-    pub fn init(allocator: std.mem.Allocator) !UciProtocol {
+        const searcher_ptr = try a.create(srch.Searcher);
+        errdefer a.destroy(searcher_ptr);
+
+        searcher_ptr.initInPlace();
+
+        // tt.global_tt = try tt.TranspositionTable.init(@as(usize, 16));
+        // try tt.global_tt.initInPlace(@as(usize, 16));
+        // try tt.TranspositionTable.initGlobal(@as(usize, 16));
+
+        // std.debug.print("global_tt initialized with {} entries\n", .{tt.global_tt.items.items.len});
+
         return UciProtocol{
-            .table = try tt.TranspositionTable.init(allocator, 1 << 15, null),
             .board = brd.Board.init(),
-            .move_gen = mvs.MoveGen.init(),
-            .allocator = allocator,
+            .allocator = a,
+            .searcher = searcher_ptr,
         };
     }
 
     pub fn deinit(self: *UciProtocol) void {
-        self.table.deinit(self.allocator);
+        self.searcher.deinit();
     }
 
     pub fn receiveCommand(self: *UciProtocol, command: []const u8) !void {
@@ -70,6 +80,9 @@ pub const UciProtocol = struct {
             try self.handleUci();
         } else if (std.mem.eql(u8, commandName, "isready")) {
             try respond("readyok");
+        } else if (std.mem.eql(u8, commandName, "debug")) {
+            // print fen of current position for debugging
+            try fen.debugPrintBoard(&self.board);
         } else if (std.mem.eql(u8, commandName, "ucinewgame")) {
             try self.newGame();
         } else if (std.mem.eql(u8, commandName, "position")) {
@@ -151,7 +164,7 @@ pub const UciProtocol = struct {
     }
 
     fn newGame(self: *UciProtocol) !void {
-        self.table.clear();
+        // tt.global_tt.reset();
         self.board = brd.Board.init();
         fen.setupStartingPosition(&self.board);
         self.is_searching = false;
@@ -264,30 +277,40 @@ pub const UciProtocol = struct {
 
         self.is_searching = true;
 
-        // Calculate time to use based on limits
-        var search_time: u64 = 2500; 
-        if (limits.movetime) |mt| {
-            search_time = mt;
-        } else if (limits.wtime != null or limits.btime != null) {
-            const our_time = if (self.board.game_state.side_to_move == .White) 
-                limits.wtime orelse 0 
-                else 
-                    limits.btime orelse 0;
-                const our_inc = if (self.board.game_state.side_to_move == .White)
-                    limits.winc orelse 0
-                    else
-                        limits.binc orelse 0;
+        self.is_searching = true;
+        const time_allocation = calculateTimeAllocation(&limits, self.board.toMove());
+        self.searcher.max_ms = time_allocation.max_ms;
+        self.searcher.ideal_ms = time_allocation.ideal_ms;
 
-                    search_time = our_time / 30 + our_inc;
-        }
-
-        const result = srch.search(&self.board, &self.move_gen, &self.table, @as(isize, @intCast(search_time)));
+        const result = try self.searcher.iterative_deepening(&self.board, null);
+        std.debug.print("Search completed", .{});
 
         var stdout_buffer: [1024]u8 = undefined;
         var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
         const stdout = &stdout_writer.interface;
-        const move_str = try result.search_result.bestMove.uciToString(self.allocator);
+        const move_str = try result.move.uciToString(self.allocator);
         defer self.allocator.free(move_str);
+
+        // construct PV string
+        var pv_string_buffer: [512]u8 = @splat(0);
+        var pv_string_len: usize = 0;
+        for (result.pv[0..result.pv_length]) |move| {
+            const cur_move_str = try move.uciToString(self.allocator);
+            defer self.allocator.free(cur_move_str);
+            const needed_len = pv_string_len + cur_move_str.len + 1;
+            if (needed_len > pv_string_buffer.len) {
+                break; // PV string is too long, stop adding moves
+            }
+            std.mem.copyForwards(u8, pv_string_buffer[pv_string_len..], cur_move_str);
+            pv_string_len += move_str.len;
+            pv_string_buffer[pv_string_len] = ' ';
+            pv_string_len += 1;
+        }
+        const pv_string = pv_string_buffer[0..pv_string_len];
+
+        // output info about the best move found
+        try stdout.print("info depth {d} seldepth {d} time {d} nodes {d} pv {s} score cp {d}\n",
+            .{self.searcher.search_depth, self.searcher.seldepth, result.time_ms, result.nodes, pv_string, result.score});
 
         try stdout.print("bestmove {s}\n", .{move_str});
 
@@ -312,3 +335,42 @@ self.is_searching = false;
         try stdout.flush();
     }
 };
+
+fn calculateTimeAllocation(limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {
+    if (limits.movetime) |mt| {
+        return .{ .max_ms = mt, .ideal_ms = mt };
+    }
+
+    if (limits.infinite or limits.ponder) {
+        return .{ .max_ms = std.math.maxInt(u64), .ideal_ms = std.math.maxInt(u64) };
+    }
+
+    const our_time = if (side_to_move == .White) limits.wtime else limits.btime;
+    const our_inc = if (side_to_move == .White) limits.winc else limits.binc;
+
+    if (our_time) |time| {
+        const increment = our_inc orelse 0;
+
+        const moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else 40;
+
+        // base_time = (time + increment * (moves_remaining - 1)) / moves_remaining
+        const total_time = time + (increment * (moves_remaining - 1));
+        const base_time = total_time / moves_remaining;
+
+        // Calculate ideal time (what we aim to use)
+        // Use slightly less than base to have a buffer
+        const ideal_ms = @min(base_time * 7 / 10, time - 100); // Use 70% of base, leave 100ms buffer
+
+        // Calculate max time (hard limit)
+        // Allow using up to 3x ideal in critical positions, but never more than 40% of remaining time
+        const max_ms = @min(ideal_ms * 3, time * 4 / 10);
+
+        return .{
+            .max_ms = @max(max_ms, 10), // Minimum 10ms
+            .ideal_ms = @max(ideal_ms, 10),
+        };
+    }
+
+    // Fallback if no time controls specified
+    return .{ .max_ms = 1000, .ideal_ms = 1000 };
+}

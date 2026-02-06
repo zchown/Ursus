@@ -2,7 +2,7 @@ const std = @import("std");
 const brd = @import("board");
 pub const ZobristKey = u64;
 
-const PieceRandoms = [brd.num_colors][brd.num_pieces][brd.num_squares]ZobristKey;
+const PieceRandoms = [brd.num_colors][brd.num_pieces + 1][brd.num_squares]ZobristKey;
 const CastleRandoms = [16]ZobristKey;
 const ColorRandoms = [brd.num_colors]ZobristKey;
 const EnPassantRandoms = [brd.num_squares + 1]ZobristKey;

@@ -142,23 +142,32 @@ pub const EncodedMove = packed struct(u32) {
 };
 
 pub const MoveList = struct {
-    list: [218:EncodedMove{}]EncodedMove,
-    current: usize = 0,
+    items: [218:EncodedMove{}]EncodedMove,
+    len: usize = 0,
 
     pub fn init() MoveList {
-        var ml = MoveList{ .list = undefined, .current = 0 };
-        ml.list[0] = EncodedMove{};
+        var ml = MoveList{ .items = undefined, .len = 0 };
+        ml.items[0] = EncodedMove{};
         return ml;
+    }
+
+    pub inline fn addEncodedMove(self: *MoveList, move: EncodedMove) void {
+        self.items[self.len] = move;
+        self.len += 1;
+
+        if (self.len < 218) {
+            self.items[self.len] = EncodedMove{};
+        }
     }
 
     pub inline fn addMove(self: *MoveList, start: brd.Square, end: brd.Square, piece: brd.Pieces, promoted_piece: ?brd.Pieces, capture: bool, captured_piece: ?brd.Pieces, double_pawn_push: bool, en_passant: bool, castling: bool) void {
         const move = EncodedMove.encode(start, end, piece, promoted_piece, capture, captured_piece, double_pawn_push, en_passant, castling);
 
-        self.list[self.current] = move;
-        self.current += 1;
+        self.items[self.len] = move;
+        self.len += 1;
 
-        if (self.current < 218) {
-            self.list[self.current] = EncodedMove{};
+        if (self.len < 218) {
+            self.items[self.len] = EncodedMove{};
         }
     }
 
@@ -167,8 +176,8 @@ pub const MoveList = struct {
     }
 
     pub fn print(self: *MoveList) void {
-        for (0..self.current) |i| {
-            self.list[i].print();
+        for (0..self.len) |i| {
+            self.items[i].print();
         }
     }
 };
@@ -223,6 +232,90 @@ pub const MoveGen = struct {
         return move_list;
     }
 
+    pub fn generateLegalMoves(self: *MoveGen, board: *Board) MoveList {
+        const move_list = self.generateMoves(board, allMoves);
+        var legal_move_list = MoveList.init();
+    
+        const color = board.game_state.side_to_move;
+    
+        for (0..move_list.len) |i| {
+            const move = move_list.items[i];
+            makeMove(board, move);
+            if (!self.isInCheck(board, color)) {
+                legal_move_list.addMove(
+                    move.start_square,
+                    move.end_square,
+                    @as(brd.Pieces, @enumFromInt( move.piece)),
+                    if (move.promoted_piece != 0) @as(brd.Pieces, @enumFromInt(move.promoted_piece)) else null,
+                    move.capture != 0,
+                    if (move.captured_piece != 0) @as(brd.Pieces, @enumFromInt(move.captured_piece)) else null,
+                    move.double_pawn_push != 0,
+                    move.en_passant != 0,
+                    move.castling != 0,
+                );
+            }
+            undoMove(board, move);
+        }
+    
+        return legal_move_list;
+    }
+
+    pub fn isInCheck(self: *MoveGen, board: *Board, color: brd.Color) bool {
+        const king_bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.King)];
+        if (king_bb == 0) {
+            return false; // No king found, should not happen in a valid position
+        }
+        const king_square = brd.getLSB(king_bb);
+        return self.isAttacked(king_square, brd.flipColor(color), board);
+    }
+
+    pub fn generateCaptureMoves(self: *MoveGen, board: *Board, color: brd.Color) MoveList {
+        var move_list = MoveList.init();
+
+        // pawn moves
+        self.generatePawnMoves(board, &move_list, color, onlyCaptures);
+
+        // king moves
+        self.generateKingMoves(board, &move_list, color, onlyCaptures);
+
+        // knight moves
+        self.generateKnightMoves(board, &move_list, color, onlyCaptures);
+
+        // bishop, rook, queen moves
+        self.generateSlideMoves(board, &move_list, color, onlyCaptures);
+
+        return move_list;
+    }
+
+    // pub fn generateCaptureMoves(self: *MoveGen, board: *Board) MoveList {
+    //     const move_list = self.
+    //     var legal_move_list = MoveList.init();
+    //
+    //     const color = board.game_state.side_to_move;
+    //
+    //     for (0..move_list.len) |i| {
+    //         const move = move_list.items[i];
+    //         makeMove(board, move);
+    //         if (!self.isInCheck(board, color)) {
+    //             legal_move_list.addMove(
+    //                 move.start_square,
+    //                 move.end_square,
+    //                 @as(brd.Pieces, @enumFromInt( move.piece)),
+    //                 if (move.promoted_piece != 0) @as(brd.Pieces, @enumFromInt(move.promoted_piece)) else null,
+    //                 move.capture != 0,
+    //                 if (move.captured_piece != 0) @as(brd.Pieces, @enumFromInt(move.captured_piece)) else null,
+    //                 move.double_pawn_push != 0,
+    //                 move.en_passant != 0,
+    //                 move.castling != 0,
+    //             );
+    //         }
+    //         undoMove(board, move);
+    //     }
+    //
+    //     return legal_move_list;
+    // }
+
+
     pub fn generatePawnMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
         var bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.Pawn)];
         var start_square: brd.Square = undefined;
@@ -272,7 +365,6 @@ pub const MoveGen = struct {
                     }
                 }
             }
-
             // capture moves
             attacks = self.pawns[@as(usize, @intFromEnum(color)) * 64 + start_square] & board.color_bb[@intFromEnum(brd.flipColor(color))];
             while (attacks != 0) {
@@ -323,7 +415,7 @@ pub const MoveGen = struct {
                 // quite move
                 if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.King, false, null);
-                } else {
+                } else if (brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     // capture move
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.King, true, board.getPieceFromSquare(end_square));
                 }
@@ -350,7 +442,7 @@ pub const MoveGen = struct {
                 end_square = brd.getLSB(attacks);
                 if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Bishop, false, null);
-                } else {
+                } else if (brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Bishop, true, board.getPieceFromSquare(end_square));
                 }
                 brd.popBit(&attacks, end_square);
@@ -367,7 +459,7 @@ pub const MoveGen = struct {
                 end_square = brd.getLSB(attacks);
                 if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Rook, false, null);
-                } else {
+                } else if (brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Rook, true, board.getPieceFromSquare(end_square));
                 }
                 brd.popBit(&attacks, end_square);
@@ -384,7 +476,7 @@ pub const MoveGen = struct {
                 end_square = brd.getLSB(attacks);
                 if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Queen, false, null);
-                } else {
+                } else if (brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Queen, true, board.getPieceFromSquare(end_square));
                 }
                 brd.popBit(&attacks, end_square);
@@ -489,6 +581,10 @@ pub const MoveGen = struct {
     }
 
     pub inline fn isAttacked(self: *MoveGen, sq: brd.Square, color: brd.Color, board: *Board) bool {
+        if (sq > 63) {
+            return false; // Invalid square
+        }
+
         const op_color = brd.flipColor(color);
 
         if (self.knights[sq] & board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.Knight)] != 0) {
@@ -841,14 +937,16 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
         // Move the rook back
         if (to_square > from_square) {
             // Kingside castling
-            const rook_from = if (side_to_undo == brd.Color.White) @as(brd.Square, 5) else @as(brd.Square, 61);
-            const rook_to = if (side_to_undo == brd.Color.White) @as(brd.Square, 7) else @as(brd.Square, 63);
-            board.movePiece(side_to_undo, brd.Pieces.Rook, rook_from, rook_to);
+            const rook_from = if (side_to_undo == brd.Color.White) @as(brd.Square, 7) else @as(brd.Square, 63);
+            const rook_to = if (side_to_undo == brd.Color.White) @as(brd.Square, 5) else @as(brd.Square, 61);
+            // FIX: Move TO -> FROM
+            board.movePiece(side_to_undo, brd.Pieces.Rook, rook_to, rook_from); 
         } else {
             // Queenside castling
-            const rook_from = if (side_to_undo == brd.Color.White) @as(brd.Square, 3) else @as(brd.Square, 59);
-            const rook_to = if (side_to_undo == brd.Color.White) @as(brd.Square, 0) else @as(brd.Square, 56);
-            board.movePiece(side_to_undo, brd.Pieces.Rook, rook_from, rook_to);
+            const rook_from = if (side_to_undo == brd.Color.White) @as(brd.Square, 0) else @as(brd.Square, 56);
+            const rook_to = if (side_to_undo == brd.Color.White) @as(brd.Square, 3) else @as(brd.Square, 59);
+            // FIX: Move TO -> FROM
+            board.movePiece(side_to_undo, brd.Pieces.Rook, rook_to, rook_from);
         }
     }
     // Handle en passant

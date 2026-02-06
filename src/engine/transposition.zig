@@ -3,145 +3,123 @@ const zob = @import("zobrist");
 const brd = @import("board");
 const mv = @import("moves");
 
+pub const default_tt_size_mb = 64; // 64 MB
+pub const kb = 1 << 10;
+pub const mb = 1 << 20;
+
 pub const EstimationType = enum(u2) {
-    Under = 0,
-    Over = 1,
-    Exact = 2,
+    None,
+    Under,
+    Over,
+    Exact,
 };
 
-pub const TranspositionEntry = struct {
-    estimation: EstimationType,
-    move: mv.EncodedMove,
-    depth: isize,
-    score: f64,
-    zobrist: zob.ZobristKey,
+pub const Entry = struct {
+    hash: zob.ZobristKey = 0,
+    eval: i32 = 0.0,
+    move: mv.EncodedMove = mv.EncodedMove.fromU32(0),
+    flag: EstimationType = .None,
+    depth: u8 = 0,
+    age: u6 = 0,
 };
 
-pub const TranspositionTableStats = struct {
-    hits: usize,
-    misses: usize,
-    collisions: usize,
-    depth_rewrites: usize,
-    current_fill: usize,
-    update_count: usize,
-    lookup_count: usize,
+pub var tt_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 
-    pub fn init() TranspositionTableStats {
-        return TranspositionTableStats{
-            .hits = 0,
-            .misses = 0,
-            .collisions = 0,
-            .depth_rewrites = 0,
-            .current_fill = 0,
-            .update_count = 0,
-            .lookup_count = 0,
-        };
-    }
-
-    pub fn print(self: TranspositionTableStats) void {
-        std.debug.print("TranspositionTableStats:\n", .{});
-        std.debug.print("  Hits: {}\n", .{self.hits});
-        std.debug.print("  Misses: {}\n", .{self.misses});
-        std.debug.print("  Collisions: {}\n", .{self.collisions});
-        std.debug.print("  Depth Rewrites: {}\n", .{self.depth_rewrites});
-        std.debug.print("  Current Fill: {}\n", .{self.current_fill});
-        std.debug.print("  Update Count: {}\n", .{self.update_count});
-        std.debug.print("  Lookup Count: {}\n", .{self.lookup_count});
-    }
-};
+pub var global_tt_initialized: bool = false;
+pub var global_tt_size_mb: usize = default_tt_size_mb;
+pub var global_tt_needs_reset: bool = false;
+pub var global_tt: *TranspositionTable = undefined;
 
 pub const TranspositionTable = struct {
-    entries: []TranspositionEntry,
-    capacity: u64,
-    stats: TranspositionTableStats,
-    retries: usize,
+    items: std.ArrayList(Entry),
+    size: usize,
+    age: u6,
 
-    pub fn init(allocator: std.mem.Allocator, capacity: u64, retries: ?usize) !TranspositionTable {
-        const entries = try allocator.alloc(TranspositionEntry, capacity);
-        return TranspositionTable{
-            .entries = entries,
-            .capacity = capacity,
-            .stats = TranspositionTableStats.init(),
-            .retries = retries orelse 8,
+    pub fn initGlobal(size_in_mb: usize) !void {
+        const raw_num_entries = (size_in_mb * mb) / @sizeOf(Entry);
+        // Round down to the nearest power of two
+        const num_entries:usize = std.math.floorPowerOfTwo(usize, raw_num_entries);
+
+        global_tt = try tt_arena.allocator().create(TranspositionTable);
+        global_tt.* = TranspositionTable{
+            .items = try std.ArrayList(Entry).initCapacity(tt_arena.allocator(), num_entries),
+            .size = num_entries,
+            .age = 0,
         };
+        global_tt.items.expandToCapacity();
+        global_tt_initialized = true;
+     }
+
+//     pub fn initGlobal(size_in_mb: usize) !void {
+//         const raw_num_entries = (size_in_mb * mb) / @sizeOf(Entry);
+//         const num_entries = std.math.floorPowerOfTwo(usize, raw_num_entries);
+//
+//         // 1. Allocate the slice directly
+//         const buffer = try tt_arena.allocator().alloc(Entry, num_entries);
+//
+//         // 2. Zero the memory
+//         @memset(buffer, Entry{});
+//
+//         // 3. Manually construct the ArrayList header
+//         global_tt.items = std.ArrayList(Entry).fromOwnedSlice(buffer);
+//         global_tt.size = num_entries;
+//         global_tt.age = 0;
+//
+//         std.debug.print("Global TT verified len: {}\n", .{global_tt.items.items.len});
+// }
+
+    pub inline fn clear(self: *TranspositionTable) void {
+        self.items.clearRetainingCapacity();
     }
 
-    pub fn deinit(self: *TranspositionTable, allocator: std.mem.Allocator) void {
-        allocator.free(self.entries);
+    pub fn resize(self: *TranspositionTable, new_size_in_mb: usize) !void {
+        const raw_num_entries = (new_size_in_mb * mb) / @sizeOf(Entry);
+        const new_num_entries: usize = std.math.floorPowerOfTwo(usize, raw_num_entries);
+
+        self.items.deinit(tt_arena.allocator());
+        self.items = try std.ArrayList(Entry).initCapacity(tt_arena.allocator(), new_num_entries);
+        self.size = new_num_entries;
+        self.age = 0;
     }
 
-    pub fn clear(self: *TranspositionTable) void {
-        for (self.entries) |*entry| {
-            entry.* = TranspositionEntry{
-                .estimation = EstimationType.Exact,
-                .move = mv.EncodedMove.fromU32(0),
-                .depth = 0,
-                .score = 0.0,
-                .zobrist = 0,
-            };
+    pub inline fn reset(self: *TranspositionTable) void {
+        self.clear();
+        self.age = 0;
+    }
+
+    pub inline fn index(self: *TranspositionTable, hash: zob.ZobristKey) usize {
+        return @as(usize, hash & (@as(zob.ZobristKey, self.size) - 1));
+    }
+
+    pub inline fn incrememtAge(self: *TranspositionTable) void {
+        self.age +%= 1;
+    }
+
+    pub inline fn set(self: *TranspositionTable, entry: Entry) void {
+        const idx = self.index(entry.hash);
+        const cur_entry = self.items.items[idx];
+
+        if (entry.flag == .Exact or cur_entry.hash != entry.hash or cur_entry.depth <= entry.depth + 4 or cur_entry.age != self.age) {
+            self.items.items[idx] = entry;
         }
-        self.stats = TranspositionTableStats.init();
     }
 
-    inline fn zobristToIndex(self: *TranspositionTable, zobrist: zob.ZobristKey) usize {
-        return @as(usize, zobrist & (self.capacity - 1));
+    pub inline fn prefetch(self: *TranspositionTable, hash: zob.ZobristKey) void {
+        @prefetch(&self.items.items[self.index(hash)], .{
+            .rw = .read,
+            .locality = 1,
+            .cache = .data,
+        });
     }
 
-    pub fn get(self: *TranspositionTable, zobrist: zob.ZobristKey) ?TranspositionEntry {
-        self.stats.lookup_count += 1;
-        const index = self.zobristToIndex(zobrist);
+    pub fn get(self: *TranspositionTable, hash: zob.ZobristKey) ?Entry {
+        const idx = self.index(hash);
+        const entry = self.items.items[idx];
 
-        for (0..self.retries) |i| {
-            const probe_index = (index + i) % self.capacity;
-            const entry = self.entries[probe_index];
-
-            if (entry.zobrist == zobrist) {
-                self.stats.hits += 1;
-                return entry;
-            } else if (entry.zobrist == 0) {
-                self.stats.misses += 1;
-                return null;
-            }
-        }
-        self.stats.misses += 1;
-        return null;
-    }
-
-    pub fn set(self: *TranspositionTable, estimation: EstimationType, move: mv.EncodedMove, depth: isize, score: f64, zobrist: zob.ZobristKey) void {
-        self.stats.update_count += 1;
-        const index = self.zobristToIndex(zobrist);
-
-        const new_entry = TranspositionEntry{
-            .estimation = estimation,
-            .move = move,
-            .depth = depth,
-            .score = score,
-            .zobrist = zobrist,
-        };
-
-        var lowest_depth_index = index;
-        var lowest_depth = self.entries[index].depth;
-
-        for (0..self.retries) |i| {
-            const probe_index = (index + i) & (self.capacity - 1);
-
-            if (self.entries[probe_index].zobrist == 0) {
-                self.stats.current_fill += 1;
-                self.entries[probe_index] = new_entry;
-                return;
-            } else if ((self.entries[probe_index].zobrist == zobrist) and (self.entries[probe_index].depth < depth)) {
-                self.stats.depth_rewrites += 1;
-                self.entries[probe_index] = new_entry;
-                return;
-            } else if (self.entries[probe_index].depth < lowest_depth) {
-                lowest_depth = self.entries[probe_index].depth;
-                lowest_depth_index = probe_index;
-            }
-        }
-        self.stats.collisions += 1;
-        if (lowest_depth < depth) {
-            self.stats.depth_rewrites += 1;
-            self.entries[lowest_depth_index] = new_entry;
+        if (entry.hash == hash and entry.flag != .None ) {
+            return entry;
+        } else {
+            return null;
         }
     }
 };

@@ -58,8 +58,8 @@ pub fn perft(
     const moveList = mg.generateMoves(board, mvs.allMoves);
     var fails: usize = 0;
 
-    for (0..moveList.current) |m| {
-        const move = moveList.list[m];
+    for (0..moveList.len) |m| {
+        const move = moveList.items[m];
 
         // Capture original state and FEN
         // const original_state = board.game_state;
@@ -142,6 +142,15 @@ const TestPosition = struct {
 pub fn runPerftTest() !void {
     const positions = [_]TestPosition{
         .{
+            .fen = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8  ",
+            .depth = 5,
+            .expected = 89_941_194,
+            .captures = null,
+            .en_passant = null,
+            .castling = null,
+            .promotions = null,
+        },
+        .{
             .fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             .depth = 6,
             .expected = 119060324,
@@ -186,6 +195,7 @@ pub fn runPerftTest() !void {
             .castling = 10882006,
             .promotions = 81102984,
         },
+        
     };
 
     var mg = mvs.MoveGen.init();

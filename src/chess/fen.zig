@@ -154,13 +154,16 @@ pub fn toFEN(board: *Board, allocator: std.mem.Allocator) ![]u8 {
                             brd.Pieces.Rook => 'R',
                             brd.Pieces.Queen => 'Q',
                             brd.Pieces.King => 'K',
+                            brd.Pieces.None => '.',
                         };
 
                         if (color == brd.Color.Black) {
                             piece_char = std.ascii.toLower(piece_char);
                         }
 
-                        try fen.append(allocator, piece_char);
+                        if (piece != brd.Pieces.None) {
+                            try fen.append(allocator, piece_char);
+                        }
                         found_piece = true;
                         break;
                     }
@@ -259,14 +262,17 @@ pub fn debugPrintBoard(board: *Board) !void {
                             brd.Pieces.Rook => 'R',
                             brd.Pieces.Queen => 'Q',
                             brd.Pieces.King => 'K',
+                            brd.Pieces.None => '.',
                         };
 
                         if (color == brd.Color.Black) {
                             piece_char = std.ascii.toLower(piece_char);
                         }
 
-                        try stdout.print("{c} ", .{piece_char});
-                        printed = true;
+                        if (piece != brd.Pieces.None) {
+                            try stdout.print("{c} ", .{piece_char});
+                            printed = true;
+                        }
                         break;
                     }
                 }

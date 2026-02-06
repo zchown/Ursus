@@ -30,6 +30,7 @@ pub const Pieces = enum(u3) {
     Rook = 3,
     Queen = 4,
     King = 5,
+    None = 6,
 };
 
 pub const Color = enum(u1) {
@@ -141,6 +142,23 @@ pub const Board = struct {
         }
     }
 
+    pub fn makeNullMove(self: *Board) void {
+        self.history.addToHistory(self.game_state);
+        self.clearEnPassantSquare();
+        self.flipSideToMove();
+        self.game_state.halfmove_clock += 1;
+        if (self.game_state.side_to_move == Color.Black) {
+            self.game_state.fullmove_number += 1;
+        }
+    }
+
+    pub fn unmakeNullMove(self: *Board) void {
+        if (self.history.history_count > 0) {
+            self.history.history_count -= 1;
+            self.game_state = self.history.history_list[self.history.history_count];
+        }
+    }
+    
     pub fn getPieces(self: Board, color: Color, piece: Pieces) Bitboard {
         return self.piece_bb[@intFromEnum(color)][@intFromEnum(piece)];
     }
@@ -236,6 +254,7 @@ pub const Board = struct {
         for (std.meta.tags(Color)) |color| {
             const color_idx = @intFromEnum(color);
             for (std.meta.tags(Pieces)) |piece| {
+                if (piece == Pieces.None) continue;
                 const piece_idx = @intFromEnum(piece);
                 var bb: Bitboard = self.piece_bb[color_idx][piece_idx];
                 while (bb != 0) {
@@ -261,9 +280,24 @@ pub const Board = struct {
         for (std.meta.tags(Color)) |color| {
             const color_idx = @intFromEnum(color);
             for (std.meta.tags(Pieces)) |piece| {
+                if (piece == Pieces.None) continue;
                 const piece_idx = @intFromEnum(piece);
                 if ((self.piece_bb[color_idx][piece_idx] & (@as(Bitboard, 1) << @intCast(square))) != 0) {
                     return piece;
+                }
+            }
+        }
+        return null;
+    }
+
+    pub fn getColorFromSquare(self: Board, square: Square) ?Color {
+        for (std.meta.tags(Color)) |color| {
+            const color_idx = @intFromEnum(color);
+            for (std.meta.tags(Pieces)) |piece| {
+                if (piece == Pieces.None) continue;
+                const piece_idx = @intFromEnum(piece);
+                if ((self.piece_bb[color_idx][piece_idx] & (@as(Bitboard, 1) << @intCast(square))) != 0) {
+                    return color;
                 }
             }
         }
@@ -294,6 +328,15 @@ pub const Board = struct {
                 printBitboard(self.piece_bb[color_idx][piece_idx]);
             }
         }
+    }
+
+    pub fn hasNonPawnMaterial(self: Board, color: Color) bool {
+        const color_idx = @intFromEnum(color);
+        const non_pawn_bb = self.piece_bb[color_idx][@intFromEnum(Pieces.Knight)] |
+                           self.piece_bb[color_idx][@intFromEnum(Pieces.Bishop)] |
+                           self.piece_bb[color_idx][@intFromEnum(Pieces.Rook)] |
+                           self.piece_bb[color_idx][@intFromEnum(Pieces.Queen)];
+        return non_pawn_bb != 0;
     }
 };
 

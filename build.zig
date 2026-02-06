@@ -88,6 +88,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         }),
+        .use_llvm = true,
     });
 
     board_module.addImport("zobrist", zobrist_module);
@@ -120,8 +121,8 @@ pub fn build(b: *std.Build) void {
     uci_module.addImport("board", board_module);
     uci_module.addImport("search", search_module);
     uci_module.addImport("fen", fen_module);
-    uci_module.addImport("moves", moves_module);
     uci_module.addImport("transposition", transposition_module);
+    uci_module.addImport("moves", moves_module);
 
     eval_module.addImport("board", board_module);
 
