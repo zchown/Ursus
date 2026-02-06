@@ -232,34 +232,6 @@ pub const MoveGen = struct {
         return move_list;
     }
 
-    pub fn generateLegalMoves(self: *MoveGen, board: *Board) MoveList {
-        const move_list = self.generateMoves(board, allMoves);
-        var legal_move_list = MoveList.init();
-    
-        const color = board.game_state.side_to_move;
-    
-        for (0..move_list.len) |i| {
-            const move = move_list.items[i];
-            makeMove(board, move);
-            if (!self.isInCheck(board, color)) {
-                legal_move_list.addMove(
-                    move.start_square,
-                    move.end_square,
-                    @as(brd.Pieces, @enumFromInt( move.piece)),
-                    if (move.promoted_piece != 0) @as(brd.Pieces, @enumFromInt(move.promoted_piece)) else null,
-                    move.capture != 0,
-                    if (move.captured_piece != 0) @as(brd.Pieces, @enumFromInt(move.captured_piece)) else null,
-                    move.double_pawn_push != 0,
-                    move.en_passant != 0,
-                    move.castling != 0,
-                );
-            }
-            undoMove(board, move);
-        }
-    
-        return legal_move_list;
-    }
-
     pub fn isInCheck(self: *MoveGen, board: *Board, color: brd.Color) bool {
         const king_bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.King)];
         if (king_bb == 0) {
@@ -273,47 +245,19 @@ pub const MoveGen = struct {
         var move_list = MoveList.init();
 
         // pawn moves
-        self.generatePawnMoves(board, &move_list, color, onlyCaptures);
+        self.generatePawnMoves(board, &move_list, color, true);
 
         // king moves
-        self.generateKingMoves(board, &move_list, color, onlyCaptures);
+        self.generateKingMoves(board, &move_list, color, true);
 
         // knight moves
-        self.generateKnightMoves(board, &move_list, color, onlyCaptures);
+        self.generateKnightMoves(board, &move_list, color, true);
 
         // bishop, rook, queen moves
-        self.generateSlideMoves(board, &move_list, color, onlyCaptures);
+        self.generateSlideMoves(board, &move_list, color, true);
 
         return move_list;
     }
-
-    // pub fn generateCaptureMoves(self: *MoveGen, board: *Board) MoveList {
-    //     const move_list = self.
-    //     var legal_move_list = MoveList.init();
-    //
-    //     const color = board.game_state.side_to_move;
-    //
-    //     for (0..move_list.len) |i| {
-    //         const move = move_list.items[i];
-    //         makeMove(board, move);
-    //         if (!self.isInCheck(board, color)) {
-    //             legal_move_list.addMove(
-    //                 move.start_square,
-    //                 move.end_square,
-    //                 @as(brd.Pieces, @enumFromInt( move.piece)),
-    //                 if (move.promoted_piece != 0) @as(brd.Pieces, @enumFromInt(move.promoted_piece)) else null,
-    //                 move.capture != 0,
-    //                 if (move.captured_piece != 0) @as(brd.Pieces, @enumFromInt(move.captured_piece)) else null,
-    //                 move.double_pawn_push != 0,
-    //                 move.en_passant != 0,
-    //                 move.castling != 0,
-    //             );
-    //         }
-    //         undoMove(board, move);
-    //     }
-    //
-    //     return legal_move_list;
-    // }
 
 
     pub fn generatePawnMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
@@ -501,7 +445,7 @@ pub const MoveGen = struct {
                 // quite move
                 if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Knight, false, null);
-                } else {
+                } else if (brd.getBit(board.color_bb[@intFromEnum(brd.flipColor(color))], end_square)) {
                     // capture move
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Knight, true, board.getPieceFromSquare(end_square));
                 }

@@ -366,8 +366,8 @@ fn calculateTimeAllocation(limits: *const SearchLimits, side_to_move: brd.Color)
         const max_ms = @min(ideal_ms * 3, time * 4 / 10);
 
         return .{
-            .max_ms = @max(max_ms, 10), // Minimum 10ms
-            .ideal_ms = @max(ideal_ms, 10),
+            .max_ms = @max(max_ms, 5), 
+            .ideal_ms = @max(ideal_ms, 5),
         };
     }
 

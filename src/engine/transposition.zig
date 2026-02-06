@@ -50,24 +50,6 @@ pub const TranspositionTable = struct {
         global_tt_initialized = true;
      }
 
-//     pub fn initGlobal(size_in_mb: usize) !void {
-//         const raw_num_entries = (size_in_mb * mb) / @sizeOf(Entry);
-//         const num_entries = std.math.floorPowerOfTwo(usize, raw_num_entries);
-//
-//         // 1. Allocate the slice directly
-//         const buffer = try tt_arena.allocator().alloc(Entry, num_entries);
-//
-//         // 2. Zero the memory
-//         @memset(buffer, Entry{});
-//
-//         // 3. Manually construct the ArrayList header
-//         global_tt.items = std.ArrayList(Entry).fromOwnedSlice(buffer);
-//         global_tt.size = num_entries;
-//         global_tt.age = 0;
-//
-//         std.debug.print("Global TT verified len: {}\n", .{global_tt.items.items.len});
-// }
-
     pub inline fn clear(self: *TranspositionTable) void {
         self.items.clearRetainingCapacity();
     }

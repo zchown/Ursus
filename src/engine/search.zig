@@ -103,15 +103,20 @@ pub const Searcher = struct {
         color: brd.Color,
     };
 
-
     pub fn init() Searcher {
         std.debug.print("Initializing searcher...\n", .{});
         var s = Searcher{
-            .timer = std.time.Timer.start() catch { std.debug.panic("Failed to start timer", .{}); },
+            .timer = std.time.Timer.start() catch {
+                std.debug.panic("Failed to start timer", .{});
+            },
             .move_gen = mvs.MoveGen.init(),
-            .continuation = std.heap.c_allocator.create([12][64][64][64]i32) catch { std.debug.panic("Failed to allocate continuation table", .{}); },
+            .continuation = std.heap.c_allocator.create([12][64][64][64]i32) catch {
+                std.debug.panic("Failed to allocate continuation table", .{});
+            },
         };
-        s.hash_history = std.ArrayList(u64).initCapacity(std.heap.c_allocator, max_game_ply) catch { std.debug.panic("Failed to initialize hash history", .{}); };
+        s.hash_history = std.ArrayList(u64).initCapacity(std.heap.c_allocator, max_game_ply) catch {
+            std.debug.panic("Failed to initialize hash history", .{});
+        };
         s.resetHeuristics(true);
         std.debug.print("Searcher initialized.\n", .{});
         return s;
@@ -196,7 +201,7 @@ pub const Searcher = struct {
 
         if (!tt.global_tt_initialized or tt.global_tt.items.items.len == 0) {
             std.debug.print("Initializing transposition table...\n", .{});
-            try tt.TranspositionTable.initGlobal(16);
+            try tt.TranspositionTable.initGlobal(256);
             std.debug.print("Transposition table initialized with {} entries.\n", .{tt.global_tt.items.items.len});
         }
 
@@ -374,8 +379,7 @@ pub const Searcher = struct {
         var static_eval: i32 = undefined;
         if (in_check) {
             static_eval = -eval.mate_score + @as(i32, @intCast(self.ply));
-        }
-        else if (tt_hit) {
+        } else if (tt_hit) {
             static_eval = tt_eval;
         } else if (is_null) {
             static_eval = -self.eval_history[self.ply - 1];
@@ -585,7 +589,9 @@ pub const Searcher = struct {
                 continue;
             }
 
-            self.hash_history.append(std.heap.c_allocator, board.game_state.zobrist) catch { std.debug.panic("Failed to append to hash history", .{}); };
+            self.hash_history.append(std.heap.c_allocator, board.game_state.zobrist) catch {
+                std.debug.panic("Failed to append to hash history", .{});
+            };
 
             tt.global_tt.prefetch(board.game_state.zobrist);
 
@@ -693,7 +699,7 @@ pub const Searcher = struct {
                 }
 
                 if (!is_null and self.ply >= 1) {
-                    const plies: [3]usize = .{0, 1, 3};
+                    const plies: [3]usize = .{ 0, 1, 3 };
                     for (plies) |p| {
                         if (self.ply >= p + 1) {
                             const prev = self.move_history[self.ply - p - 1];
@@ -710,7 +716,6 @@ pub const Searcher = struct {
                         }
                     }
                 }
-
             }
         }
 
@@ -723,15 +728,15 @@ pub const Searcher = struct {
             }
 
             tt.global_tt.set(
-            tt.Entry{
-                .hash = board.game_state.zobrist,
-                .eval = best_score,
-                .move = best_move,
-                .flag = tt_flag,
-                .depth = @as(u8, @intCast(depth)),
-                .age = tt.global_tt.age,
-            },
-        );
+                tt.Entry{
+                    .hash = board.game_state.zobrist,
+                    .eval = best_score,
+                    .move = best_move,
+                    .flag = tt_flag,
+                    .depth = @as(u8, @intCast(depth)),
+                    .age = tt.global_tt.age,
+                },
+            );
         }
         return best_score;
     }
@@ -782,8 +787,7 @@ pub const Searcher = struct {
             hash_move = e.move;
             if (e.flag == .Exact) {
                 return e.eval;
-            }
-            else if (e.flag == .Under and e.eval >= beta) {
+            } else if (e.flag == .Under and e.eval >= beta) {
                 return e.eval;
             } else if (e.flag == .Over and e.eval <= alpha) {
                 return e.eval;
@@ -798,8 +802,8 @@ pub const Searcher = struct {
                 return -eval.mate_score + @as(i32, @intCast(self.ply));
             }
         } else {
-            // move_list = self.move_gen.generateCaptureMoves(board, color);
-            move_list = self.move_gen.generateMoves(board, false);
+            move_list = self.move_gen.generateCaptureMoves(board, color);
+            // move_list = self.move_gen.generateMoves(board, false);
         }
 
         const move_size = move_list.len;
@@ -808,9 +812,9 @@ pub const Searcher = struct {
 
         for (0..move_size) |i| {
             const move = getNextBest(&move_list, &eval_list, i);
-            if (move.capture == 0 and move.promoted_piece == 0) {
-                continue;
-            }
+            // if (move.capture == 0 and move.promoted_piece == 0) {
+            //     continue;
+            // }
 
             if (i > 0) {
                 const see_score = eval_list[i];
@@ -827,7 +831,7 @@ pub const Searcher = struct {
             };
             if (board.getPieceFromSquare(move.start_square)) |p| {
                 moved_piece = .{ .piece = p, .color = board.getColorFromSquare(move.start_square).? };
-            } 
+            }
             self.moved_piece_history[self.ply] = moved_piece;
             self.ply += 1;
             mvs.makeMove(board, move);
@@ -918,8 +922,9 @@ pub const Searcher = struct {
         }
 
         // King + Bishop vs King + Bishop (same colored bishops)
-        if (white_bishops == 1 and black_bishops == 1 and 
-        white_knights == 0 and black_knights == 0) {
+        if (white_bishops == 1 and black_bishops == 1 and
+            white_knights == 0 and black_knights == 0)
+        {
             // Check if bishops are on same color squares
             const white_bishop_bb = board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Bishop)];
             const black_bishop_bb = board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Bishop)];
@@ -938,7 +943,7 @@ pub const Searcher = struct {
 
     pub fn isThreefoldRepetition(board: *brd.Board) bool {
         const current_zobrist = board.game_state.zobrist;
-        var repetition_count: u32 = 1; 
+        var repetition_count: u32 = 1;
 
         const halfmove_limit = @min(board.game_state.halfmove_clock, board.history.history_count);
 
@@ -971,16 +976,14 @@ pub const Searcher = struct {
                 // Knight is more likely to be a good alternative
                 if (move.promoted_piece == @intFromEnum(brd.Pieces.Queen)) {
                     score += 1_000_000;
-                } 
-                else if (move.promoted_piece == @intFromEnum(brd.Pieces.Knight)) {
+                } else if (move.promoted_piece == @intFromEnum(brd.Pieces.Knight)) {
                     score += 600_000;
                 }
             }
 
             if (hm == move.toU32()) {
                 score += 6_000_000;
-            }
-            else if (move.capture == 1) {
+            } else if (move.capture == 1) {
                 const captured_piece = board.getPieceFromSquare(move.end_square) orelse brd.Pieces.None;
                 const attacker_piece = board.getPieceFromSquare(move.start_square) orelse brd.Pieces.None;
 
@@ -994,17 +997,14 @@ pub const Searcher = struct {
                 const last = if (self.ply > 0) self.move_history[self.ply - 1] else mvs.EncodedMove.fromU32(0);
                 if (self.killer[self.ply][0].toU32() == move.toU32()) {
                     score += 900_000;
-                } 
-                else if (self.killer[self.ply][1].toU32() == move.toU32()) {
+                } else if (self.killer[self.ply][1].toU32() == move.toU32()) {
                     score += 800_000;
-                }
-                else if (self.ply >= 1 and self.counter_moves[@intFromEnum(board.toMove())][last.start_square][last.end_square].toU32() == move.toU32()) {
+                } else if (self.ply >= 1 and self.counter_moves[@intFromEnum(board.toMove())][last.start_square][last.end_square].toU32() == move.toU32()) {
                     score += 600_000;
-                } 
-                else {
+                } else {
                     score += self.history[@intFromEnum(board.toMove())][move.start_square][move.end_square];
                     if (!is_null and self.ply >= 1) {
-                        const plies: [3]usize = .{0, 1, 3};
+                        const plies: [3]usize = .{ 0, 1, 3 };
                         for (plies) |p| {
                             const divider: i32 = 1;
                             if (self.ply >= p + 1) {
@@ -1036,4 +1036,3 @@ pub const Searcher = struct {
         return move_list.items[start_index];
     }
 };
-
