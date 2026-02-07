@@ -302,7 +302,7 @@ pub const UciProtocol = struct {
                 break; // PV string is too long, stop adding moves
             }
             std.mem.copyForwards(u8, pv_string_buffer[pv_string_len..], cur_move_str);
-            pv_string_len += move_str.len;
+            pv_string_len += cur_move_str.len;
             pv_string_buffer[pv_string_len] = ' ';
             pv_string_len += 1;
         }
@@ -366,8 +366,8 @@ fn calculateTimeAllocation(limits: *const SearchLimits, side_to_move: brd.Color)
         const max_ms = @min(ideal_ms * 3, time * 4 / 10);
 
         return .{
-            .max_ms = @max(max_ms, 5), 
-            .ideal_ms = @max(ideal_ms, 5),
+            .max_ms = @max(max_ms, 1), 
+            .ideal_ms = @max(ideal_ms, 1),
         };
     }
 

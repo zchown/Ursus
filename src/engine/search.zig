@@ -201,7 +201,7 @@ pub const Searcher = struct {
 
         if (!tt.global_tt_initialized or tt.global_tt.items.items.len == 0) {
             std.debug.print("Initializing transposition table...\n", .{});
-            try tt.TranspositionTable.initGlobal(256);
+            try tt.TranspositionTable.initGlobal(16);
             std.debug.print("Transposition table initialized with {} entries.\n", .{tt.global_tt.items.items.len});
         }
 
@@ -658,7 +658,9 @@ pub const Searcher = struct {
 
                 if (!is_null) {
                     self.pv[self.ply][0] = move;
+                    // std.mem.copyForwards(mvs.EncodedMove, self.pv[self.ply][1..(self.pv_length[self.ply + 1] + 1)], self.pv[self.ply + 1][0..(self.pv_length[self.ply + 1])]);
                     std.mem.copyForwards(mvs.EncodedMove, self.pv[self.ply][1..(self.pv_length[self.ply + 1] + 1)], self.pv[self.ply + 1][0..(self.pv_length[self.ply + 1])]);
+
                     self.pv_length[self.ply] = self.pv_length[self.ply + 1] + 1;
                 }
 

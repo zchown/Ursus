@@ -19,22 +19,27 @@ const mg_queen: i32 = 1025; const eg_queen: i32 = 936;
 const mg_king: i32 = 0;    const eg_king: i32 = 0;
 
 // King Safety Bonuses
-const castled_bonus: i32 = 50;           // Bonus for having castled
-const pawn_shield_bonus: i32 = 15;       // Per pawn in front of king
-const open_file_penalty: i32 = -30;      // Penalty for open file near king
-const semi_open_penalty: i32 = -15;      // Penalty for semi-open file near king
+const castled_bonus: i32 = 50;
+const pawn_shield_bonus: i32 = 15;
+const open_file_penalty: i32 = -30;
+const semi_open_penalty: i32 = -15;
 
 // Endgame Bonuses
-const rook_on_7th_bonus: i32 = 20;       // Rook on 7th rank in endgame
-const rook_behind_passer_bonus: i32 = 25; // Rook behind passed pawn
-const king_pawn_proximity: i32 = 4;      // King close to passed pawns in endgame
+const rook_on_7th_bonus: i32 = 20;
+const rook_behind_passer_bonus: i32 = 25;
+const king_pawn_proximity: i32 = 4;
 
 // Pawn Structure Bonuses
-const passed_pawn_bonus = [8]i32{ 0, 10, 20, 35, 60, 100, 150, 0 }; // By rank (endgame)
-const mg_passed_bonus = [8]i32{ 0, 5, 10, 15, 25, 40, 60, 0 };      // Middlegame passed pawn
-const protected_pawn_bonus: i32 = 8;     // Pawn protected by another pawn
-const doubled_pawn_penalty: i32 = -10;   // Pawns on same file
-const isolated_pawn_penalty: i32 = -12;  // No friendly pawns on adjacent files
+const passed_pawn_bonus = [8]i32{ 0, 10, 20, 35, 60, 100, 150, 0 };
+const mg_passed_bonus = [8]i32{ 0, 5, 10, 15, 25, 40, 60, 0 };
+const protected_pawn_bonus: i32 = 8;
+const doubled_pawn_penalty: i32 = -10;
+const isolated_pawn_penalty: i32 = -12;
+const connected_passed_bonus: i32 = 10;
+const backward_pawn_penalty: i32 = -15;
+
+// Miscellaneous Bonuses
+const bishop_pair_bonus: i32 = 30;
 
 // Pawn Table (incentivize pushing)
 const mg_pawn_table = [64]i32{
@@ -242,6 +247,20 @@ pub fn evaluate(board: *brd.Board) i32 {
         eg_score += eg_eval;
     }
 
+    const white_bishops = @popCount(board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Bishop)]);
+    const black_bishops = @popCount(board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Bishop)]);
+
+    if (white_bishops >= 2) {
+        mg_score += bishop_pair_bonus;
+        eg_score += bishop_pair_bonus;
+    }
+    if (black_bishops >= 2) {
+        mg_score -= bishop_pair_bonus;
+        eg_score -= bishop_pair_bonus;
+    }
+
+
+
     var final_score = (mg_score * current_phase + eg_score * (total_phase - current_phase));
     final_score = @divTrunc(final_score, total_phase);
 
@@ -359,31 +378,31 @@ fn evalKingSafety(board: *brd.Board, color: brd.Color) i32 {
     // Evaluate pawn shield
     const pawn_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
     const shield_files = [3]i32{ @as(i32, @intCast(king_file)) - 1, @as(i32, @intCast(king_file)), @as(i32, @intCast(king_file)) + 1 };
-    
+
     for (shield_files) |file| {
         if (file < 0 or file > 7) continue;
-        
+
         // Check for pawns in front of king
         const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
         const pawns_on_file = pawn_bb & file_mask;
-        
+
         if (pawns_on_file != 0) {
             // Has pawn on this file
             var temp_bb = pawns_on_file;
             while (temp_bb != 0) {
                 const pawn_sq = brd.getLSB(temp_bb);
                 const pawn_rank = @divTrunc(pawn_sq, 8);
-                
+
                 // Check if pawn is in front of king (rank-wise)
                 const is_shield = if (color == brd.Color.White) 
                     pawn_rank > king_rank and pawn_rank <= king_rank + 2
-                else
+                    else
                     pawn_rank < king_rank and pawn_rank >= king_rank - 2;
-                
+
                 if (is_shield) {
                     safety += pawn_shield_bonus;
                 }
-                
+
                 brd.popBit(&temp_bb, pawn_sq);
             }
         }
@@ -391,15 +410,15 @@ fn evalKingSafety(board: *brd.Board, color: brd.Color) i32 {
 
     // Penalty for open/semi-open files near king
     const all_pawns = board.piece_bb[0][@intFromEnum(brd.Pieces.Pawn)] | 
-                      board.piece_bb[1][@intFromEnum(brd.Pieces.Pawn)];
-    
+    board.piece_bb[1][@intFromEnum(brd.Pieces.Pawn)];
+
     for (shield_files) |file| {
         if (file < 0 or file > 7) continue;
-        
+
         const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
         const our_pawns_on_file = pawn_bb & file_mask;
         const their_pawns_on_file = (all_pawns & file_mask) ^ our_pawns_on_file;
-        
+
         if (our_pawns_on_file == 0 and their_pawns_on_file == 0) {
             safety += open_file_penalty; // Open file
         } else if (our_pawns_on_file == 0 and their_pawns_on_file != 0) {
@@ -418,13 +437,13 @@ const PawnEval = struct {
 // Pawn Structure evaluation - passed pawns, pawn chains, isolated/doubled
 fn evalPawnStructure(board: *brd.Board, phase: i32) PawnEval {
     var result = PawnEval{ .mg = 0, .eg = 0 };
-    
+
     const white_eval = evalPawnsForColor(board, brd.Color.White, phase);
     const black_eval = evalPawnsForColor(board, brd.Color.Black, phase);
-    
+
     result.mg = white_eval.mg - black_eval.mg;
     result.eg = white_eval.eg - black_eval.eg;
-    
+
     return result;
 }
 
@@ -432,11 +451,10 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
     const c_idx = @intFromEnum(color);
     const opp_idx = 1 - c_idx;
     var result = PawnEval{ .mg = 0, .eg = 0 };
-    
+
     const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
     const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
-    
-    // Count pawns per file for doubled pawn detection
+
     var file_counts = [_]u8{0} ** 8;
     var temp_bb = our_pawns;
     while (temp_bb != 0) {
@@ -445,71 +463,58 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
         file_counts[file] += 1;
         brd.popBit(&temp_bb, sq);
     }
-    
-    // Evaluate each pawn
+
     temp_bb = our_pawns;
     while (temp_bb != 0) {
         const sq = brd.getLSB(temp_bb);
         const file = @mod(sq, 8);
         const rank = @divTrunc(sq, 8);
-        
-        // Adjust rank for color
+
         const relative_rank: usize = if (color == brd.Color.White) rank else 7 - rank;
-        
-        // Check for passed pawn
+
         const is_passed = blk: {
             const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
             const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
             const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
             const forward_mask = file_mask | left_mask | right_mask;
-            
-            // Check if any opposing pawns block this pawn's path
+
             const blocking_pawns = if (color == brd.Color.White) blk2: {
-                // For white, check ranks above
                 const rank_mask: u64 = (@as(u64, 0xFFFFFFFFFFFFFFFF) << @intCast((rank + 1) * 8));
                 break :blk2 opp_pawns & forward_mask & rank_mask;
             } else blk2: {
-                // For black, check ranks below
-                const rank_mask: u64 = if (rank > 0) (@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8)) else 0;
-                break :blk2 opp_pawns & forward_mask & rank_mask;
-            };
-            
+                    const rank_mask: u64 = if (rank > 0) (@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8)) else 0;
+                    break :blk2 opp_pawns & forward_mask & rank_mask;
+                };
+
             break :blk blocking_pawns == 0;
         };
-        
+
         if (is_passed) {
-            // Scale passed pawn bonus more heavily towards endgame
-            // In endgame (phase near 0), passed pawns are very valuable
-            // In middlegame (phase near 24), they're less critical
             const mg_bonus = mg_passed_bonus[relative_rank];
             const eg_bonus = passed_pawn_bonus[relative_rank];
-            
-            // Add extra endgame weight for advanced passed pawns
+
             const advancement_bonus = if (relative_rank >= 5) 
                 @divTrunc((total_phase - phase) * @as(i32, @intCast(relative_rank)) * 3, total_phase)
-            else 
+                else 
                 0;
-            
+
             result.mg += mg_bonus;
             result.eg += eg_bonus + advancement_bonus;
         }
-        
-        // Check for pawn protection (pawn chain)
+
         const is_protected = blk: {
             const protection_sqs = if (color == brd.Color.White) blk2: {
-                // White pawns protected from behind-left and behind-right
                 var sqs: [2]?usize = .{ null, null };
-                if (sq >= 9 and file > 0) sqs[0] = sq - 9;  // Behind-left
-                if (sq >= 7 and file < 7) sqs[1] = sq - 7;  // Behind-right
+                if (sq >= 9 and file > 0) sqs[0] = sq - 9;
+                if (sq >= 7 and file < 7) sqs[1] = sq - 7;
                 break :blk2 sqs;
             } else blk2: {
-                // Black pawns protected from behind-left and behind-right (from black's perspective)
-                var sqs: [2]?usize = .{ null, null };
-                if (sq <= 54 and file > 0) sqs[0] = sq + 7;  // Behind-left
-                if (sq <= 56 and file < 7) sqs[1] = sq + 9;  // Behind-right
-                break :blk2 sqs;
-            };
-            
+                    var sqs: [2]?usize = .{ null, null };
+                    if (sq <= 54 and file > 0) sqs[0] = sq + 7;
+                    if (sq <= 56 and file < 7) sqs[1] = sq + 9;
+                    break :blk2 sqs;
+                };
+
             var protected = false;
             for (protection_sqs) |maybe_sq| {
                 if (maybe_sq) |prot_sq| {
@@ -522,69 +527,64 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
             }
             break :blk protected;
         };
-        
+
         if (is_protected) {
             result.mg += protected_pawn_bonus;
             result.eg += protected_pawn_bonus;
         }
-        
-        // Check for isolated pawn
+
         const is_isolated = blk: {
             const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
             const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
             const adjacent_files = left_mask | right_mask;
             break :blk (our_pawns & adjacent_files) == 0;
         };
-        
+
         if (is_isolated) {
             result.mg += isolated_pawn_penalty;
             result.eg += isolated_pawn_penalty;
         }
-        
-        // Doubled pawns penalty
+
         if (file_counts[file] > 1) {
             result.mg += doubled_pawn_penalty;
             result.eg += doubled_pawn_penalty;
         }
-        
+
         brd.popBit(&temp_bb, sq);
     }
-    
+
     return result;
 }
 
-// Endgame-specific evaluation
 fn evalEndgame(board: *brd.Board, phase: i32) i32 {
     var score: i32 = 0;
-    
-    // Determine material imbalance
+
     const white_material = countMaterial(board, brd.Color.White);
     const black_material = countMaterial(board, brd.Color.Black);
     const material_diff = white_material - black_material;
-    
-    // Mop-up evaluation: when winning, drive enemy king to edge and our king closer
-    if (@abs(material_diff) > 200) { // Significant material advantage
+
+    if (@abs(material_diff) > 200) {
         const winning_side = if (material_diff > 0) brd.Color.White else brd.Color.Black;
         const losing_side = if (material_diff > 0) brd.Color.Black else brd.Color.White;
-        
+
         const winner_idx = @intFromEnum(winning_side);
         const loser_idx = @intFromEnum(losing_side);
-        
+
         const winner_king_bb = board.piece_bb[winner_idx][@intFromEnum(brd.Pieces.King)];
         const loser_king_bb = board.piece_bb[loser_idx][@intFromEnum(brd.Pieces.King)];
-        
+
         if (winner_king_bb != 0 and loser_king_bb != 0) {
             const winner_king_sq = brd.getLSB(winner_king_bb);
             const loser_king_sq = brd.getLSB(loser_king_bb);
-            
-            // Drive losing king to the edge (important for checkmating)
+
+            // Drive losing king to the edge
             const edge_score = centerDistance(loser_king_sq) * 10;
-            
-            // Bring winning king closer to losing king (important for checkmate)
+
+            // Bring winning king closer to losing king 
             const king_proximity = (14 - manhattanDistance(winner_king_sq, loser_king_sq)) * 4;
-            
+
             const mopup_score = edge_score + king_proximity;
-            
+
             if (material_diff > 0) {
                 score += mopup_score;
             } else {
@@ -592,29 +592,28 @@ fn evalEndgame(board: *brd.Board, phase: i32) i32 {
             }
         }
     }
-    
+
     // King activity in endgame - centralized king is strong
     score += evalKingActivity(board, brd.Color.White, phase);
     score -= evalKingActivity(board, brd.Color.Black, phase);
-    
+
     // Rook activity in endgame
     score += evalRookEndgame(board, brd.Color.White);
     score -= evalRookEndgame(board, brd.Color.Black);
-    
+
     return score;
 }
 
-// Count total material for a side
 fn countMaterial(board: *brd.Board, color: brd.Color) i32 {
     const c_idx = @intFromEnum(color);
     var material: i32 = 0;
-    
+
     material += @as(i32, @intCast(@popCount(board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)]))) * mg_pawn;
     material += @as(i32, @intCast(@popCount(board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Knight)]))) * mg_knight;
     material += @as(i32, @intCast(@popCount(board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Bishop)]))) * mg_bishop;
     material += @as(i32, @intCast(@popCount(board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Rook)]))) * mg_rook;
     material += @as(i32, @intCast(@popCount(board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Queen)]))) * mg_queen;
-    
+
     return material;
 }
 
@@ -623,76 +622,75 @@ fn evalKingActivity(board: *brd.Board, color: brd.Color, phase: i32) i32 {
     _ = phase;
     const c_idx = @intFromEnum(color);
     var score: i32 = 0;
-    
+
     const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
     if (king_bb == 0) return 0;
-    
+
     const king_sq = brd.getLSB(king_bb);
-    
+
     // Bonus for centralized king in endgame
     const centralization = 7 - centerDistance(king_sq);
     score += centralization * 3;
-    
-    // Bonus for king being close to passed pawns (to support or stop them)
+
+    // Bonus for king being close to passed pawns 
     const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
     const opp_pawns = board.piece_bb[1 - c_idx][@intFromEnum(brd.Pieces.Pawn)];
-    
+
     // Check proximity to our passed pawns
     var pawn_bb = our_pawns;
     while (pawn_bb != 0) {
         const pawn_sq = brd.getLSB(pawn_bb);
         const is_passed = checkPassedPawn(board, pawn_sq, color);
-        
+
         if (is_passed) {
             const dist = manhattanDistance(king_sq, pawn_sq);
             if (dist <= 3) {
                 score += king_pawn_proximity * (4 - dist);
             }
         }
-        
+
         brd.popBit(&pawn_bb, pawn_sq);
     }
-    
-    // Penalty for being far from opponent's passed pawns (need to stop them)
+
+    // Penalty for being far from opponent's passed pawns
     pawn_bb = opp_pawns;
     while (pawn_bb != 0) {
         const pawn_sq = brd.getLSB(pawn_bb);
         const opp_color = if (color == brd.Color.White) brd.Color.Black else brd.Color.White;
         const is_passed = checkPassedPawn(board, pawn_sq, opp_color);
-        
+
         if (is_passed) {
             const dist = manhattanDistance(king_sq, pawn_sq);
             if (dist > 4) {
                 score -= 3;
             }
         }
-        
+
         brd.popBit(&pawn_bb, pawn_sq);
     }
-    
+
     return score;
 }
 
-// Helper to check if a pawn is passed
 fn checkPassedPawn(board: *brd.Board, sq: usize, color: brd.Color) bool {
     const file = @mod(sq, 8);
     const rank = @divTrunc(sq, 8);
     const opp_idx = if (color == brd.Color.White) @as(usize, 1) else @as(usize, 0);
     const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
-    
+
     const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
     const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
     const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
     const forward_mask = file_mask | left_mask | right_mask;
-    
+
     const blocking_pawns = if (color == brd.Color.White) blk: {
         const rank_mask: u64 = (@as(u64, 0xFFFFFFFFFFFFFFFF) << @intCast((rank + 1) * 8));
         break :blk opp_pawns & forward_mask & rank_mask;
     } else blk: {
-        const rank_mask: u64 = if (rank > 0) (@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8)) else 0;
-        break :blk opp_pawns & forward_mask & rank_mask;
-    };
-    
+            const rank_mask: u64 = if (rank > 0) (@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8)) else 0;
+            break :blk opp_pawns & forward_mask & rank_mask;
+        };
+
     return blocking_pawns == 0;
 }
 
@@ -700,47 +698,47 @@ fn checkPassedPawn(board: *brd.Board, sq: usize, color: brd.Color) bool {
 fn evalRookEndgame(board: *brd.Board, color: brd.Color) i32 {
     const c_idx = @intFromEnum(color);
     var score: i32 = 0;
-    
+
     const rook_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Rook)];
     const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
-    
+
     var temp_rook_bb = rook_bb;
     while (temp_rook_bb != 0) {
         const rook_sq = brd.getLSB(temp_rook_bb);
         const rook_rank = @divTrunc(rook_sq, 8);
         const rook_file = @mod(rook_sq, 8);
-        
-        // Rook on 7th rank bonus (attacking pawns)
+
+        // Rook on 7th rank bonus 
         const seventh_rank: i32 = if (color == brd.Color.White) 6 else 1;
         if (rook_rank == seventh_rank) {
             score += rook_on_7th_bonus;
         }
-        
-        // Rook behind passed pawn (very strong)
+
+        // Rook behind passed pawn 
         const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(rook_file);
         const pawns_on_file = our_pawns & file_mask;
-        
+
         var pawn_bb = pawns_on_file;
         while (pawn_bb != 0) {
             const pawn_sq = brd.getLSB(pawn_bb);
             const pawn_rank = @divTrunc(pawn_sq, 8);
-            
+
             // Check if rook is behind the pawn and pawn is passed
             const rook_behind = if (color == brd.Color.White) 
                 rook_rank < pawn_rank 
-            else 
+                else 
                 rook_rank > pawn_rank;
-            
+
             if (rook_behind and checkPassedPawn(board, pawn_sq, color)) {
                 score += rook_behind_passer_bonus;
             }
-            
+
             brd.popBit(&pawn_bb, pawn_sq);
         }
-        
+
         brd.popBit(&temp_rook_bb, rook_sq);
     }
-    
+
     return score;
 }
 
