@@ -338,7 +338,10 @@ self.is_searching = false;
 
 fn calculateTimeAllocation(limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {
     if (limits.movetime) |mt| {
-        return .{ .max_ms = mt, .ideal_ms = mt };
+        const mt_f : f32 = @as(f32, @floatFromInt(mt));
+        const max_ms = @max(@as(u64, @intFromFloat(mt_f * 0.9)), 1);
+        const ideal_ms = @max(@as(u64, @intFromFloat(mt_f * 0.8)), 1);
+        return .{ .max_ms = max_ms, .ideal_ms = ideal_ms };
     }
 
     if (limits.infinite or limits.ponder) {

@@ -201,7 +201,7 @@ pub const Searcher = struct {
 
         if (!tt.global_tt_initialized or tt.global_tt.items.items.len == 0) {
             std.debug.print("Initializing transposition table...\n", .{});
-            try tt.TranspositionTable.initGlobal(16);
+            try tt.TranspositionTable.initGlobal(64);
             std.debug.print("Transposition table initialized with {} entries.\n", .{tt.global_tt.items.items.len});
         }
 
@@ -280,6 +280,19 @@ pub const Searcher = struct {
         self.is_searching = false;
 
         tt.global_tt.incrememtAge();
+
+        // Guard against null moves
+        if (self.best_move.toU32() == 0) {
+            if (tt.global_tt.get(board.game_state.zobrist)) |e| {
+                self.best_move = e.move;
+            }
+            if (self.best_move.toU32() == 0) {
+                const move_list = self.move_gen.generateMoves(board, false);
+                if (move_list.len > 0) {
+                    self.best_move = move_list.items[0];
+                }
+            }
+        }
 
         return SearchResult{
             .move = self.best_move,

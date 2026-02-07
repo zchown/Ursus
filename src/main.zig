@@ -14,7 +14,7 @@ pub fn main() !void {
     var engine = try uci.UciProtocol.init(gpa.allocator());
     std.debug.print("Engine initialized.\n", .{});
     
-    var stdin_buf: [2048]u8 = undefined;
+    var stdin_buf: [4096 * 2]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buf);
     const reader: *std.Io.Reader = &stdin_reader.interface;
     

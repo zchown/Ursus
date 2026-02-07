@@ -35,7 +35,7 @@ const mg_passed_bonus = [8]i32{ 0, 5, 10, 15, 25, 40, 60, 0 };
 const protected_pawn_bonus: i32 = 8;
 const doubled_pawn_penalty: i32 = -10;
 const isolated_pawn_penalty: i32 = -12;
-const connected_passed_bonus: i32 = 10;
+const connected_pawn_bonus: i32 = 10;
 const backward_pawn_penalty: i32 = -15;
 
 // Miscellaneous Bonuses
@@ -472,10 +472,65 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
 
         const relative_rank: usize = if (color == brd.Color.White) rank else 7 - rank;
 
+        const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
+        const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
+        const adjacent_files = left_mask | right_mask;
+
+        // Both connected and backwards currently lose elo
+
+        // const is_connected = blk: {
+        //     const rank_mask: u64 = @as(u64, 0xFF) << @intCast(rank * 8);
+        //     const prev_rank_mask: u64 = if (rank > 0) @as(u64, 0xFF) << @intCast((rank - 1) * 8) else 0;
+        //     const next_rank_mask: u64 = if (rank < 7) @as(u64, 0xFF) << @intCast((rank + 1) * 8) else 0;
+        //     const proximity_mask = rank_mask | prev_rank_mask | next_rank_mask;
+        //
+        //     break :blk (our_pawns & adjacent_files & proximity_mask) != 0;
+        // };
+        //
+        // if (is_connected) {
+        //     const bonus = connected_pawn_bonus + @as(i32, @intCast(relative_rank)); 
+        //     result.mg += bonus;
+        //     result.eg += bonus * 2;
+        // }
+
+        // const is_backward = blk: {
+        //     const support_mask: u64 = if (color == brd.Color.White)
+        //         ~(@as(u64, 0xFFFFFFFFFFFFFFFF) << @intCast((rank + 1) * 8))
+        //         else
+        //         ~(@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8));
+        //
+        //     const has_support = (our_pawns & adjacent_files & support_mask) != 0;
+        //     if (has_support) break :blk false;
+        //
+        //     const stop_sq = if (color == brd.Color.White) sq + 8 else sq - 8;
+        //     if (stop_sq < 0 or stop_sq > 63) break :blk false;
+        //
+        //     const stop_file = @mod(stop_sq, 8);
+        //     const stop_rank = @divTrunc(stop_sq, 8);
+        //
+        //     var enemy_control = false;
+        //
+        //     if (color == brd.Color.White) {
+        //         if (stop_rank < 7) { 
+        //             if (stop_sq + 7 < 64 and (opp_pawns & (@as(u64, 1) << @intCast(stop_sq + 7))) != 0 and stop_file > 0) enemy_control = true;
+        //             if (stop_sq + 9 < 64 and (opp_pawns & (@as(u64, 1) << @intCast(stop_sq + 9))) != 0 and stop_file < 7) enemy_control = true;
+        //         }
+        //     } else {
+        //         if (stop_sq >= 7 and (opp_pawns & (@as(u64, 1) << @intCast(stop_sq - 7))) != 0 and stop_file < 7) enemy_control = true;
+        //         if (stop_sq >= 9 and (opp_pawns & (@as(u64, 1) << @intCast(stop_sq - 9))) != 0 and stop_file > 0) enemy_control = true;
+        //     }
+        //
+        //     break :blk enemy_control;
+        // };
+        //
+        // if (is_backward) {
+        //     result.mg += backward_pawn_penalty;
+        //     result.eg += backward_pawn_penalty;
+        // }
+
+
         const is_passed = blk: {
             const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
-            const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
-            const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
             const forward_mask = file_mask | left_mask | right_mask;
 
             const blocking_pawns = if (color == brd.Color.White) blk2: {
@@ -534,9 +589,6 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
         }
 
         const is_isolated = blk: {
-            const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
-            const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
-            const adjacent_files = left_mask | right_mask;
             break :blk (our_pawns & adjacent_files) == 0;
         };
 
