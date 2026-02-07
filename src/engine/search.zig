@@ -3,6 +3,7 @@ const mvs = @import("moves");
 const brd = @import("board");
 const eval = @import("eval");
 const tt = @import("transposition");
+const see = @import("see");
 
 inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) bool {
     return move_gen.isInCheck(board, color);
@@ -830,12 +831,15 @@ pub const Searcher = struct {
             //     continue;
             // }
 
-            if (i > 0) {
-                const see_score = eval_list[i];
-
-                if (!in_check and see_score < 1_000_000 - 2048) {
-                    continue;
-                }
+            // if (i > 0) {
+                // const see_score = eval_list[i];
+                //
+                // if (!in_check and see_score < 1_000_000 - 2048) {
+                //     continue;
+                // }
+            // }
+            if (see.seeCapture(board, &self.move_gen, move) < 0) {
+                continue;
             }
 
             self.move_history[self.ply] = move;

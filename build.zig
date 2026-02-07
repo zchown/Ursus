@@ -81,6 +81,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const see_module = b.createModule(.{
+        .root_source_file = b.path("src/engine/see.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "Ursus",
         .root_module = b.createModule(.{
@@ -113,6 +119,7 @@ pub fn build(b: *std.Build) void {
     search_module.addImport("moves", moves_module);
     search_module.addImport("eval", eval_module);
     search_module.addImport("transposition", transposition_module);
+    search_module.addImport("see", see_module);
 
     transposition_module.addImport("board", board_module);
     transposition_module.addImport("zobrist", zobrist_module);
@@ -126,6 +133,9 @@ pub fn build(b: *std.Build) void {
 
     eval_module.addImport("board", board_module);
     eval_module.addImport("moves", moves_module);
+
+    see_module.addImport("board", board_module);
+    see_module.addImport("moves", moves_module);
 
     exe.root_module.addImport("uci", uci_module);
     exe.root_module.addImport("perft", perft_module);

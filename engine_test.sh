@@ -7,8 +7,8 @@ set -euo pipefail
 
 # Paths to engines
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus2.4"
-# ENGINE_BASE="./engines/Ursus1.0"
+ENGINE_BASE="./engines/Ursus2.5.2"
+# ENGINE_BASE="./engines/Ursus2.0"
 # ENGINE_BASE="./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 
 # cutechess binary (assumes it's on PATH)
@@ -16,6 +16,7 @@ CUTECHESS="cutechess-cli"
 
 # Openings
 OPENINGS="Balsa/Balsa_v110221.pgn"
+# OPENINGS="Balsa/Balsa_v500.pgn"
 
 # Match settings
 GAMES=1024
@@ -54,7 +55,6 @@ $CUTECHESS \
   -draw movenumber=40 movecount=8 score=15 \
   -ratinginterval 10 \
   -pgnout "$PGN" \
-  # -debug all \
   | tee "$LOG"
 
 echo
