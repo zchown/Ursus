@@ -42,6 +42,11 @@ const backward_pawn_penalty: i32 = -15;
 const rook_on_open_file_bonus: i32 = 45;
 const rook_on_semi_open_file_bonus: i32 = 20;
 
+// Tactical Bonuses
+const minor_threat_penalty: i32 = 30;
+const rook_threat_penalty: i32 = 50;
+const queen_threat_penalty: i32 = 80;
+
 // Miscellaneous Bonuses
 const tempo_bonus: i32 = 10; 
 const bishop_pair_bonus: i32 = 30;
@@ -232,7 +237,7 @@ fn getPawnAttacks(pawn_bb: u64, color: brd.Color) u64 {
     }
 }
 
-pub fn evaluate(board: *brd.Board) i32 {
+pub fn evaluate(board: *brd.Board, _: *mvs.MoveGen) i32 {
     var current_phase: i32 = 0;
 
     current_phase += @as(i32, @intCast(@popCount(board.piece_bb[0][1]) + @popCount(board.piece_bb[1][1]))) * knight_phase;
@@ -278,11 +283,14 @@ pub fn evaluate(board: *brd.Board) i32 {
         eg_score -= bishop_pair_bonus;
     }
 
-
-
     var final_score = (mg_score * current_phase + eg_score * (total_phase - current_phase));
     final_score = @divTrunc(final_score, total_phase);
     final_score += tempo_bonus;
+
+    // const move_list = move_gen.generateMoves(board, false);
+    // const root_move_len = std.math.sqrt(@as(f64, move_list.len));
+    // const tempo : i32 = @as(i32, @intCast(root_move_len * tempo_bonus));
+    // final_score += tempo;
 
     if (board.toMove() == brd.Color.White) {
         return final_score;
@@ -315,6 +323,7 @@ fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
     const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
     const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
     const our_pawn_attacks = getPawnAttacks(our_pawns, color);
+    const opp_pawn_attacks = getPawnAttacks(opp_pawns, if (color == brd.Color.White) brd.Color.Black else brd.Color.White);
 
     // Pawns
     var bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
@@ -342,6 +351,11 @@ fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
             }
         }
 
+        const sq_bb: u64 = @as(u64, 1) << @intCast(sq);
+        if ((sq_bb & opp_pawn_attacks) != 0) {
+            score -= minor_threat_penalty;
+        }
+
         brd.popBit(&bb, sq);
     }
 
@@ -351,6 +365,12 @@ fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
         const sq = brd.getLSB(bb);
         score += b_val;
         score += getPst(sq, if (is_mg) mg_bishop_table else eg_bishop_table, color);
+
+        const sq_bb: u64 = @as(u64, 1) << @intCast(sq);
+        if ((sq_bb & opp_pawn_attacks) != 0) {
+            score -= minor_threat_penalty;
+        }
+
         brd.popBit(&bb, sq);
     }
 
@@ -375,6 +395,11 @@ fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
             }
         }
 
+        const sq_bb: u64 = @as(u64, 1) << @intCast(sq);
+        if ((sq_bb & opp_pawn_attacks) != 0) {
+            score -= rook_threat_penalty;
+        }
+
         brd.popBit(&bb, sq);
     }
 
@@ -385,6 +410,11 @@ fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
         score += q_val;
         score += getPst(sq, if (is_mg) mg_queen_table else eg_queen_table, color);
         brd.popBit(&bb, sq);
+
+        const sq_bb: u64 = @as(u64, 1) << @intCast(sq);
+        if ((sq_bb & opp_pawn_attacks) != 0) {
+            score -= queen_threat_penalty;
+        }
     }
 
     // King
@@ -528,8 +558,7 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
         const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
         const adjacent_files = left_mask | right_mask;
 
-        // Both connected and backwards currently lose elo
-
+        // Both connected and backwards currently lose elo :(
         // const is_connected = blk: {
         //     const rank_mask: u64 = @as(u64, 0xFF) << @intCast(rank * 8);
         //     const prev_rank_mask: u64 = if (rank > 0) @as(u64, 0xFF) << @intCast((rank - 1) * 8) else 0;

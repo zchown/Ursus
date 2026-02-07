@@ -125,6 +125,7 @@ pub fn build(b: *std.Build) void {
     uci_module.addImport("moves", moves_module);
 
     eval_module.addImport("board", board_module);
+    eval_module.addImport("moves", moves_module);
 
     exe.root_module.addImport("uci", uci_module);
     exe.root_module.addImport("perft", perft_module);
