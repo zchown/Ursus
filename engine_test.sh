@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Paths to engines
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus2.2.6"
+ENGINE_BASE="./engines/Ursus2.3"
 # ENGINE_BASE="./engines/Ursus1.0"
 # ENGINE_BASE="./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 
@@ -18,7 +18,7 @@ CUTECHESS="cutechess-cli"
 OPENINGS="Balsa/Balsa_v110221.pgn"
 
 # Match settings
-GAMES=50
+GAMES=1024
 CONCURRENCY=4
 TC="40/30"
 
@@ -44,15 +44,17 @@ echo
 $CUTECHESS \
   -engine name=New cmd="$ENGINE_NEW" proto=uci \
   -engine name=Base cmd="$ENGINE_BASE" proto=uci \
-  -each tc=1/0.05 \
+  -each tc=1/0.1 timemargin=20 \
   -openings file="$OPENINGS" format=pgn order=random \
   -repeat \
   -games $GAMES \
   -concurrency $CONCURRENCY \
   -recover \
+  -resign movecount=3 score=500 \
+  -draw movenumber=40 movecount=8 score=15 \
   -ratinginterval 10 \
   -pgnout "$PGN" \
-  -debug all \
+  # -debug all \
   | tee "$LOG"
 
 echo

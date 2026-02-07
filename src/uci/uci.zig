@@ -46,12 +46,6 @@ pub const UciProtocol = struct {
 
         searcher_ptr.initInPlace();
 
-        // tt.global_tt = try tt.TranspositionTable.init(@as(usize, 16));
-        // try tt.global_tt.initInPlace(@as(usize, 16));
-        // try tt.TranspositionTable.initGlobal(@as(usize, 16));
-
-        // std.debug.print("global_tt initialized with {} entries\n", .{tt.global_tt.items.items.len});
-
         return UciProtocol{
             .board = brd.Board.init(),
             .allocator = a,

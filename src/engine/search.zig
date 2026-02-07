@@ -11,18 +11,18 @@ inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Colo
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
 
-pub const aspiration_window: i32 = 10;
-pub const rfp_depth: i32 = 8;
-pub const rfp_mul: i32 = 60;
-pub const rfp_improve: i32 = 70;
+pub const aspiration_window: i32 = 25;
+pub const rfp_depth: i32 = 6;
+pub const rfp_mul: i32 = 50;
+pub const rfp_improve: i32 = 75;
 
-pub const nmp_improve: i32 = 70;
+pub const nmp_improve: i32 = 50;
 pub const nmp_base: usize = 3;
 pub const nmp_depth_div: usize = 3;
-pub const nmp_beta_div: usize = 200;
+pub const nmp_beta_div: usize = 150;
 
-pub const razoring_base: i32 = 70;
-pub const razoring_margin: i32 = 190;
+pub const razoring_base: i32 = 50;
+pub const razoring_margin: i32 = 125;
 
 pub const quiet_lmr: [64][64]i32 = blk: {
     break :blk initQuietLMR();

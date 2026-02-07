@@ -38,8 +38,15 @@ const isolated_pawn_penalty: i32 = -12;
 const connected_pawn_bonus: i32 = 10;
 const backward_pawn_penalty: i32 = -15;
 
+// Rook Bonuses
+const rook_on_open_file_bonus: i32 = 45;
+const rook_on_semi_open_file_bonus: i32 = 20;
+
 // Miscellaneous Bonuses
+const tempo_bonus: i32 = 10; 
 const bishop_pair_bonus: i32 = 30;
+const knight_outpost_bonus: i32 = 30;
+
 
 // Pawn Table (incentivize pushing)
 const mg_pawn_table = [64]i32{
@@ -213,6 +220,18 @@ pub fn pieceValueByEnum(piece: brd.Pieces) i32 {
     };
 }
 
+fn getPawnAttacks(pawn_bb: u64, color: brd.Color) u64 {
+    if (color == brd.Color.White) {
+        const not_file_a: u64 = 0xFEFEFEFEFEFEFEFE;
+        const not_file_h: u64 = 0x7F7F7F7F7F7F7F7F;
+        return ((pawn_bb << 9) & not_file_h) | ((pawn_bb << 7) & not_file_a);
+    } else {
+        const not_file_a: u64 = 0xFEFEFEFEFEFEFEFE;
+        const not_file_h: u64 = 0x7F7F7F7F7F7F7F7F;
+        return ((pawn_bb >> 9) & not_file_a) | ((pawn_bb >> 7) & not_file_h);
+    }
+}
+
 pub fn evaluate(board: *brd.Board) i32 {
     var current_phase: i32 = 0;
 
@@ -263,6 +282,7 @@ pub fn evaluate(board: *brd.Board) i32 {
 
     var final_score = (mg_score * current_phase + eg_score * (total_phase - current_phase));
     final_score = @divTrunc(final_score, total_phase);
+    final_score += tempo_bonus;
 
     if (board.toMove() == brd.Color.White) {
         return final_score;
@@ -273,6 +293,7 @@ pub fn evaluate(board: *brd.Board) i32 {
 
 fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
     const c_idx = @intFromEnum(color);
+    const opp_idx = 1 - c_idx;
     var score: i32 = 0;
 
     // Piece Values selection
@@ -281,7 +302,7 @@ fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
     const b_val = if (is_mg) mg_bishop else eg_bishop;
     const r_val = if (is_mg) mg_rook else eg_rook;
     const q_val = if (is_mg) mg_queen else eg_queen;
-    const k_val = 0; 
+    const k_val = 0;
 
     const getPst = struct {
         fn get(sq: usize, table: [64]i32, c: brd.Color) i32 {
@@ -289,6 +310,11 @@ fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
             return table[mirror_sq[sq]];
         }
     }.get;
+
+    // Pre-calculate useful bitboards for positional logic
+    const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
+    const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
+    const our_pawn_attacks = getPawnAttacks(our_pawns, color);
 
     // Pawns
     var bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
@@ -305,6 +331,17 @@ fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
         const sq = brd.getLSB(bb);
         score += n_val;
         score += getPst(sq, if (is_mg) mg_knight_table else eg_knight_table, color);
+
+        if (is_mg) { 
+            const rank = @divTrunc(sq, 8);
+            const relative_rank = if (color == brd.Color.White) rank else 7 - rank;
+            const is_supported = (our_pawn_attacks & (@as(u64, 1) << @intCast(sq))) != 0;
+
+            if (is_supported and relative_rank >= 3 and relative_rank <= 5) {
+                score += knight_outpost_bonus;
+            }
+        }
+
         brd.popBit(&bb, sq);
     }
 
@@ -323,6 +360,21 @@ fn evalColor(board: *brd.Board, color: brd.Color, is_mg: bool) i32 {
         const sq = brd.getLSB(bb);
         score += r_val;
         score += getPst(sq, if (is_mg) mg_rook_table else eg_rook_table, color);
+
+        const file = @mod(sq, 8);
+        const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
+
+        const our_pawns_on_file = (our_pawns & file_mask) != 0;
+        const opp_pawns_on_file = (opp_pawns & file_mask) != 0;
+
+        if (!our_pawns_on_file) {
+            if (!opp_pawns_on_file) {
+                score += rook_on_open_file_bonus;
+            } else {
+                score += rook_on_semi_open_file_bonus;
+            }
+        }
+
         brd.popBit(&bb, sq);
     }
 
