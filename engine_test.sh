@@ -45,17 +45,18 @@ echo
 $CUTECHESS \
   -engine name=New cmd="$ENGINE_NEW" proto=uci \
   -engine name=Base cmd="$ENGINE_BASE" proto=uci \
-  -each tc=100/30 timemargin=20 \
+  -each tc=1/0.1 timemargin=20 \
   -openings file="$OPENINGS" format=pgn order=random \
   -repeat \
   -games $GAMES \
   -concurrency $CONCURRENCY \
   -recover \
-  -resign movecount=3 score=500 \
-  -draw movenumber=40 movecount=8 score=15 \
+  # -resign movecount=3 score=500 \
+  # -draw movenumber=40 movecount=8 score=15 \
   -ratinginterval 10 \
   -pgnout "$PGN" \
   | tee "$LOG"
+
 
 echo
 echo "Match finished"

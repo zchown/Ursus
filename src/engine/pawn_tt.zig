@@ -1,6 +1,5 @@
 const std = @import("std");
 const zob = @import("zobrist");
-const brd = @import("board");
 
 pub const kb = 1 << 10;
 pub const mb = 1 << 20;

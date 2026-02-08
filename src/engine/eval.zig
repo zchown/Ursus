@@ -38,11 +38,11 @@ const safety_table = [16]i32{ 0, 0, 5, 10, 20, 40, 70, 110, 160, 220, 300, 400, 
 
 // Endgame Bonuses
 const rook_on_7th_bonus: i32 = 20;
-const rook_behind_passer_bonus: i32 = 25;
+const rook_behind_passer_bonus: i32 = 60;
 const king_pawn_proximity: i32 = 4;
 
 // Pawn Structure Bonuses
-const passed_pawn_bonus = [8]i32{ 0, 30, 50, 80, 130, 230, 350, 0 };
+const passed_pawn_bonus = [8]i32{ 0, 15, 25, 40, 65, 115, 175, 0 };
 const mg_passed_bonus = [8]i32{ 0, 5, 10, 15, 25, 40, 60, 0 };
 const protected_pawn_bonus: i32 = 8;
 const doubled_pawn_penalty: i32 = -25;
@@ -778,7 +778,10 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
 
         if (is_passed) {
             const mg_bonus = mg_passed_bonus[relative_rank];
-            const eg_bonus = passed_pawn_bonus[relative_rank];
+            var eg_bonus = passed_pawn_bonus[relative_rank];
+            if (phase < 12) {
+                eg_bonus = @divTrunc(eg_bonus * 3, 2); 
+            }
 
             const advancement_bonus = if (relative_rank >= 5)
                 @divTrunc((total_phase - phase) * @as(i32, @intCast(relative_rank)) * 3, total_phase)
@@ -920,11 +923,24 @@ fn evalKingActivity(board: *brd.Board, color: brd.Color, phase: i32) i32 {
 
     // Bonus for centralized king in endgame
     const centralization = 7 - centerDistance(king_sq);
-    score += centralization * 3;
+    score += centralization * 2;
 
     // Bonus for king being close to passed pawns
     const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
     const opp_pawns = board.piece_bb[1 - c_idx][@intFromEnum(brd.Pieces.Pawn)];
+
+    // if (our_pawns != 0) {
+    //     var closest_dist: i32 = 100;
+    //     var temp_pawns = our_pawns;
+    //     while (temp_pawns != 0) {
+    //         const p_sq = brd.getLSB(temp_pawns);
+    //         const dist = manhattanDistance(king_sq, p_sq);
+    //         if (dist < closest_dist) closest_dist = dist;
+    //         brd.popBit(&temp_pawns, p_sq);
+    //     }
+    //     // Reward being close to the "action" (your pawn mass)
+    //     score += (10 - closest_dist) * 2; 
+    // }
 
     // Check proximity to our passed pawns
     var pawn_bb = our_pawns;
@@ -935,7 +951,7 @@ fn evalKingActivity(board: *brd.Board, color: brd.Color, phase: i32) i32 {
         if (is_passed) {
             const dist = manhattanDistance(king_sq, pawn_sq);
             if (dist <= 3) {
-                score += king_pawn_proximity * (4 - dist);
+                score += king_pawn_proximity * (6 - dist);
             }
         }
 
@@ -1264,6 +1280,4 @@ fn evalSpace(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) i32 {
 pub fn almostMate(score: i32) bool {
     return @abs(score) > mate_score - 256;
 }
-
-
 

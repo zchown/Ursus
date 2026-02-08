@@ -47,6 +47,7 @@ temp
 **/temp
 *.tmp
 *.temp
+temp.zig
 
 # Logs
 *.log

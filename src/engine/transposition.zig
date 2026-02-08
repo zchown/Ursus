@@ -82,7 +82,6 @@ pub const TranspositionTable = struct {
         const cur_entry = self.items.items[idx];
 
         if (entry.flag == .Exact or cur_entry.hash != entry.hash or cur_entry.depth <= entry.depth + 4 or cur_entry.age != self.age) {
-            self.items.items[idx] = entry;
         }
     }
 
