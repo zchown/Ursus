@@ -56,6 +56,7 @@ pub const GameState = struct {
     halfmove_clock: u8,
     fullmove_number: u16,
     zobrist: zob.ZobristKey,
+    pawn_hash: zob.ZobristKey,
 
     pub fn init() GameState {
         var toReturn = GameState{
@@ -65,6 +66,7 @@ pub const GameState = struct {
             .halfmove_clock = 0,
             .fullmove_number = 1,
             .zobrist = 0,
+            .pawn_hash = 0,
         };
         toReturn.zobrist = toReturn.initZobrist();
         return toReturn;
@@ -186,6 +188,10 @@ pub const Board = struct {
         self.piece_bb[color_idx][piece_idx] &= mask;
         self.color_bb[color_idx] &= mask;
         self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
+
+        if (piece == Pieces.Pawn) {
+            self.game_state.pawn_hash ^= zob.ZobristKeys.pieceKeys(color, piece, square);
+        }
     }
 
     pub inline fn addPiece(self: *Board, color: Color, piece: Pieces, square: Square) void {
@@ -195,6 +201,10 @@ pub const Board = struct {
         self.piece_bb[color_idx][piece_idx] |= mask;
         self.color_bb[color_idx] |= mask;
         self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
+
+        if (piece == Pieces.Pawn) {
+            self.game_state.pawn_hash ^= zob.ZobristKeys.pieceKeys(color, piece, square);
+        }
     }
 
     pub inline fn movePiece(self: *Board, color: Color, piece: Pieces, from: Square, to: Square) void {
@@ -315,6 +325,10 @@ pub const Board = struct {
         while (i < max_pieces and piece_list[i] != null) : (i += 1) {
             const piece = piece_list[i].?;
             self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(piece.color, piece.piece, piece.square);
+
+            if (piece.piece == Pieces.Pawn) {
+                self.game_state.pawn_hash ^= zob.ZobristKeys.pieceKeys(piece.color, piece.piece, piece.square);
+            }
         }
     }
 

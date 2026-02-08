@@ -4,6 +4,7 @@ const brd = @import("board");
 const eval = @import("eval");
 const tt = @import("transposition");
 const see = @import("see");
+const pawn_tt = @import("pawn_tt");
 
 inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) bool {
     return move_gen.isInCheck(board, color);
@@ -24,6 +25,9 @@ pub const nmp_beta_div: usize = 150;
 
 pub const razoring_base: i32 = 50;
 pub const razoring_margin: i32 = 125;
+
+const futility_margin = [9]i32{ 0, 100, 200, 300, 400, 500, 600, 700, 800 };
+const lmp_table = [_]usize{ 3, 3, 5, 9, 15, 23, 33, 45, 59, 75 };
 
 pub const quiet_lmr: [64][64]i32 = blk: {
     break :blk initQuietLMR();
@@ -204,6 +208,12 @@ pub const Searcher = struct {
             std.debug.print("Initializing transposition table...\n", .{});
             try tt.TranspositionTable.initGlobal(64);
             std.debug.print("Transposition table initialized with {} entries.\n", .{tt.global_tt.items.items.len});
+        }
+
+        if (!pawn_tt.pawn_tt_initialized or pawn_tt.pawn_tt.items.items.len == 0) {
+            std.debug.print("Initializing pawn transposition table...\n", .{});
+            try pawn_tt.TranspositionTable.initGlobal(8);
+            std.debug.print("Pawn transposition table initialized with {} entries.\n", .{pawn_tt.pawn_tt.items.items.len});
         }
 
         var prev_score: i32 = -eval.mate_score;
@@ -390,6 +400,24 @@ pub const Searcher = struct {
             }
         }
 
+        // Interal Iterative Deepening (IID)
+        // Loses ELO :(
+        // if (depth >= 6 and !tt_hit and (on_pv or is_root)) {
+        //     // Reduce depth for the IID search
+        //     // const iid_depth = @max(1, depth - 3);
+        //     const iid_depth = 1;
+        //
+        //     // Perform the shallow search to populat TT
+        //     _ = self.negamax(board, color, iid_depth, alpha, beta, false, node_type, false);
+        //
+        //     // Check TT again to see if we found a move
+        //     if (tt.global_tt.get(board.game_state.zobrist)) |e| {
+        //         hash_move = e.move;
+        //         tt_hit = true;
+        //         tt_eval = e.eval;
+        //     }
+        // }
+
         var static_eval: i32 = undefined;
         if (in_check) {
             static_eval = -eval.mate_score + @as(i32, @intCast(self.ply));
@@ -545,22 +573,35 @@ pub const Searcher = struct {
             }
 
             if (!is_root and i > 1 and !in_check and !on_pv and has_non_pawns) {
-                if (!is_important and !is_capture and depth <= 5) {
-                    var late = 4 + depth * depth;
-                    if (improving) {
-                        late += 1 + depth / 2;
-                    }
 
-                    if (quiet_count > late) {
-                        skip_quiet = true;
-                    }
+                var lmp_threshold: usize = 0;
+                if (depth < lmp_table.len) {
+                    lmp_threshold = lmp_table[depth];
+                } else {
+                    lmp_threshold = 4 + depth * 2; // Fallback for high depths
+                }
+
+                if (improving) {
+                    lmp_threshold += 2; // Allow checking more moves if we are improving
+                }
+
+                // Prune if we have searched enough quiet moves
+                if (quiet_count > lmp_threshold) {
+                    skip_quiet = true;
                 }
             }
 
             legals += 1;
 
-            var extension: i32 = 0;
+            // Only for quiet moves, not in check, at low depths
+            if (move.capture == 0 and depth <= 8 and !in_check and 
+            self.excluded_moves[self.ply].toU32() == 0 and !on_pv and has_non_pawns and
+            !is_important and !is_killer and
+            static_eval + futility_margin[depth] <= alpha) {
+                continue; // Prune this move
+            }
 
+            var extension: i32 = 0;
             if (self.ply > 0 and !is_root and self.ply < depth * 2 and depth >= 7 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3) {
                 const margin: i32 = @intCast(depth);
                 const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
@@ -577,6 +618,14 @@ pub const Searcher = struct {
                 } else if (cutnode) {
                     extension = -1;
                 }
+                else if (is_capture ) {
+                    const see_value = see.seeCapture(board, &self.move_gen, move);
+                    // Search bad captures more deeply incase they are good sacs
+                    // Doesn't fully make sense but it gains a tiny bit of elo
+                    if (see_value < -50) { 
+                        extension = 2;
+                    }
+                }
             } else if (on_pv and !is_root and self.ply < depth * 2) {
                 // recapture extension
                 if (is_capture and (((last_move.capture == 1)) and move.end_square == last_move.end_square) or (last_last_last_move.capture == 1 and move.end_square == last_last_last_move.end_square)) {
@@ -584,7 +633,8 @@ pub const Searcher = struct {
                 }
             }
 
-            const new_depth: usize = @as(usize, @intCast(@as(i32, @intCast(depth)) + extension - 1));
+            // const new_depth: usize = @as(usize, @intCast(@as(i32, @intCast(depth)) + extension - 1));
+            const new_depth: usize = depth - 1;
 
             self.move_history[self.ply] = move;
             if (board.getPieceFromSquare(move.start_square)) |p| {
@@ -818,7 +868,6 @@ pub const Searcher = struct {
             }
         } else {
             move_list = self.move_gen.generateCaptureMoves(board, color);
-            // move_list = self.move_gen.generateMoves(board, false);
         }
 
         const move_size = move_list.len;
@@ -827,20 +876,11 @@ pub const Searcher = struct {
 
         for (0..move_size) |i| {
             const move = getNextBest(&move_list, &eval_list, i);
-            // if (move.capture == 0 and move.promoted_piece == 0) {
-            //     continue;
-            // }
 
-            // if (i > 0) {
-                // const see_score = eval_list[i];
-                //
-                // if (!in_check and see_score < 1_000_000 - 2048) {
-                //     continue;
-                // }
-            // }
             if (see.seeCapture(board, &self.move_gen, move) < 0) {
                 continue;
             }
+
 
             self.move_history[self.ply] = move;
             var moved_piece = PieceColor{
@@ -1002,14 +1042,11 @@ pub const Searcher = struct {
             if (hm == move.toU32()) {
                 score += 6_000_000;
             } else if (move.capture == 1) {
-                const captured_piece = board.getPieceFromSquare(move.end_square) orelse brd.Pieces.None;
-                const attacker_piece = board.getPieceFromSquare(move.start_square) orelse brd.Pieces.None;
-
-                const captured_value = eval.pieceValueByEnum(captured_piece);
-                const attacker_value = eval.pieceValueByEnum(attacker_piece);
-
-                if (captured_value + 100 >= attacker_value) {
-                    score += 1_000_000;
+                const see_score = see.seeCapture(board, &self.move_gen, move);
+                if (see_score > 0) {
+                    score += 1_000_000 + (see_score * 2);
+                } else {
+                    score += see_score;
                 }
             } else {
                 const last = if (self.ply > 0) self.move_history[self.ply - 1] else mvs.EncodedMove.fromU32(0);

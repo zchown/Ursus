@@ -87,6 +87,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const pawn_tt_module = b.createModule(.{
+        .root_source_file = b.path("src/engine/pawn_tt.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "Ursus",
         .root_module = b.createModule(.{
@@ -120,10 +126,13 @@ pub fn build(b: *std.Build) void {
     search_module.addImport("eval", eval_module);
     search_module.addImport("transposition", transposition_module);
     search_module.addImport("see", see_module);
+    search_module.addImport("pawn_tt", pawn_tt_module);
 
     transposition_module.addImport("board", board_module);
     transposition_module.addImport("zobrist", zobrist_module);
     transposition_module.addImport("moves", moves_module);
+
+    pawn_tt_module.addImport("zobrist", zobrist_module);
 
     uci_module.addImport("board", board_module);
     uci_module.addImport("search", search_module);
@@ -133,6 +142,7 @@ pub fn build(b: *std.Build) void {
 
     eval_module.addImport("board", board_module);
     eval_module.addImport("moves", moves_module);
+    eval_module.addImport("pawn_tt", pawn_tt_module);
 
     see_module.addImport("board", board_module);
     see_module.addImport("moves", moves_module);
