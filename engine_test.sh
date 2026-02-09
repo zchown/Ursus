@@ -19,7 +19,7 @@ OPENINGS="Balsa/Balsa_v110221.pgn"
 # OPENINGS="Balsa/Balsa_v500.pgn"
 
 # Match settings
-GAMES=4098
+GAMES=2048
 CONCURRENCY=4
 TC="100/30"
 
@@ -51,8 +51,8 @@ $CUTECHESS \
   -games $GAMES \
   -concurrency $CONCURRENCY \
   -recover \
-  -resign movecount=3 score=500 \
-  -draw movenumber=40 movecount=8 score=15 \
+  -resign movecount=5 score=1200 \
+  -draw movenumber=40 movecount=8 score=10 \
   -ratinginterval 10 \
   -pgnout "$PGN" \
   | tee "$LOG"

@@ -25,7 +25,8 @@ pub const nmp_beta_div: usize = 150;
 
 pub const razoring_margin: i32 = 300;
 
-const lmp_table = [_]usize{ 5, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64 }; 
+// const lmp_table = [_]usize{ 5, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64 }; 
+const lmp_table = [_]usize{ 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68 };
 
 pub const quiet_lmr: [64][64]i32 = blk: {
     break :blk initQuietLMR();
@@ -85,7 +86,7 @@ pub const Searcher = struct {
     pv: [max_ply][max_ply]mvs.EncodedMove = undefined,
     pv_length: [max_ply]usize = undefined,
 
-    hash_history: std.ArrayList(u64) = undefined,
+    // hash_history: std.ArrayList(u64) = undefined,
     eval_history: [max_ply]i32 = undefined,
     move_history: [max_ply]mvs.EncodedMove = undefined,
     moved_piece_history: [max_ply]PieceColor = undefined,
@@ -94,6 +95,8 @@ pub const Searcher = struct {
     counter_moves: [2][64][64]mvs.EncodedMove = undefined,
     excluded_moves: [max_ply]mvs.EncodedMove = undefined,
     continuation: *[12][64][64][64]i32 = undefined,
+    correction: [2][16384]i32 = undefined,
+    // capture: [2][64][64]i32 = undefined,
 
     nmp_min_ply: usize = 0,
 
@@ -117,9 +120,9 @@ pub const Searcher = struct {
                 std.debug.panic("Failed to allocate continuation table", .{});
             },
         };
-        s.hash_history = std.ArrayList(u64).initCapacity(std.heap.c_allocator, max_game_ply) catch {
-            std.debug.panic("Failed to initialize hash history", .{});
-        };
+        // s.hash_history = std.ArrayList(u64).initCapacity(std.heap.c_allocator, max_game_ply) catch {
+            // std.debug.panic("Failed to initialize hash history", .{});
+        // };
         s.resetHeuristics(true);
         std.debug.print("Searcher initialized.\n", .{});
         return s;
@@ -130,13 +133,12 @@ pub const Searcher = struct {
         self.timer = std.time.Timer.start() catch unreachable;
         self.move_gen = mvs.MoveGen.init();
         self.continuation = std.heap.page_allocator.create([12][64][64][64]i32) catch unreachable;
-        self.hash_history = std.ArrayList(u64).initCapacity(std.heap.c_allocator, max_game_ply) catch unreachable;
+        // self.hash_history = std.ArrayList(u64).initCapacity(std.heap.c_allocator, max_game_ply) catch unreachable;
         self.resetHeuristics(true);
         std.debug.print("Searcher initialized.\n", .{});
     }
 
-    pub fn deinit(self: *Searcher) void {
-        self.hash_history.deinit(std.heap.c_allocator);
+    pub fn deinit(_: *Searcher) void {
     }
 
     pub fn resetHeuristics(self: *Searcher, total: bool) void {
@@ -161,6 +163,7 @@ pub const Searcher = struct {
         for (0..64) |j| {
             for (0..64) |k| {
                 for (0..2) |c| {
+                    // self.capture[c][j][k] = 0;
                     if (total) {
                         self.history[c][j][k] = 0;
                     } else {
@@ -173,6 +176,16 @@ pub const Searcher = struct {
                     for (0..64) |m| {
                         self.continuation[l][j][k][m] = 0;
                     }
+                }
+            }
+        }
+
+        for (0..16384) |i| {
+            inline for (0..2) |c| {
+                if (total) {
+                    self.correction[c][i] = 0;
+                } else {
+                    self.correction[c][i] = @divTrunc(self.correction[c][i], 2);
                 }
             }
         }
@@ -320,6 +333,8 @@ pub const Searcher = struct {
         var beta = beta_;
         var depth = depth_;
 
+        const corr_idx = board.game_state.zobrist & 16383;
+
         self.pv_length[self.ply] = 0;
 
         if (self.nodes & 2047 == 0 and self.should_stop()) {
@@ -425,6 +440,8 @@ pub const Searcher = struct {
             static_eval = self.eval_history[self.ply];
         } else {
             static_eval = eval.evaluate(board, &self.move_gen, alpha, beta, true);
+            
+            static_eval += @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))], 256);
         }
 
         var best_score: i32 = static_eval;
@@ -556,6 +573,11 @@ pub const Searcher = struct {
 
             const is_capture = move.capture == 1;
             const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
+            
+            // if (self.ply >= 2) {
+            //     is_killer = is_killer or (move.toU32() == self.counter_moves[@as(usize, @intFromEnum(color))][self.move_history[self.ply - 2].start_square][self.move_history[self.ply - 2].end_square].toU32());
+            // }
+
 
             if (!is_capture) {
                 quiet_moves.addEncodedMove(move);
@@ -589,9 +611,13 @@ pub const Searcher = struct {
 
             legals += 1;
 
-            if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and !is_killer and static_eval + ((@as(i32, @intCast(depth)) + 1) * 200) <= alpha) {
-                continue; // Prune this move
+            // futility pruning
+            if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and !is_killer and !improving and static_eval + ((@as(i32, @intCast(depth)) + 1) * 75) <= alpha) {
+                continue;
             }
+                // if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and !is_killer and static_eval + ((@as(i32, @intCast(depth)) + 1) * 200) <= alpha) {
+            //     continue; // Prune this move
+            // }
 
             var extension: i32 = 0;
             if (self.ply > 0 and !is_root and self.ply < depth * 2 and depth >= 7 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3) {
@@ -636,9 +662,9 @@ pub const Searcher = struct {
                 continue;
             }
 
-            self.hash_history.append(std.heap.c_allocator, board.game_state.zobrist) catch {
-                std.debug.panic("Failed to append to hash history", .{});
-            };
+            // self.hash_history.append(std.heap.c_allocator, board.game_state.zobrist) catch {
+            //     std.debug.panic("Failed to append to hash history", .{});
+            // };
 
             tt.global_tt.prefetch(board.game_state.zobrist);
 
@@ -687,7 +713,7 @@ pub const Searcher = struct {
 
             self.ply -= 1;
             mvs.undoMove(board, move);
-            _ = self.hash_history.pop();
+            // _ = self.hash_history.pop();
 
             if (self.time_stop) {
                 return 0;
@@ -696,6 +722,12 @@ pub const Searcher = struct {
             if (score > best_score) {
                 best_score = score;
                 best_move = move;
+
+                // if(move.capture == 1) {
+                //     const adj = @min(1536, @as(i32, @intCast(depth)) * 384);
+                //     const current_hist = self.capture[@intFromEnum(color)][move.start_square][move.end_square];
+                //     self.capture[@intFromEnum(color)][move.start_square][move.end_square] += adj - @divTrunc(current_hist * adj, 16384);
+                // }
 
                 if (is_root) {
                     self.best_move = best_move;
@@ -718,6 +750,14 @@ pub const Searcher = struct {
                     }
                 }
             }
+        }
+
+        if (!in_check and !is_null and (best_score > -eval.mate_score and best_score < eval.mate_score)) {
+            const err = best_score - static_eval;
+            const current_entry = &self.correction[@intFromEnum(color)][corr_idx];
+
+            const new_val = current_entry.* + @divTrunc(err * 32, 256);
+            current_entry.* = std.math.clamp(new_val, -16000, 16000); 
         }
 
         if (alpha >= beta and !(best_move.capture == 1) and !(best_move.promoted_piece != 0)) {
@@ -819,6 +859,7 @@ pub const Searcher = struct {
         if (!in_check) {
             // static_eval = eval.evaluate(board, &self.move_gen);
             static_eval = eval.evaluate(board, &self.move_gen, alpha, beta, true);
+
             best_score = static_eval;
 
             if (best_score >= beta) {
@@ -1046,12 +1087,15 @@ pub const Searcher = struct {
                 } else {
                     score += see_score;
                 }
+                // score += self.capture[@intFromEnum(board.toMove())][move.start_square][move.end_square] * 10;
             } else {
                 const last = if (self.ply > 0) self.move_history[self.ply - 1] else mvs.EncodedMove.fromU32(0);
                 if (self.killer[self.ply][0].toU32() == move.toU32()) {
                     score += 900_000;
                 } else if (self.killer[self.ply][1].toU32() == move.toU32()) {
                     score += 800_000;
+                // } else if (self.ply >= 2 and self.counter_moves[@intFromEnum(board.toMove())][self.move_history[self.ply - 2].start_square][self.move_history[self.ply - 2].end_square].toU32() == move.toU32()) {
+                    // score += 700_000;
                 } else if (self.ply >= 1 and self.counter_moves[@intFromEnum(board.toMove())][last.start_square][last.end_square].toU32() == move.toU32()) {
                     score += 600_000;
                 } else {
