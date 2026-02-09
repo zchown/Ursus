@@ -25,7 +25,6 @@ pub const nmp_beta_div: usize = 150;
 
 pub const razoring_margin: i32 = 300;
 
-const futility_margin = [9]i32{ 0, 100, 200, 300, 400, 500, 600, 700, 800 };
 const lmp_table = [_]usize{ 5, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64 }; 
 
 pub const quiet_lmr: [64][64]i32 = blk: {
@@ -425,7 +424,6 @@ pub const Searcher = struct {
         } else if (self.excluded_moves[self.ply].toU32() != 0) {
             static_eval = self.eval_history[self.ply];
         } else {
-            // static_eval = eval.evaluate(board, &self.move_gen);
             static_eval = eval.evaluate(board, &self.move_gen, alpha, beta, true);
         }
 
@@ -591,13 +589,9 @@ pub const Searcher = struct {
 
             legals += 1;
 
-            // Only for quiet moves, not in check, at low depths
-            // if (move.capture == 0 and depth <= 8 and !in_check and 
-            // self.excluded_moves[self.ply].toU32() == 0 and !on_pv and has_non_pawns and
-            // !is_important and !is_killer and
-            // static_eval + futility_margin[depth] <= alpha) {
-            //     continue; // Prune this move
-            // }
+            if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and !is_killer and static_eval + ((@as(i32, @intCast(depth)) + 1) * 200) <= alpha) {
+                continue; // Prune this move
+            }
 
             var extension: i32 = 0;
             if (self.ply > 0 and !is_root and self.ply < depth * 2 and depth >= 7 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3) {

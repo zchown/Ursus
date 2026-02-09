@@ -7,8 +7,8 @@ set -euo pipefail
 
 # Paths to engines
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus2.9.7"
-# ENGINE_BASE="./engines/Ursus7"
+ENGINE_BASE="./engines/Ursus2.10.3"
+# ENGINE_BASE="./engines/Ursus2.8"
 # ENGINE_BASE="./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 
 # cutechess binary (assumes it's on PATH)
@@ -52,11 +52,11 @@ $CUTECHESS \
   -concurrency $CONCURRENCY \
   -recover \
   -resign movecount=3 score=500 \
+  -draw movenumber=40 movecount=8 score=15 \
   -ratinginterval 10 \
   -pgnout "$PGN" \
   | tee "$LOG"
 
-# -draw movenumber=40 movecount=8 score=15 \
 
 echo
 echo "Match finished"

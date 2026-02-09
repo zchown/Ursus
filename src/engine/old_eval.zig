@@ -5,7 +5,6 @@ const zob = @import("zobrist");
 const pawn_tt = @import("pawn_tt");
 
 pub const mate_score: i32 = 888888;
-const lazy_margin: i32 = 800;
 
 const total_phase: i32 = 24;
 const pawn_phase: i32 = 0;
@@ -106,7 +105,6 @@ const eg_pawn_table = [64]i32{
     13,  8,   8,   10,  13,  0,   2,   -7,
     0,   0,   0,   0,   0,   0,   0,   0,
 };
-
 // Knight Table (incentivize center)
 const mg_knight_table = [64]i32{
     -167, -89, -34, -49, 61,  -97, -15, -107,
@@ -260,64 +258,35 @@ fn getPawnAttacks(pawn_bb: u64, color: brd.Color) u64 {
     }
 }
 
-// Main Evaluate Function - Now with Lazy Evaluation support
-// Pass alpha and beta to allow early exits if the position is clearly decided by material
-pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen, alpha: i32, beta: i32, exact: bool) i32 {
+pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen) i32 {
     var current_phase: i32 = 0;
+
     current_phase += @as(i32, @intCast(@popCount(board.piece_bb[0][1]) + @popCount(board.piece_bb[1][1]))) * knight_phase;
     current_phase += @as(i32, @intCast(@popCount(board.piece_bb[0][2]) + @popCount(board.piece_bb[1][2]))) * bishop_phase;
     current_phase += @as(i32, @intCast(@popCount(board.piece_bb[0][3]) + @popCount(board.piece_bb[1][3]))) * rook_phase;
     current_phase += @as(i32, @intCast(@popCount(board.piece_bb[0][4]) + @popCount(board.piece_bb[1][4]))) * queen_phase;
+
     current_phase = std.math.clamp(current_phase, 0, total_phase);
 
     var mg_score: i32 = 0;
     var eg_score: i32 = 0;
 
-    // STAGE 1: Lazy Evaluation 
-    const white_base = evalBase(board, brd.Color.White);
-    const black_base = evalBase(board, brd.Color.Black);
+    const white_eval = evalColorCombined(board, brd.Color.White, move_gen);
+    const black_eval = evalColorCombined(board, brd.Color.Black, move_gen);
+    mg_score += white_eval.mg - black_eval.mg;
+    eg_score += white_eval.eg - black_eval.eg;
 
-    pawn_tt.pawn_tt.prefetch(board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(current_phase))]);
-    mg_score += white_base.mg - black_base.mg;
-    eg_score += white_base.eg - black_base.eg;
-
-    // checking pawn_tt is fast so if we get a hit we use it
-    if (pawn_tt.pawn_tt.get(board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(current_phase))])) |e| {
-        mg_score += e.mg;
-        eg_score += e.eg;
-    }
-
-    var score = (mg_score * current_phase + eg_score * (total_phase - current_phase));
-    score = @divTrunc(score, total_phase);
-    score += tempo_bonus;
-
-    var lazy_score = score;
-    if (board.toMove() == brd.Color.Black) {
-        lazy_score = -score;
-    }
-
-    // Lazy Cutoff
-    if (!exact and score + lazy_margin <= alpha) {
-        return lazy_score + lazy_margin; 
-    }
-    if (!exact and score - lazy_margin >= beta) {
-        return lazy_score - lazy_margin;
-    }
-
-    // --- STAGE 2
-    const white_activity = evalPieceActivity(board, brd.Color.White, move_gen);
-    const black_activity = evalPieceActivity(board, brd.Color.Black, move_gen);
-    
-    mg_score += white_activity.mg - black_activity.mg;
-    eg_score += white_activity.eg - black_activity.eg;
-
+    // King Safety (middlegame focused)
     mg_score += evalKingSafety(board, brd.Color.White);
     mg_score -= evalKingSafety(board, brd.Color.Black);
 
+    pawn_tt.pawn_tt.prefetch(board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(current_phase))]);
+    // Pawn Structure evaluation
     const pawn_eval = evalPawnStructure(board, current_phase);
     mg_score += pawn_eval.mg;
     eg_score += pawn_eval.eg;
 
+    // Endgame-specific evaluation (more important as phase approaches 0)
     if (current_phase < total_phase / 2) {
         const eg_eval = evalEndgame(board, current_phase);
         eg_score += eg_eval;
@@ -325,6 +294,7 @@ pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen, alpha: i32, beta: i32
 
     const white_bishops = @popCount(board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Bishop)]);
     const black_bishops = @popCount(board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Bishop)]);
+
     if (white_bishops >= 2) {
         mg_score += bishop_pair_bonus;
         eg_score += bishop_pair_bonus;
@@ -334,31 +304,67 @@ pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen, alpha: i32, beta: i32
         eg_score -= bishop_pair_bonus;
     }
 
-    var global_score: i32 = 0;
-    global_score += evalThreats(board, move_gen, brd.Color.White);
-    global_score -= evalThreats(board, move_gen, brd.Color.Black);
+        
+    var score: i32 = 0;
+    score += evalThreats(board, move_gen, brd.Color.White);
+    score -= evalThreats(board, move_gen, brd.Color.Black);
 
-    global_score += evalSpace(board, move_gen, brd.Color.White);
-    global_score -= evalSpace(board, move_gen, brd.Color.Black);
+    score += evalSpace(board, move_gen, brd.Color.White);
+    score -= evalSpace(board, move_gen, brd.Color.Black);
 
-    mg_score += global_score;
-    eg_score += global_score;
+    mg_score += score;
+    eg_score += score;
 
     var final_score = (mg_score * current_phase + eg_score * (total_phase - current_phase));
     final_score = @divTrunc(final_score, total_phase);
+    final_score += tempo_bonus;
+
+    // help with oposite colored bishop endgames - if both sides have only a bishop and they are on opposite colors, it's often a draw, so reduce score to reflect that
+    // loses elo :(
+//     const white_knights = @popCount(board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Knight)]);
+//     const black_knights = @popCount(board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Knight)]);
+//     const white_rooks = @popCount(board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Rook)]);
+//     const black_rooks = @popCount(board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Rook)]);
+//     const white_queens = @popCount(board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Queen)]);
+//     const black_queens = @popCount(board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Queen)]);
+//
+//
+//     if (white_bishops == 1 and black_bishops == 1 and
+//     white_knights == 0 and black_knights == 0 and
+//     white_rooks == 0 and black_rooks == 0 and
+//     white_queens == 0 and black_queens == 0) 
+// {
+//         const white_bishop_sq = brd.getLSB(board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Bishop)]);
+//         const black_bishop_sq = brd.getLSB(board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Bishop)]);
+//
+//         const white_is_light = (white_bishop_sq / 8 + white_bishop_sq % 8) % 2 != 0; 
+//         const black_is_light = (black_bishop_sq / 8 + black_bishop_sq % 8) % 2 != 0;
+//
+//         if (white_is_light != black_is_light) {
+//             if (current_phase == 0) {
+//                 final_score = @divTrunc(final_score, 2); 
+//             } else {
+//                 final_score = @divTrunc(final_score * 3, 4);
+//             }
+//         }
+//     }
 
     if (board.toMove() == brd.Color.White) {
-        return final_score + tempo_bonus; 
+        return final_score;
     } else {
-        return -final_score - tempo_bonus;
+        return -final_score;
     }
 }
 
-// Stage 1
-fn evalBase(board: *brd.Board, color: brd.Color) EvalStruct {
+fn evalColorCombined(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen) EvalStruct {
     const c_idx = @intFromEnum(color);
+    const opp_idx = 1 - c_idx;
+    var score: i32 = 0;
     var mg_score: i32 = 0;
     var eg_score: i32 = 0;
+
+    var attack_units: i32 = 0;
+    var attacker_count: i32 = 0;
 
     const getPst = struct {
         fn get(sq: usize, table: [64]i32, c: brd.Color) i32 {
@@ -367,12 +373,25 @@ fn evalBase(board: *brd.Board, color: brd.Color) EvalStruct {
         }
     }.get;
 
+    // Pre-calculate useful bitboards for positional logic
+    const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
+    const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
+    const our_pawn_attacks = getPawnAttacks(our_pawns, color);
+    const opp_pawn_attacks = getPawnAttacks(opp_pawns, if (color == brd.Color.White) brd.Color.Black else brd.Color.White);
+    const opp_king_bb = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.King)];
+    const opp_queen_bb = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Queen)];
+    const occupancy = board.occupancy();
+    const opp_king_sq = brd.getLSB(opp_king_bb);
+    const opp_king_zone = getKingZone(opp_king_sq, color.opposite(), move_gen);
+
     // Pawns
     var bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
     while (bb != 0) {
         const sq = brd.getLSB(bb);
-        mg_score += mg_pawn + getPst(sq, mg_pawn_table, color);
-        eg_score += eg_pawn + getPst(sq, eg_pawn_table, color);
+        mg_score += mg_pawn;
+        eg_score += eg_pawn;
+        mg_score += getPst(sq, mg_pawn_table, color);
+        eg_score += getPst(sq, eg_pawn_table, color);
         brd.popBit(&bb, sq);
     }
 
@@ -380,79 +399,17 @@ fn evalBase(board: *brd.Board, color: brd.Color) EvalStruct {
     bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Knight)];
     while (bb != 0) {
         const sq = brd.getLSB(bb);
-        mg_score += mg_knight + getPst(sq, mg_knight_table, color);
-        eg_score += eg_knight + getPst(sq, eg_knight_table, color);
-        brd.popBit(&bb, sq);
-    }
+        mg_score += mg_knight;
+        eg_score += eg_knight;
+        mg_score += getPst(sq, mg_knight_table, color);
+        eg_score += getPst(sq, eg_knight_table, color);
 
-    // Bishops
-    bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Bishop)];
-    while (bb != 0) {
-        const sq = brd.getLSB(bb);
-        mg_score += mg_bishop + getPst(sq, mg_bishop_table, color);
-        eg_score += eg_bishop + getPst(sq, eg_bishop_table, color);
-        brd.popBit(&bb, sq);
-    }
-
-    // Rooks
-    bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Rook)];
-    while (bb != 0) {
-        const sq = brd.getLSB(bb);
-        mg_score += mg_rook + getPst(sq, mg_rook_table, color);
-        eg_score += eg_rook + getPst(sq, eg_rook_table, color);
-        brd.popBit(&bb, sq);
-    }
-
-    // Queens
-    bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Queen)];
-    while (bb != 0) {
-        const sq = brd.getLSB(bb);
-        mg_score += mg_queen + getPst(sq, mg_queen_table, color);
-        eg_score += eg_queen + getPst(sq, eg_queen_table, color);
-        brd.popBit(&bb, sq);
-    }
-
-    // King
-    bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
-    if (bb != 0) {
-        const sq = brd.getLSB(bb);
-        mg_score += mg_king + getPst(sq, mg_king_table, color);
-        eg_score += eg_king + getPst(sq, eg_king_table, color);
-    }
-
-    return EvalStruct{ .mg = mg_score, .eg = eg_score };
-}
-
-// Stage 2
-fn evalPieceActivity(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen) EvalStruct {
-    const c_idx = @intFromEnum(color);
-    const opp_idx = 1 - c_idx;
-    var score: i32 = 0;
-    
-    var attack_units: i32 = 0;
-    var attacker_count: i32 = 0;
-
-    const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
-    const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
-    const our_pawn_attacks = getPawnAttacks(our_pawns, color);
-    const opp_pawn_attacks = getPawnAttacks(opp_pawns, color.opposite());
-    const opp_king_bb = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.King)];
-    const opp_queen_bb = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Queen)];
-    const occupancy = board.occupancy();
-    const opp_king_sq = brd.getLSB(opp_king_bb);
-    const opp_king_zone = getKingZone(opp_king_sq, color.opposite(), move_gen);
-
-    // Knights
-    var bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Knight)];
-    while (bb != 0) {
-        const sq = brd.getLSB(bb);
-        
         const rank = @divTrunc(sq, 8);
         const relative_rank = if (color == brd.Color.White) rank else 7 - rank;
         const is_supported = (our_pawn_attacks & (@as(u64, 1) << @intCast(sq))) != 0;
-        
+
         if (is_supported and relative_rank >= 3 and relative_rank <= 5) {
-            score += knight_outpost_bonus;
+            mg_score += knight_outpost_bonus;
         }
 
         const sq_bb: u64 = @as(u64, 1) << @intCast(sq);
@@ -461,7 +418,7 @@ fn evalPieceActivity(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen
         }
 
         score += evalMobility(@as(usize, @intCast(sq)), .Knight, board, move_gen, opp_pawn_attacks, color);
-        
+
         const attack_mask = move_gen.knights[@as(usize, @intCast(sq))];
         if (attack_mask & opp_king_zone != 0) {
             attack_units += knight_attack_bonus;
@@ -475,7 +432,11 @@ fn evalPieceActivity(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen
     bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Bishop)];
     while (bb != 0) {
         const sq = brd.getLSB(bb);
-        
+        mg_score += mg_bishop;
+        eg_score += eg_bishop;
+        mg_score += getPst(sq, mg_bishop_table, color);
+        eg_score += getPst(sq, eg_bishop_table, color);
+
         const sq_bb: u64 = @as(u64, 1) << @intCast(sq);
         if ((sq_bb & opp_pawn_attacks) != 0) {
             score -= minor_threat_penalty;
@@ -488,7 +449,7 @@ fn evalPieceActivity(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen
         }
 
         score += evalMobility(@as(usize, @intCast(sq)), .Bishop, board, move_gen, opp_pawn_attacks, color);
-        
+
         const attack_mask = move_gen.getBishopAttacks(sq, occupancy);
         if (attack_mask & opp_king_zone != 0) {
             attack_units += bishop_attack_bonus;
@@ -502,7 +463,11 @@ fn evalPieceActivity(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen
     bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Rook)];
     while (bb != 0) {
         const sq = brd.getLSB(bb);
-        
+        mg_score += mg_rook;
+        eg_score += eg_rook;
+        mg_score += getPst(sq, mg_rook_table, color);
+        eg_score += getPst(sq, eg_rook_table, color);
+
         const file = @mod(sq, 8);
         const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
 
@@ -525,17 +490,34 @@ fn evalPieceActivity(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen
         if (file_mask & opp_queen_bb != 0) {
             score += rook_on_queen_bonus;
         }
+
         if (file_mask & opp_king_bb != 0) {
             score += rook_on_king_bonus;
         }
 
         score += evalMobility(@as(usize, @intCast(sq)), .Rook, board, move_gen, opp_pawn_attacks, color);
-        
+
         const attack_mask = move_gen.getRookAttacks(sq, occupancy);
         if (attack_mask & opp_king_zone != 0) {
             attack_units += rook_attack_bonus;
             attacker_count += 1;
         }
+
+        // Loses elo
+        // const is_corner = (sq == 0 or sq == 7 or sq == 56 or sq == 63);
+        // if (is_corner) {
+        //     const king_sq = brd.getLSB(board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)]);
+        //     const dist = manhattanDistance(sq, king_sq);
+        //
+        //     // If king is adjacent to the cornered rook (e.g., g1 and h1)
+        //     if (dist <= 2) {
+        //         // Check if rook is trapped by lack of mobility
+        //         const attacks = move_gen.getRookAttacks(sq, occupancy);
+        //         if (@popCount(attacks) <= 3) {
+        //             score -= trapped_rook_penalty;
+        //         }
+        //     }
+        // }
 
         brd.popBit(&bb, sq);
     }
@@ -544,7 +526,12 @@ fn evalPieceActivity(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen
     bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Queen)];
     while (bb != 0) {
         const sq = brd.getLSB(bb);
-        
+        mg_score += mg_queen;
+        eg_score += eg_queen;
+        mg_score += getPst(sq, mg_queen_table, color);
+        eg_score += getPst(sq, eg_queen_table, color);
+        brd.popBit(&bb, sq);
+
         const sq_bb: u64 = @as(u64, 1) << @intCast(sq);
         if ((sq_bb & opp_pawn_attacks) != 0) {
             score -= queen_threat_penalty;
@@ -557,29 +544,36 @@ fn evalPieceActivity(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen
         }
 
         score += evalMobility(@as(usize, @intCast(sq)), .Queen, board, move_gen, opp_pawn_attacks, color);
-        
+
         const attack_mask = move_gen.getQueenAttacks(sq, occupancy);
         if (attack_mask & opp_king_zone != 0) {
             attack_units += queen_attack_bonus;
             attacker_count += 1;
         }
-        
-        brd.popBit(&bb, sq);
     }
 
-    var safety_bonus: i32 = 0;
+    // King
+    bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
+    if (bb != 0) {
+        const sq = brd.getLSB(bb);
+        mg_score += mg_king;
+        eg_score += eg_king;
+        mg_score += getPst(sq, mg_king_table, color);
+        eg_score += getPst(sq, eg_king_table, color);
+    }
+
     if (attacker_count > 1) {
         const index = @as(usize, @intCast(@min(attack_units, 15)));
-        safety_bonus = safety_table[index];
+        score += safety_table[index];
     }
 
     return EvalStruct{
-        .mg = score + safety_bonus,
-        .eg = score, 
+        .mg = mg_score + score,
+        .eg = eg_score + score,
     };
 }
 
-// King Safety evaluation
+// King Safety evaluation - incentivizes castling and pawn shields
 fn evalKingSafety(board: *brd.Board, color: brd.Color) i32 {
     const c_idx = @intFromEnum(color);
     var safety: i32 = 0;
@@ -590,11 +584,16 @@ fn evalKingSafety(board: *brd.Board, color: brd.Color) i32 {
     const king_sq = brd.getLSB(king_bb);
     const king_file = @mod(king_sq, 8);
     const king_rank = @divTrunc(king_sq, 8);
+
     // Check if castled (king on g1/g8 or c1/c8 with appropriate rank)
     const has_castled = blk: {
         if (color == brd.Color.White) {
+            // White castled kingside: king on g1 (sq 6)
+            // White castled queenside: king on c1 (sq 2)
             break :blk king_sq == 6 or king_sq == 2;
         } else {
+            // Black castled kingside: king on g8 (sq 62)
+            // Black castled queenside: king on c8 (sq 58)
             break :blk king_sq == 62 or king_sq == 58;
         }
     };
@@ -607,9 +606,9 @@ fn evalKingSafety(board: *brd.Board, color: brd.Color) i32 {
     const pawn_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
     const shield_files = [3]i32{ @as(i32, @intCast(king_file)) - 1, @as(i32, @intCast(king_file)), @as(i32, @intCast(king_file)) + 1 };
 
-    for (shield_files) |file|
-    {
+    for (shield_files) |file| {
         if (file < 0 or file > 7) continue;
+
         // Check for pawns in front of king
         const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
         const pawns_on_file = pawn_bb & file_mask;
@@ -641,14 +640,15 @@ fn evalKingSafety(board: *brd.Board, color: brd.Color) i32 {
 
     for (shield_files) |file| {
         if (file < 0 or file > 7) continue;
+
         const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
         const our_pawns_on_file = pawn_bb & file_mask;
         const their_pawns_on_file = (all_pawns & file_mask) ^ our_pawns_on_file;
 
         if (our_pawns_on_file == 0 and their_pawns_on_file == 0) {
-            safety += open_file_penalty;
+            safety += open_file_penalty; // Open file
         } else if (our_pawns_on_file == 0 and their_pawns_on_file != 0) {
-            safety += semi_open_penalty;
+            safety += semi_open_penalty; // Semi-open file (dangerous)
         }
     }
 
@@ -659,9 +659,11 @@ const PawnEval = struct {
     mg: i32,
     eg: i32,
 };
+
 // Pawn Structure evaluation - passed pawns, pawn chains, isolated/doubled
 fn evalPawnStructure(board: *brd.Board, phase: i32) PawnEval {
     var result = PawnEval{ .mg = 0, .eg = 0 };
+
     const white_eval = evalPawnsForColor(board, brd.Color.White, phase);
     const black_eval = evalPawnsForColor(board, brd.Color.Black, phase);
 
@@ -672,12 +674,21 @@ fn evalPawnStructure(board: *brd.Board, phase: i32) PawnEval {
 }
 
 fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
+
+    if (pawn_tt.pawn_tt.get(board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(phase))])) |e| {
+        return PawnEval{
+            .mg = e.mg,
+            .eg = e.eg,
+        };
+    }
+
     const c_idx = @intFromEnum(color);
     const opp_idx = 1 - c_idx;
     var result = PawnEval{ .mg = 0, .eg = 0 };
 
     const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
     const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
+
     var file_counts = [_]u8{0} ** 8;
     var temp_bb = our_pawns;
     while (temp_bb != 0) {
@@ -692,10 +703,64 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
         const sq = brd.getLSB(temp_bb);
         const file = @mod(sq, 8);
         const rank = @divTrunc(sq, 8);
+
         const relative_rank: usize = if (color == brd.Color.White) rank else 7 - rank;
+
         const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
         const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
         const adjacent_files = left_mask | right_mask;
+
+        // Connected and backward pawns evaluation 
+        // currently reduce elo
+        // const rank_mask_connected = @as(u64, 0xFF) << @intCast(rank * 8);
+        // const phalanx_mask = (left_mask | right_mask) & rank_mask_connected;
+        // const support_mask = if (color == brd.Color.White)
+        // ((left_mask | right_mask) >> 8)
+        //     else
+        // ((left_mask | right_mask) << 8);
+        //
+        // const is_connected = (our_pawns & (phalanx_mask | support_mask)) != 0;
+        //
+        // if (is_connected) {
+        //     // Reward connected pawns, slightly increasing with rank
+        //     const bonus = connected_pawn_bonus + @as(i32, @intCast(relative_rank)) * 2;
+        //     result.mg += bonus;
+        //     result.eg += bonus * 2; // Connected pawns are monsters in endgames
+        // }
+        // const is_backward = blk: {
+        //     const support_mask_back: u64 = if (color == brd.Color.White)
+        //         ~(@as(u64, 0xFFFFFFFFFFFFFFFF) << @intCast((rank + 1) * 8))
+        //         else
+        //         ~(@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8));
+        //
+        //     const has_support = (our_pawns & adjacent_files & support_mask_back) != 0;
+        //     if (has_support) break :blk false;
+        //
+        //     const stop_sq = if (color == brd.Color.White) sq + 8 else sq - 8;
+        //     if (stop_sq < 0 or stop_sq > 63) break :blk false;
+        //
+        //     const stop_file = @mod(stop_sq, 8);
+        //     const stop_rank = @divTrunc(stop_sq, 8);
+        //
+        //     var enemy_control = false;
+        //
+        //     if (color == brd.Color.White) {
+        //         if (stop_rank < 7) {
+        //             if (stop_sq + 7 < 64 and (opp_pawns & (@as(u64, 1) << @intCast(stop_sq + 7))) != 0 and stop_file > 0) enemy_control = true;
+        //             if (stop_sq + 9 < 64 and (opp_pawns & (@as(u64, 1) << @intCast(stop_sq + 9))) != 0 and stop_file < 7) enemy_control = true;
+        //         }
+        //     } else {
+        //         if (stop_sq >= 7 and (opp_pawns & (@as(u64, 1) << @intCast(stop_sq - 7))) != 0 and stop_file < 7) enemy_control = true;
+        //         if (stop_sq >= 9 and (opp_pawns & (@as(u64, 1) << @intCast(stop_sq - 9))) != 0 and stop_file > 0) enemy_control = true;
+        //     }
+        //
+        //     break :blk enemy_control;
+        // };
+        //
+        // if (is_backward) {
+        //     result.mg += backward_pawn_penalty;
+        //     result.eg += backward_pawn_penalty;
+        // }
 
         const is_passed = blk: {
             const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
@@ -711,17 +776,19 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
 
             break :blk blocking_pawns == 0;
         };
+
         if (is_passed) {
             const mg_bonus = mg_passed_bonus[relative_rank];
             var eg_bonus = passed_pawn_bonus[relative_rank];
             if (phase < 12) {
-                eg_bonus = @divTrunc(eg_bonus * 3, 2);
+                eg_bonus = @divTrunc(eg_bonus * 3, 2); 
             }
 
             const advancement_bonus = if (relative_rank >= 5)
                 @divTrunc((total_phase - phase) * @as(i32, @intCast(relative_rank)) * 3, total_phase)
             else
                 0;
+
             result.mg += mg_bonus;
             result.eg += eg_bonus + advancement_bonus;
         }
@@ -738,10 +805,10 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
                 if (sq <= 56 and file < 7) sqs[1] = sq + 9;
                 break :blk2 sqs;
             };
+
             var protected = false;
             for (protection_sqs) |maybe_sq| {
-                if (maybe_sq) |prot_sq|
-                {
+                if (maybe_sq) |prot_sq| {
                     const mask: u64 = @as(u64, 1) << @intCast(prot_sq);
                     if ((our_pawns & mask) != 0) {
                         protected = true;
@@ -775,24 +842,28 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
     }
 
     pawn_tt.pawn_tt.set(pawn_tt.Entry{
-        .hash = board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(phase))],
+        .hash = (board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(phase))]),
         .mg = result.mg,
         .eg = result.eg,
     });
+
     return result;
 }
 
 fn evalEndgame(board: *brd.Board, phase: i32) i32 {
     var score: i32 = 0;
+
     const white_material = countMaterial(board, brd.Color.White);
     const black_material = countMaterial(board, brd.Color.Black);
     const material_diff = white_material - black_material;
+
     if (@abs(material_diff) > 200) {
         const winning_side = if (material_diff > 0) brd.Color.White else brd.Color.Black;
         const losing_side = if (material_diff > 0) brd.Color.Black else brd.Color.White;
 
         const winner_idx = @intFromEnum(winning_side);
         const loser_idx = @intFromEnum(losing_side);
+
         const winner_king_bb = board.piece_bb[winner_idx][@intFromEnum(brd.Pieces.King)];
         const loser_king_bb = board.piece_bb[loser_idx][@intFromEnum(brd.Pieces.King)];
 
@@ -802,8 +873,10 @@ fn evalEndgame(board: *brd.Board, phase: i32) i32 {
 
             // Drive losing king to the edge
             const edge_score = centerDistance(loser_king_sq) * 10;
+
             // Bring winning king closer to losing king
             const king_proximity = (14 - manhattanDistance(winner_king_sq, loser_king_sq)) * 4;
+
             const mopup_score = edge_score + king_proximity;
 
             if (material_diff > 0) {
@@ -846,6 +919,7 @@ fn evalKingActivity(board: *brd.Board, color: brd.Color, phase: i32) i32 {
 
     const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
     if (king_bb == 0) return 0;
+
     const king_sq = brd.getLSB(king_bb);
 
     // Bonus for centralized king in endgame
@@ -854,7 +928,21 @@ fn evalKingActivity(board: *brd.Board, color: brd.Color, phase: i32) i32 {
 
     // Bonus for king being close to passed pawns
     const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
-    
+    const opp_pawns = board.piece_bb[1 - c_idx][@intFromEnum(brd.Pieces.Pawn)];
+
+    // if (our_pawns != 0) {
+    //     var closest_dist: i32 = 100;
+    //     var temp_pawns = our_pawns;
+    //     while (temp_pawns != 0) {
+    //         const p_sq = brd.getLSB(temp_pawns);
+    //         const dist = manhattanDistance(king_sq, p_sq);
+    //         if (dist < closest_dist) closest_dist = dist;
+    //         brd.popBit(&temp_pawns, p_sq);
+    //     }
+    //     // Reward being close to the "action" (your pawn mass)
+    //     score += (10 - closest_dist) * 2; 
+    // }
+
     // Check proximity to our passed pawns
     var pawn_bb = our_pawns;
     while (pawn_bb != 0) {
@@ -872,11 +960,12 @@ fn evalKingActivity(board: *brd.Board, color: brd.Color, phase: i32) i32 {
     }
 
     // Penalty for being far from opponent's passed pawns
-    pawn_bb = board.piece_bb[1 - c_idx][@intFromEnum(brd.Pieces.Pawn)];
+    pawn_bb = opp_pawns;
     while (pawn_bb != 0) {
         const pawn_sq = brd.getLSB(pawn_bb);
         const opp_color = if (color == brd.Color.White) brd.Color.Black else brd.Color.White;
         const is_passed = checkPassedPawn(board, pawn_sq, opp_color);
+
         if (is_passed) {
             const dist = manhattanDistance(king_sq, pawn_sq);
             if (dist > 4) {
@@ -925,6 +1014,7 @@ fn evalRookEndgame(board: *brd.Board, color: brd.Color) i32 {
         const rook_sq = brd.getLSB(temp_rook_bb);
         const rook_rank = @divTrunc(rook_sq, 8);
         const rook_file = @mod(rook_sq, 8);
+
         // Rook on 7th rank bonus
         const seventh_rank: i32 = if (color == brd.Color.White) 6 else 1;
         if (rook_rank == seventh_rank) {
@@ -945,6 +1035,7 @@ fn evalRookEndgame(board: *brd.Board, color: brd.Color) i32 {
                 rook_rank < pawn_rank
             else
                 rook_rank > pawn_rank;
+
             if (rook_behind and checkPassedPawn(board, pawn_sq, color)) {
                 score += rook_behind_passer_bonus;
             }
@@ -969,12 +1060,15 @@ fn evalMobility(sq: usize, piece: brd.Pieces, board: *brd.Board, move_gen: *mvs.
         .Queen => move_gen.getQueenAttacks(sq, board.occupancy()),
         else => 0,
     };
+
     const safe_mobility = attacks & ~our_pieces & ~opp_pawn_attacks;
     const count = @popCount(safe_mobility);
+
     const knight_bonus = [_]i32{ -8, -4, 0, 4, 8, 12, 16, 18, 20 };
     const bishop_bonus = [_]i32{ -12, -8, -4, 0, 4, 8, 12, 16, 20, 22, 24, 26, 28, 30 };
     const rook_bonus = [_]i32{ -10, -6, -2, 2, 6, 10, 14, 18, 20, 22, 24, 26, 28, 30, 32 };
     const queen_bonus = [_]i32{ -12, -8, -4, 0, 4, 8, 12, 16, 20, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60 };
+
     return switch (piece) {
         .Knight => if (count < knight_bonus.len) knight_bonus[count] else knight_bonus[knight_bonus.len - 1],
         .Bishop => if (count < bishop_bonus.len) bishop_bonus[count] else bishop_bonus[bishop_bonus.len - 1],
@@ -997,18 +1091,23 @@ fn evalThreats(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) i32 
     const opp_knight_attacks = getAllKnightAttacks(board, move_gen, brd.flipColor(color));
     const opp_bishop_attacks = getAllBishopAttacks(board, move_gen, brd.flipColor(color));
     const opp_rook_attacks = getAllRookAttacks(board, move_gen, brd.flipColor(color));
+
     // Get our defense map
     const our_defenses = getAllDefenses(board, move_gen, color);
+
     // Check each of our pieces
     const pieces = [_]brd.Pieces{ .Knight, .Bishop, .Rook, .Queen };
+
     for (pieces) |piece| {
         var piece_bb = board.piece_bb[c_idx][@intFromEnum(piece)];
+
         while (piece_bb != 0) {
             const sq = brd.getLSB(piece_bb);
             const sq_mask = @as(u64, 1) << @intCast(sq);
 
             // Check if piece is hanging (attacked but not defended)
             const is_defended = (our_defenses & sq_mask) != 0;
+
             // Penalize based on what's attacking it
             if ((opp_pawn_attacks & sq_mask) != 0) {
                 if (!is_defended) {
@@ -1040,6 +1139,7 @@ fn evalThreats(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) i32 
 fn getAllPawnAttacks(board: *brd.Board, color: brd.Color) u64 {
     const c_idx = @intFromEnum(color);
     const pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
+
     if (color == brd.Color.White) {
         const left_attacks = (pawns << 7) & ~@as(u64, 0x8080808080808080);
         const right_attacks = (pawns << 9) & ~@as(u64, 0x0101010101010101);
@@ -1070,6 +1170,7 @@ fn getAllBishopAttacks(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Col
     var attacks: u64 = 0;
     const occ = board.occupancy();
     var bishops = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Bishop)];
+
     while (bishops != 0) {
         const sq = brd.getLSB(bishops);
         attacks |= move_gen.getBishopAttacks(sq, occ);
@@ -1084,6 +1185,7 @@ fn getAllRookAttacks(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color
     var attacks: u64 = 0;
     const occ = board.occupancy();
     var rooks = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Rook)];
+
     while (rooks != 0) {
         const sq = brd.getLSB(rooks);
         attacks |= move_gen.getRookAttacks(sq, occ);
@@ -1098,6 +1200,7 @@ fn getAllQueenAttacks(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Colo
     var attacks: u64 = 0;
     const occ = board.occupancy();
     var queens = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Queen)];
+
     while (queens != 0) {
         const sq = brd.getLSB(queens);
         attacks |= move_gen.getQueenAttacks(sq, occ);
@@ -1137,10 +1240,12 @@ fn evalSpace(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) i32 {
 
     const center: u64 = 0x0000001818000000;
     const extended_center: u64 = 0x00003C3C3C3C0000;
+
     const our_half: u64 = if (color == brd.Color.White) 
         0x00000000FFFFFFFF 
         else 
         0xFFFFFFFF00000000;
+
     var pawn_bb = our_pawns;
     while (pawn_bb != 0) {
         const sq = brd.getLSB(pawn_bb);
@@ -1151,6 +1256,7 @@ fn evalSpace(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) i32 {
             @as(i32, @intCast(rank)) - 1
             else 
             @as(i32, @intCast(6 - rank));
+
         if (advance_bonus > 0) {
             score += advance_bonus;
         }
@@ -1161,9 +1267,11 @@ fn evalSpace(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) i32 {
     const our_attacks = getAllAttacks(board, move_gen, color);
     const controlled_space = @popCount(our_attacks & our_half);
     score += @as(i32, @intCast(controlled_space)) * space_per_square;
+
     // Bonus for center control
     const center_control = @popCount(our_attacks & center);
     score += @as(i32, @intCast(center_control)) * center_control_bonus;
+
     const extended_control = @popCount(our_attacks & extended_center);
     score += @as(i32, @intCast(extended_control)) * extended_center_bonus;
 
@@ -1173,3 +1281,4 @@ fn evalSpace(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) i32 {
 pub fn almostMate(score: i32) bool {
     return @abs(score) > mate_score - 256;
 }
+

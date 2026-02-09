@@ -359,7 +359,7 @@ class EngineInterface:
                     return lines
         return lines
 
-    def search_position(self, fen: str, movetime: int = 1000) -> Tuple[str, int, List[str]]:
+    def search_position(self, fen: str, movetime: int = 500) -> Tuple[str, int, List[str]]:
         self.send(f"position fen {fen}")
         self.send(f"go movetime {movetime}")
         lines = self.wait_for("bestmove", timeout=movetime/1000 + 25)
