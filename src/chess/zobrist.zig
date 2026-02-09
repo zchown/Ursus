@@ -6,6 +6,7 @@ const PieceRandoms = [brd.num_colors][brd.num_pieces + 1][brd.num_squares]Zobris
 const CastleRandoms = [16]ZobristKey;
 const ColorRandoms = [brd.num_colors]ZobristKey;
 const EnPassantRandoms = [brd.num_squares + 1]ZobristKey;
+const EvalPhaseRandoms = [24]ZobristKey;
 
 pub const ZobristKeys: ZobristKeyStruct = ZobristKeyStruct.init();
 
@@ -14,6 +15,7 @@ pub const ZobristKeyStruct = struct {
     castle: CastleRandoms,
     color: ColorRandoms,
     en_passant: EnPassantRandoms,
+    eval_phase: EvalPhaseRandoms,
 
     pub fn init() ZobristKeyStruct {
         var keys: ZobristKeyStruct = ZobristKeyStruct{
@@ -21,6 +23,7 @@ pub const ZobristKeyStruct = struct {
             .castle = undefined,
             .color = undefined,
             .en_passant = @splat(0),
+            .eval_phase = @splat(0),
         };
         var rng = 0xdeadbeefdeadbeef;
         rng = splitMix64(rng);
@@ -47,10 +50,16 @@ pub const ZobristKeyStruct = struct {
             keys.castle[castle] = rng;
         }
 
-        for (0..brd.num_squares + 1) |square| {
+        inline for (0..brd.num_squares + 1) |square| {
             rng = splitMix64(rng);
             keys.en_passant[square] = rng;
         }
+
+        inline for (0..24) |phase| {
+            rng = splitMix64(rng);
+            keys.eval_phase[phase] = rng;
+        }
+
         return keys;
     }
 

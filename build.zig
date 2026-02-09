@@ -143,6 +143,7 @@ pub fn build(b: *std.Build) void {
     eval_module.addImport("board", board_module);
     eval_module.addImport("moves", moves_module);
     eval_module.addImport("pawn_tt", pawn_tt_module);
+    eval_module.addImport("zobrist", zobrist_module);
 
     see_module.addImport("board", board_module);
     see_module.addImport("moves", moves_module);

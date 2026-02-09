@@ -334,7 +334,8 @@ pub const Searcher = struct {
         const on_pv: bool = node_type != NodeType.NonPV;
 
         if (self.ply == max_ply) {
-            return eval.evaluate(board, &self.move_gen);
+            // return eval.evaluate(board, &self.move_gen);
+            return eval.evaluate(board, &self.move_gen, alpha, beta, true);
         }
 
         const in_check: bool = kingInCheck(board, &self.move_gen, color);
@@ -424,7 +425,8 @@ pub const Searcher = struct {
         } else if (self.excluded_moves[self.ply].toU32() != 0) {
             static_eval = self.eval_history[self.ply];
         } else {
-            static_eval = eval.evaluate(board, &self.move_gen);
+            // static_eval = eval.evaluate(board, &self.move_gen);
+            static_eval = eval.evaluate(board, &self.move_gen, alpha, beta, true);
         }
 
         var best_score: i32 = static_eval;
@@ -809,7 +811,8 @@ pub const Searcher = struct {
         }
 
         if (self.ply >= max_ply) {
-            return eval.evaluate(board, &self.move_gen);
+            // return eval.evaluate(board, &self.move_gen);
+            return eval.evaluate(board, &self.move_gen, alpha, beta, true);
         }
 
         self.nodes += 1;
@@ -820,7 +823,8 @@ pub const Searcher = struct {
         var static_eval: i32 = best_score;
 
         if (!in_check) {
-            static_eval = eval.evaluate(board, &self.move_gen);
+            // static_eval = eval.evaluate(board, &self.move_gen);
+            static_eval = eval.evaluate(board, &self.move_gen, alpha, beta, true);
             best_score = static_eval;
 
             if (best_score >= beta) {
