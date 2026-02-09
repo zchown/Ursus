@@ -23,11 +23,10 @@ pub const nmp_base: usize = 3;
 pub const nmp_depth_div: usize = 3;
 pub const nmp_beta_div: usize = 150;
 
-pub const razoring_base: i32 = 50;
-pub const razoring_margin: i32 = 125;
+pub const razoring_margin: i32 = 300;
 
 const futility_margin = [9]i32{ 0, 100, 200, 300, 400, 500, 600, 700, 800 };
-const lmp_table = [_]usize{ 3, 3, 5, 9, 15, 23, 33, 45, 59, 75 };
+const lmp_table = [_]usize{ 5, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64 }; 
 
 pub const quiet_lmr: [64][64]i32 = blk: {
     break :blk initQuietLMR();
@@ -400,23 +399,20 @@ pub const Searcher = struct {
             }
         }
 
-        // Interal Iterative Deepening (IID)
-        // Loses ELO :(
-        // if (depth >= 6 and !tt_hit and (on_pv or is_root)) {
-        //     // Reduce depth for the IID search
-        //     // const iid_depth = @max(1, depth - 3);
-        //     const iid_depth = 1;
-        //
-        //     // Perform the shallow search to populat TT
-        //     _ = self.negamax(board, color, iid_depth, alpha, beta, false, node_type, false);
-        //
-        //     // Check TT again to see if we found a move
-        //     if (tt.global_tt.get(board.game_state.zobrist)) |e| {
-        //         hash_move = e.move;
-        //         tt_hit = true;
-        //         tt_eval = e.eval;
-        //     }
-        // }
+        // If no TT hit do quick 1 ply search to populate TT
+        if (depth >= 8 and !tt_hit and (on_pv or is_root)) {
+            const iid_depth = 1;
+
+            // Perform the shallow search to populat TT
+            _ = self.negamax(board, color, iid_depth, alpha, beta, false, node_type, false);
+
+            // Check TT again to see if we found a move
+            if (tt.global_tt.get(board.game_state.zobrist)) |e| {
+                hash_move = e.move;
+                tt_hit = true;
+                tt_eval = e.eval;
+            }
+        }
 
         var static_eval: i32 = undefined;
         if (in_check) {
@@ -518,9 +514,9 @@ pub const Searcher = struct {
             }
 
             // razoring
-            // if (depth <= 3 and static_eval - razoring_base + razoring_margin * @as(i32, @intCast(depth)) < alpha) {
-            //     return self.quiescenceSearch(board, color, alpha, beta);
-            // }
+            if (depth <= 2 and static_eval + razoring_margin < alpha) {
+                return self.quiescenceSearch(board, color, alpha, beta);
+            }
         }
 
         // Actually run search
@@ -867,9 +863,22 @@ pub const Searcher = struct {
         for (0..move_size) |i| {
             const move = getNextBest(&move_list, &eval_list, i);
 
-            if (see.seeCapture(board, &self.move_gen, move) < 0) {
+            if (see.seeCapture(board, &self.move_gen, move) < -200) {
                 continue;
             }
+            //
+            // const see_value = see.seeCapture(board, &self.move_gen, move);
+            // var captured_piece_value: i32 = 0;
+            //
+            // if (move.capture == 1) {
+            //     captured_piece_value = see.see_values[@as(usize, @intCast(move.captured_piece)) + 1];
+            // }
+
+            // if (see_value < 0 and 
+            // captured_piece_value < 300 and  // Not capturing Q/R
+            // static_eval + see_value + captured_piece_value + 200 < alpha) {
+            //     continue;
+            // }
 
 
             self.move_history[self.ply] = move;
@@ -901,21 +910,6 @@ pub const Searcher = struct {
 
             if (score > best_score) {
                 best_score = score;
-
-                // tt.global_tt.set(
-                //     tt.Entry{
-                //         .hash = board.game_state.zobrist,
-                //         .eval = best_score,
-                //         .move = move,
-                //         .flag = .Exact,
-                //         .depth = 0,
-                //         .age = tt.global_tt.age,
-                //     },
-                // );
-
-                // self.pv[self.ply][0] = move;
-                // std.mem.copyForwards(mvs.EncodedMove, self.pv[self.ply][1..(self.pv_length[self.ply + 1] + 1)], self.pv[self.ply + 1][0..(self.pv_length[self.ply + 1])]);
-                // self.pv_length[self.ply] = self.pv_length[self.ply + 1] + 1;
 
                 if (score > alpha) {
                     alpha = best_score;

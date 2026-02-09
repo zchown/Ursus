@@ -321,19 +321,16 @@ WAC_TEST_DATA = [
     ("WAC.299", "1n2rr2/1pk3pp/pNn2p2/2N1p3/8/6P1/PP2PPKP/2RR4 w - - 0 1", ["c5a4"]),
     ("WAC.300", "b2b1r1k/3R1ppp/4qP2/4p1PQ/4P3/5B2/4N1K1/8 w - - 0 1", ["g5g6"])
 ]
-# ... Logic to fill ALL_TESTS ...
 
 ALL_TESTS = [TestPosition(name=t[0], fen=t[1], best_moves=[t[2]] if isinstance(t[2], str) else t[2], category="WAC") for t in WAC_TEST_DATA]
 
-# The script logic below follows the user's provided tactics.py structure
-
 class EngineInterface:
     """Interface to communicate with chess engine via UCI"""
-    
+
     def __init__(self, engine_path: str):
         self.engine_path = engine_path
         self.process = None
-        
+
     def start(self):
         self.process = subprocess.Popen(
             [self.engine_path],
@@ -345,12 +342,12 @@ class EngineInterface:
         )
         self.send("uci")
         self.wait_for("uciok")
-        
+
     def send(self, command: str):
         if self.process:
             self.process.stdin.write(command + "\n")
             self.process.stdin.flush()
-            
+
     def wait_for(self, text: str, timeout: float = 5.0) -> List[str]:
         start = time.time()
         lines = []
@@ -361,7 +358,7 @@ class EngineInterface:
                 if text in line:
                     return lines
         return lines
-        
+
     def search_position(self, fen: str, movetime: int = 1000) -> Tuple[str, int, List[str]]:
         self.send(f"position fen {fen}")
         self.send(f"go movetime {movetime}")
@@ -384,7 +381,7 @@ class EngineInterface:
                 if len(parts) >= 2:
                     best_move = parts[1]
         return best_move, score, pv
-        
+
     def stop(self):
         if self.process:
             self.process.wait(timeout=2)
@@ -405,7 +402,6 @@ def run_test_suite(engine_path: str, verbose: bool = False):
     for test in ALL_TESTS:
         try:
             best_move, score, pv = engine.search_position(test.fen)
-            # Basic move matching (handling potential UCI format e.g. g3g7)
             passed = any(move in best_move for move in test.best_moves)
             if passed:
                 passed_count += 1
@@ -414,7 +410,7 @@ def run_test_suite(engine_path: str, verbose: bool = False):
                 print(f"✗ {test.name}: Got {best_move}, Expected {test.best_moves}")
         except Exception:
             continue
-            
+
     engine.stop()
     print("\n" + "=" * 70)
     print(f"FINAL SCORE: {passed_count}/{len(ALL_TESTS)} ({(passed_count/len(ALL_TESTS))*100:.1f}%)")
