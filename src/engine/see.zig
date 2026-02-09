@@ -2,15 +2,68 @@ const brd = @import("board");
 const mvs = @import("moves");
 const std = @import("std");
 
-const see_values = [_]i32{
-    0,   // None
-    100, // Pawn
-    320, // Knight
-    330, // Bishop
-    500, // Rook
-    900, // Queen
+pub const see_values = [_]i32{
+    93, // Pawn
+    308, // Knight
+    346, // Bishop
+    521, // Rook
+    994, // Queen
     20000, // King 
+    0,
 };
+
+pub fn seeThreshold(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove, threshold: i32) bool {
+    const from = move.start_square;
+    const to = move.end_square;
+    const attacker_piece = board.getPieceFromSquare(from) orelse return false;
+    const target_piece = board.getPieceFromSquare(to) orelse return false;
+    var swap = see_values[@intFromEnum(target_piece)] - threshold;
+    if (swap < 0) return false;
+    swap -= see_values[@intFromEnum(attacker_piece)];
+    if (swap >= 0) return true;
+
+    var occupied = board.occupancy();
+    var attackers = getAllAttackers(board, move_gen, to, occupied);
+    const color = board.getColorFromSquare(from) orelse return false;
+    var stm = brd.flipColor(color);
+
+    while (true) {
+        attackers &= occupied;
+
+        // FIX: Use getLeastValuableAttacker instead of only checking pawns!
+        const next_attacker = getLeastValuableAttacker(board, attackers, stm);
+        if (next_attacker == null) break;  // No more attackers
+
+        const p = @intFromEnum(next_attacker.?.piece);
+        const attacker_sq = next_attacker.?.square;
+
+        stm = brd.flipColor(stm);
+
+        swap = -swap - 1 - see_values[p];
+
+        if (swap >= 0) {
+            if (p == @intFromEnum(brd.Pieces.King)) {
+                if (attackers & board.color_bb[@intFromEnum(stm)] != 0) {
+                    stm = brd.flipColor(stm);
+                }
+            }
+            break;
+        }
+
+        occupied ^= (@as(u64, 1) << @intCast(attacker_sq));
+
+        if (p == @intFromEnum(brd.Pieces.Pawn) or 
+        p == @intFromEnum(brd.Pieces.Bishop) or 
+        p == @intFromEnum(brd.Pieces.Queen)) {
+            attackers |= getBishopXrays(board, move_gen, to, occupied);
+        }
+        if (p == @intFromEnum(brd.Pieces.Rook) or 
+        p == @intFromEnum(brd.Pieces.Queen)) {
+            attackers |= getRookXrays(board, move_gen, to, occupied);
+        }
+    }
+    return stm != color;
+}
 
 pub fn see(board: *brd.Board, move_gen: *mvs.MoveGen, target_sq: usize, attacker_sq: usize, attacker_piece: brd.Pieces) i32 {
     var gain: [32]i32 = @splat(0);
@@ -65,8 +118,16 @@ pub fn see(board: *brd.Board, move_gen: *mvs.MoveGen, target_sq: usize, attacker
 }
 
 pub fn seeCapture(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove) i32 {
-    _ = board.getPieceFromSquare(move.end_square) orelse return 0;
     const attacker = board.getPieceFromSquare(move.start_square) orelse return 0;
+
+    const target_piece = board.getPieceFromSquare(move.end_square);
+    if (target_piece == null) {
+        if (move.en_passant == 1) {
+            return see_values[@intFromEnum(brd.Pieces.Pawn)] - 
+            see(board, move_gen, move.end_square, move.start_square, attacker);
+        }
+        return 0;
+    }
 
     return see(board, move_gen, move.end_square, move.start_square, attacker);
 }

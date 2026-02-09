@@ -705,6 +705,31 @@ pub const MoveGen = struct {
         return attacks;
     }
 
+    pub fn squareAttackedBy(move_gen: *MoveGen, board: *brd.Board, target_square: brd.Square, from_piece: brd.Pieces, attacking_color: brd.Color) bool {
+        const attackers_bb = board.piece_bb[@intFromEnum(attacking_color)][@intFromEnum(from_piece)];
+        var attackers = attackers_bb;
+
+        while (attackers != 0) {
+            const attacker_square = brd.getLSB(attackers);
+            const attacks = switch (from_piece) {
+                brd.Pieces.Pawn => move_gen.pawns[@as(usize, @intFromEnum(attacking_color)) * 64 + attacker_square],
+                brd.Pieces.Knight => move_gen.knights[attacker_square],
+                brd.Pieces.Bishop => move_gen.getBishopAttacks(attacker_square, board.occupancy()),
+                brd.Pieces.Rook => move_gen.getRookAttacks(attacker_square, board.occupancy()),
+                brd.Pieces.Queen => move_gen.getQueenAttacks(attacker_square, board.occupancy()),
+                brd.Pieces.King => move_gen.kings[attacker_square],
+                else => 0,
+            };
+
+            if (brd.getBit(attacks, target_square)) {
+                return true;
+            }
+
+            brd.popBit(&attackers, attacker_square);
+        }
+        return false;
+    }
+
     fn initSliders(self: *MoveGen) void {
         for (0..brd.num_squares) |sq| {
             self.bishop_masks[sq] = rad.maskBishopAttacks(sq);

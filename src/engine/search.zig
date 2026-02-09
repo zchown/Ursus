@@ -387,7 +387,7 @@ pub const Searcher = struct {
                 self.best_move_score = tt_eval;
             }
 
-            if (depth == 0 and !is_null and !on_pv and !is_root and e.depth >= @as(u8, @intCast(depth))) {
+            if (!is_null and !on_pv and !is_root and e.depth >= @as(u8, @intCast(depth))) {
                 switch (e.flag) {
                     .Exact => return tt_eval,
                     .Under => alpha = @max(alpha, tt_eval),
@@ -518,9 +518,9 @@ pub const Searcher = struct {
             }
 
             // razoring
-            if (depth <= 3 and static_eval - razoring_base + razoring_margin * @as(i32, @intCast(depth)) < alpha) {
-                return self.quiescenceSearch(board, color, alpha, beta);
-            }
+            // if (depth <= 3 and static_eval - razoring_base + razoring_margin * @as(i32, @intCast(depth)) < alpha) {
+            //     return self.quiescenceSearch(board, color, alpha, beta);
+            // }
         }
 
         // Actually run search
@@ -594,12 +594,12 @@ pub const Searcher = struct {
             legals += 1;
 
             // Only for quiet moves, not in check, at low depths
-            if (move.capture == 0 and depth <= 8 and !in_check and 
-            self.excluded_moves[self.ply].toU32() == 0 and !on_pv and has_non_pawns and
-            !is_important and !is_killer and
-            static_eval + futility_margin[depth] <= alpha) {
-                continue; // Prune this move
-            }
+            // if (move.capture == 0 and depth <= 8 and !in_check and 
+            // self.excluded_moves[self.ply].toU32() == 0 and !on_pv and has_non_pawns and
+            // !is_important and !is_killer and
+            // static_eval + futility_margin[depth] <= alpha) {
+            //     continue; // Prune this move
+            // }
 
             var extension: i32 = 0;
             if (self.ply > 0 and !is_root and self.ply < depth * 2 and depth >= 7 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3) {
@@ -618,14 +618,6 @@ pub const Searcher = struct {
                 } else if (cutnode) {
                     extension = -1;
                 }
-                else if (is_capture ) {
-                    const see_value = see.seeCapture(board, &self.move_gen, move);
-                    // Search bad captures more deeply incase they are good sacs
-                    // Doesn't fully make sense but it gains a tiny bit of elo
-                    if (see_value < -50) { 
-                        extension = 2;
-                    }
-                }
             } else if (on_pv and !is_root and self.ply < depth * 2) {
                 // recapture extension
                 if (is_capture and (((last_move.capture == 1)) and move.end_square == last_move.end_square) or (last_last_last_move.capture == 1 and move.end_square == last_last_last_move.end_square)) {
@@ -633,8 +625,7 @@ pub const Searcher = struct {
                 }
             }
 
-            // const new_depth: usize = @as(usize, @intCast(@as(i32, @intCast(depth)) + extension - 1));
-            const new_depth: usize = depth - 1;
+            const new_depth: usize = @as(usize, @intCast(@as(i32, @intCast(depth)) + extension - 1));
 
             self.move_history[self.ply] = move;
             if (board.getPieceFromSquare(move.start_square)) |p| {
@@ -662,13 +653,12 @@ pub const Searcher = struct {
             var score: i32 = 0;
 
             const min_lmr_move: usize = if (on_pv) 5 else 3;
-            const is_winning_capture = is_capture and eval_moves[i] >= 1_000_000 - 200;
             var do_full_search = false;
 
             if (on_pv and legals == 1) {
                 score = -self.negamax(board, brd.flipColor(color), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
-                if (!in_check and depth >= 3 and i >= min_lmr_move and (is_capture or !is_winning_capture)) {
+                if (!in_check and depth >= 3 and i >= min_lmr_move and !is_capture) {
                     var reduction: i32 = quiet_lmr[@min(depth, 63)][@min(i, 63)];
 
                     if (self.thread_id % 2 == 1) {
@@ -911,6 +901,22 @@ pub const Searcher = struct {
 
             if (score > best_score) {
                 best_score = score;
+
+                // tt.global_tt.set(
+                //     tt.Entry{
+                //         .hash = board.game_state.zobrist,
+                //         .eval = best_score,
+                //         .move = move,
+                //         .flag = .Exact,
+                //         .depth = 0,
+                //         .age = tt.global_tt.age,
+                //     },
+                // );
+
+                // self.pv[self.ply][0] = move;
+                // std.mem.copyForwards(mvs.EncodedMove, self.pv[self.ply][1..(self.pv_length[self.ply + 1] + 1)], self.pv[self.ply + 1][0..(self.pv_length[self.ply + 1])]);
+                // self.pv_length[self.ply] = self.pv_length[self.ply + 1] + 1;
+
                 if (score > alpha) {
                     alpha = best_score;
                     if (score >= beta) {
@@ -1063,10 +1069,10 @@ pub const Searcher = struct {
                         for (plies) |p| {
                             const divider: i32 = 1;
                             if (self.ply >= p + 1) {
-                                const prev = self.move_history[self.ply - 1 - p];
+                                const prev = self.move_history[self.ply - p - 1];
                                 if (prev.toU32() == 0) continue;
 
-                                const piece_color = self.moved_piece_history[self.ply - 1 - p];
+                                const piece_color = self.moved_piece_history[self.ply - p];
                                 const pc_index = @as(usize, @intCast(@intFromEnum(piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(piece_color.piece)));
                                 score += @divTrunc(self.continuation[pc_index][prev.start_square][prev.end_square][move.start_square], divider);
                             }
