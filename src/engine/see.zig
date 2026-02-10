@@ -31,7 +31,7 @@ pub fn seeThreshold(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.Encoded
         attackers &= occupied;
 
         const next_attacker = getLeastValuableAttacker(board, attackers, stm);
-        if (next_attacker == null) break;  // No more attackers
+        if (next_attacker == null) break;
 
         const p = @intFromEnum(next_attacker.?.piece);
         const attacker_sq = next_attacker.?.square;

@@ -7,8 +7,8 @@ set -euo pipefail
 
 # Paths to engines
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus2.11.1"
-# ENGINE_BASE="./engines/Ursus2.8"
+ENGINE_BASE="./engines/Ursus2.12.1"
+# ENGINE_BASE="./engines/Ursus2.9"
 # ENGINE_BASE="./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 
 # cutechess binary (assumes it's on PATH)
@@ -19,7 +19,7 @@ OPENINGS="Balsa/Balsa_v110221.pgn"
 # OPENINGS="Balsa/Balsa_v500.pgn"
 
 # Match settings
-GAMES=2048
+GAMES=8196
 CONCURRENCY=4
 TC="100/30"
 

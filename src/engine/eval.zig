@@ -282,14 +282,15 @@ pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen, alpha: i32, beta: i32
     eg_score += white_base.eg - black_base.eg;
 
     // checking pawn_tt is fast so if we get a hit we use it
+    var got_pawns = false;
     if (pawn_tt.pawn_tt.get(board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(current_phase))])) |e| {
         mg_score += e.mg;
         eg_score += e.eg;
+        got_pawns = true;
     }
 
     var score = (mg_score * current_phase + eg_score * (total_phase - current_phase));
     score = @divTrunc(score, total_phase);
-    score += tempo_bonus;
 
     var lazy_score = score;
     if (board.toMove() == brd.Color.Black) {
@@ -314,9 +315,11 @@ pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen, alpha: i32, beta: i32
     mg_score += evalKingSafety(board, brd.Color.White);
     mg_score -= evalKingSafety(board, brd.Color.Black);
 
-    const pawn_eval = evalPawnStructure(board, current_phase);
-    mg_score += pawn_eval.mg;
-    eg_score += pawn_eval.eg;
+    if (!got_pawns) {
+        const pawn_eval = evalPawnStructure(board, current_phase);
+        mg_score += pawn_eval.mg;
+        eg_score += pawn_eval.eg;
+    }
 
     if (current_phase < total_phase / 2) {
         const eg_eval = evalEndgame(board, current_phase);
@@ -1019,7 +1022,7 @@ fn evalThreats(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) i32 
             }
 
             if ((opp_knight_attacks & sq_mask) != 0 or (opp_bishop_attacks & sq_mask) != 0) {
-                if (!is_defended and piece == .Rook or piece == .Queen) {
+                if (!is_defended and (piece == .Rook or piece == .Queen)) {
                     score -= attacked_by_minor_penalty;
                 }
             }
