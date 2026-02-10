@@ -25,7 +25,6 @@ pub const nmp_beta_div: usize = 150;
 
 pub const razoring_margin: i32 = 300;
 
-// const lmp_table = [_]usize{ 5, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64 }; 
 const lmp_table = [_]usize{ 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68 };
 
 pub const quiet_lmr: [64][64]i32 = blk: {
@@ -574,11 +573,6 @@ pub const Searcher = struct {
             const is_capture = move.capture == 1;
             const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
             
-            // if (self.ply >= 2) {
-            //     is_killer = is_killer or (move.toU32() == self.counter_moves[@as(usize, @intFromEnum(color))][self.move_history[self.ply - 2].start_square][self.move_history[self.ply - 2].end_square].toU32());
-            // }
-
-
             if (!is_capture) {
                 quiet_moves.addEncodedMove(move);
                 quiet_count += 1;
@@ -612,7 +606,7 @@ pub const Searcher = struct {
             legals += 1;
 
             // futility pruning
-            if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and !is_killer and !improving and static_eval + ((@as(i32, @intCast(depth)) + 1) * 75) <= alpha) {
+            if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and !is_killer and !improving and static_eval + ((@as(i32, @intCast(depth)) + 1) * 200) <= alpha) {
                 continue;
             }
                 // if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and !is_killer and static_eval + ((@as(i32, @intCast(depth)) + 1) * 200) <= alpha) {
@@ -1094,8 +1088,10 @@ pub const Searcher = struct {
                     score += 900_000;
                 } else if (self.killer[self.ply][1].toU32() == move.toU32()) {
                     score += 800_000;
-                // } else if (self.ply >= 2 and self.counter_moves[@intFromEnum(board.toMove())][self.move_history[self.ply - 2].start_square][self.move_history[self.ply - 2].end_square].toU32() == move.toU32()) {
-                    // score += 700_000;
+                } else if (self.ply >= 2 and self.killer[self.ply - 2][0].toU32() == move.toU32()) {
+                    score += 600_000;
+                } else if (self.ply >= 2 and self.killer[self.ply - 2][1].toU32() == move.toU32()) {
+                    score += 500_000;
                 } else if (self.ply >= 1 and self.counter_moves[@intFromEnum(board.toMove())][last.start_square][last.end_square].toU32() == move.toU32()) {
                     score += 600_000;
                 } else {
