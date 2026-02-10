@@ -30,7 +30,6 @@ pub fn seeThreshold(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.Encoded
     while (true) {
         attackers &= occupied;
 
-        // FIX: Use getLeastValuableAttacker instead of only checking pawns!
         const next_attacker = getLeastValuableAttacker(board, attackers, stm);
         if (next_attacker == null) break;  // No more attackers
 

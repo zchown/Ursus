@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Paths to engines
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus2.10.7"
+ENGINE_BASE="./engines/Ursus2.11.1"
 # ENGINE_BASE="./engines/Ursus2.8"
 # ENGINE_BASE="./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 
