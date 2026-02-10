@@ -26,6 +26,7 @@ pub const nmp_beta_div: usize = 150;
 pub const razoring_margin: i32 = 300;
 
 const lmp_table = [_]usize{ 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68 };
+// const lmp_table = [_]usize{ 12, 16, 19, 22, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68 };
 
 pub const quiet_lmr: [64][64]i32 = blk: {
     break :blk initQuietLMR();
@@ -89,7 +90,7 @@ pub const Searcher = struct {
     eval_history: [max_ply]i32 = undefined,
     move_history: [max_ply]mvs.EncodedMove = undefined,
     moved_piece_history: [max_ply]PieceColor = undefined,
-    killer: [max_ply][2]mvs.EncodedMove = undefined,
+    killer: [max_ply][4]mvs.EncodedMove = undefined,
     history: [2][64][64]i32 = undefined,
     counter_moves: [2][64][64]mvs.EncodedMove = undefined,
     excluded_moves: [max_ply]mvs.EncodedMove = undefined,
@@ -145,6 +146,8 @@ pub const Searcher = struct {
         for (0..max_ply) |i| {
             self.killer[i][0] = mvs.EncodedMove.fromU32(0);
             self.killer[i][1] = mvs.EncodedMove.fromU32(0);
+            self.killer[i][2] = mvs.EncodedMove.fromU32(0);
+            self.killer[i][3] = mvs.EncodedMove.fromU32(0);
             self.excluded_moves[i] = mvs.EncodedMove.fromU32(0);
 
             for (0..max_ply) |j| {
@@ -204,7 +207,7 @@ pub const Searcher = struct {
                     (!self.force_think and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor))))));
     }
 
-    pub inline fn iterative_deepening(self: *Searcher, board: *brd.Board, max_depth: ?u8) !SearchResult {
+    pub fn iterative_deepening(self: *Searcher, board: *brd.Board, max_depth: ?u8) !SearchResult {
         self.stop = false;
         self.is_searching = true;
         self.time_stop = false;
@@ -416,10 +419,10 @@ pub const Searcher = struct {
         // If no TT hit do quick 1 ply search to populate TT
         if (depth >= 8 and !tt_hit and (on_pv or is_root)) {
             const iid_depth = 1;
-
+        
             // Perform the shallow search to populat TT
             _ = self.negamax(board, color, iid_depth, alpha, beta, false, node_type, false);
-
+        
             // Check TT again to see if we found a move
             if (tt.global_tt.get(board.game_state.zobrist)) |e| {
                 hash_move = e.move;
@@ -543,6 +546,8 @@ pub const Searcher = struct {
 
         self.killer[self.ply + 1][0] = mvs.EncodedMove.fromU32(0);
         self.killer[self.ply + 1][1] = mvs.EncodedMove.fromU32(0);
+        self.killer[self.ply + 1][2] = mvs.EncodedMove.fromU32(0);
+        self.killer[self.ply + 1][3] = mvs.EncodedMove.fromU32(0);
 
         if (move_count == 0) {
             // checkmate
@@ -571,7 +576,7 @@ pub const Searcher = struct {
             }
 
             const is_capture = move.capture == 1;
-            const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
+            const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32() or move.toU32() == self.killer[self.ply][2].toU32() or move.toU32() == self.killer[self.ply][3].toU32();
             
             if (!is_capture) {
                 quiet_moves.addEncodedMove(move);
@@ -588,7 +593,7 @@ pub const Searcher = struct {
 
                 var lmp_threshold: usize = 0;
                 if (depth < lmp_table.len) {
-                    lmp_threshold = lmp_table[depth];
+                    lmp_threshold = lmp_table[depth] - 4;
                 } else {
                     lmp_threshold = 4 + depth * 2; // Fallback for high depths
                 }
@@ -723,10 +728,6 @@ pub const Searcher = struct {
                 //     self.capture[@intFromEnum(color)][move.start_square][move.end_square] += adj - @divTrunc(current_hist * adj, 16384);
                 // }
 
-                if (is_root) {
-                    self.best_move = best_move;
-                    self.best_move_score = best_score;
-                }
 
                 if (!is_null) {
                     self.pv[self.ply][0] = move;
@@ -738,6 +739,10 @@ pub const Searcher = struct {
 
                 if (score > alpha) {
                     alpha = score;
+                    if (is_root) {
+                        self.best_move = best_move;
+                        self.best_move_score = best_score;
+                    }
 
                     if (alpha >= beta) {
                         break;
@@ -756,9 +761,13 @@ pub const Searcher = struct {
 
         if (alpha >= beta and !(best_move.capture == 1) and !(best_move.promoted_piece != 0)) {
             var temp = self.killer[self.ply][0];
+            const temp_2 = self.killer[self.ply][1];
             if (temp.toU32() != best_move.toU32()) {
-                self.killer[self.ply][1] = temp;
                 self.killer[self.ply][0] = best_move;
+                self.killer[self.ply][1] = temp;
+                temp = self.killer[self.ply][2];
+                self.killer[self.ply][2] = temp_2;
+                self.killer[self.ply][3] = temp;
             }
 
             const adj = @min(1536, @as(i32, @intCast(if (static_eval <= alpha) depth + 1 else depth)) * 384 - 384);
@@ -1088,10 +1097,10 @@ pub const Searcher = struct {
                     score += 900_000;
                 } else if (self.killer[self.ply][1].toU32() == move.toU32()) {
                     score += 800_000;
-                } else if (self.ply >= 2 and self.killer[self.ply - 2][0].toU32() == move.toU32()) {
+                } else if (self.killer[self.ply][2].toU32() == move.toU32()) {
+                    score += 700_000;
+                } else if (self.killer[self.ply][3].toU32() == move.toU32()) {
                     score += 600_000;
-                } else if (self.ply >= 2 and self.killer[self.ply - 2][1].toU32() == move.toU32()) {
-                    score += 500_000;
                 } else if (self.ply >= 1 and self.counter_moves[@intFromEnum(board.toMove())][last.start_square][last.end_square].toU32() == move.toU32()) {
                     score += 600_000;
                 } else {
