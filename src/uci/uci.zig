@@ -356,7 +356,7 @@ fn calculateTimeAllocation(limits: *const SearchLimits, side_to_move: brd.Color)
 
         // Calculate ideal time (what we aim to use)
         // Use slightly less than base to have a buffer
-        const ideal_ms = @min(base_time * 7 / 10, time - 100); // Use 70% of base, leave 100ms buffer
+        const ideal_ms = @min(base_time * 9 / 10, time - 100); // Use 90% of base, leave 100ms buffer
 
         // Calculate max time (hard limit)
         // Allow using up to 3x ideal in critical positions, but never more than 40% of remaining time

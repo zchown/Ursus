@@ -105,7 +105,6 @@ pub const Searcher = struct {
     excluded_moves: [max_ply]mvs.EncodedMove = undefined,
     continuation: *[12][64][64][64]i32 = undefined,
     correction: [2][16384]i32 = undefined,
-    // capture: [2][64][64]i32 = undefined,
 
     nmp_min_ply: usize = 0,
 
@@ -174,7 +173,6 @@ pub const Searcher = struct {
         for (0..64) |j| {
             for (0..64) |k| {
                 for (0..2) |c| {
-                    // self.capture[c][j][k] = 0;
                     if (total) {
                         self.history[c][j][k] = 0;
                     } else {
@@ -251,10 +249,6 @@ pub const Searcher = struct {
         outer: while (outer_depth <= bound) : (outer_depth += 1) {
             self.ply = 0;
             self.seldepth = 0;
-
-            // var alpha = -eval.mate_score;
-            // var beta = eval.mate_score;
-            // var delta = eval.mate_score;
 
             var alpha = if (outer_depth > 1) prev_score - aspiration_window else -eval.mate_score;
             var beta  = if (outer_depth > 1) prev_score + aspiration_window else eval.mate_score;
@@ -431,7 +425,7 @@ pub const Searcher = struct {
 
         // If no TT hit do quick 1 ply search to populate TT
         if (depth >= 8 and !tt_hit and (on_pv or is_root)) {
-            const iid_depth = 1;
+            const iid_depth: usize = 1;
         
             // Perform the shallow search to populat TT
             _ = self.negamax(board, color, iid_depth, alpha, beta, false, node_type, false);
@@ -558,14 +552,13 @@ pub const Searcher = struct {
 
         var eval_moves = self.scoreMoves(board, &move_list, hash_move, is_null);
 
-        
-
         var best_move = mvs.EncodedMove.fromU32(0);
         best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
 
         var skip_quiet: bool = false;
         var quiet_count: usize = 0;
         var legals: usize = 0;
+        var searched_moves: usize = 0;
 
         for (0..move_count) |i| {
             // std.debug.print("Selecting move {}/{} at depth {}, legals so far: {}, quiet_count: {}, skip_quiet: {}\n", .{i, move_count, depth, legals, quiet_count, skip_quiet});
@@ -588,8 +581,6 @@ pub const Searcher = struct {
                 continue;
             }
 
-            
-
             if (!is_root and i > 1 and !in_check and !on_pv and has_non_pawns) {
 
                 var lmp_threshold: usize = 0;
@@ -610,7 +601,15 @@ pub const Searcher = struct {
                 }
             }
 
-            legals += 1;
+            mvs.makeMove(board, move);
+            if (kingInCheck(board, &self.move_gen, color)) {
+                mvs.undoMove(board, move);
+                continue;
+            }
+            else { 
+                legals += 1;
+                mvs.undoMove(board, move);
+            }
 
             // futility pruning
             if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and !is_killer and !improving and static_eval + ((@as(i32, @intCast(depth)) + 1) * 75) <= alpha) {
@@ -620,92 +619,92 @@ pub const Searcher = struct {
             var extension: i32 = 0;
 
             // 1. SINGULAR EXTENSIONS (improved with double extension)
-            // if (self.ply > 0 and !is_root and self.ply < depth * 2 and depth >= 7 and 
-            // tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and 
-            // hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3) {
-            //
-            //     const margin: i32 = @intCast(depth);
-            //     const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
-            //
-            //     self.excluded_moves[self.ply] = hash_move;
-            //     const singular_score = self.negamax(board, color, (depth - 1) / 2, singular_beta - 1, singular_beta, true, NodeType.NonPV, cutnode);
-            //     self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
-            //
-            //     if (singular_score < singular_beta) {
-            //         extension = 1;
-            //
-            //         // DOUBLE EXTENSION: if move is *extremely* singular
-            //         if (!on_pv and singular_score < singular_beta - 20 and self.ply < depth * 2) {
-            //             extension = 2;
-            //         }
-            //     } else if (singular_beta >= beta) {
-            //         return singular_beta;
-            //     } else if (cutnode) {
-            //         extension = -1;
-            //
-            //         // MULTI-CUT: if many moves beat singular_beta at cutnode
-            //         // (this catches positions where hash move isn't actually best)
-            //     }
-            // }
-            //
-            // // 2. CHECK EXTENSIONS (add this!)
-            // else if (kingInCheck(board, &self.move_gen, brd.flipColor(color))) {
-            //     // Extend when we give check (but limit extension depth)
-            //     if (self.ply < depth * 2) {
-            //         extension = 1;
-            //     }
-            // }
-            //
-            // // 3. RECAPTURE EXTENSIONS (your existing code, but improved)
-            // else if (on_pv and !is_root and self.ply < depth * 2) {
-            //     if (is_capture and last_move.capture == 1 and move.end_square == last_move.end_square) {
-            //         extension = 1;
-            //     }
-            //     // Also extend recaptures from 2 plies ago (less common but important)
-            //     else if (is_capture and self.ply >= 3 and last_last_last_move.capture == 1 and 
-            //     move.end_square == last_last_last_move.end_square) {
-            //         extension = 1;
-            //     }
-            // }
-            //
-            // // 4. PAWN PUSH EXTENSIONS (add this!)
-            // else if (on_pv and !is_root and self.ply < depth * 2 and move.capture == 0) {
-            //     if (board.getPieceFromSquare(move.start_square)) |piece| {
-            //         if (piece == .Pawn) {
-            //             // Pawn to 7th rank
-            //             const rank = move.end_square / 8;
-            //             const is_white = board.toMove() == .White;
-            //
-            //             if ((is_white and rank == 6) or (!is_white and rank == 1)) {
-            //                 extension = 1;
-            //             }
-            //         }
-            //     }
-            // }
-            // var extension: i32 = 0;
-            if (self.ply > 0 and !is_root and self.ply < depth * 2 and depth >= 7 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3) {
+            if (self.ply > 0 and !is_root and self.ply < depth * 2 and depth >= 7 and 
+            tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and 
+            hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3) {
+            
                 const margin: i32 = @intCast(depth);
                 const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
             
                 self.excluded_moves[self.ply] = hash_move;
                 const singular_score = self.negamax(board, color, (depth - 1) / 2, singular_beta - 1, singular_beta, true, NodeType.NonPV, cutnode);
                 self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
+            
                 if (singular_score < singular_beta) {
                     extension = 1;
+            
+                    // DOUBLE EXTENSION: if move is *extremely* singular
+                    if (!on_pv and singular_score < singular_beta - 20 and self.ply < depth * 2) {
+                        extension = 2;
+                    }
                 } else if (singular_beta >= beta) {
                     return singular_beta;
                 } else if (cutnode) {
                     extension = -1;
+            
+                    // MULTI-CUT: if many moves beat singular_beta at cutnode
+                    // (this catches positions where hash move isn't actually best)
                 }
-            } else if (on_pv and !is_root and self.ply < depth * 2) {
-                // recapture extension
-                if (is_capture and (
-    (last_move.capture == 1 and move.end_square == last_move.end_square) or
-    (last_last_last_move.capture == 1 and move.end_square == last_last_last_move.end_square)
-)) {
+            }
+            
+            // 2. CHECK EXTENSIONS (add this!)
+            else if (kingInCheck(board, &self.move_gen, brd.flipColor(color))) {
+                // Extend when we give check (but limit extension depth)
+                if (self.ply < depth * 2) {
                     extension = 1;
                 }
             }
+            
+            // 3. RECAPTURE EXTENSIONS (your existing code, but improved)
+            else if (on_pv and !is_root and self.ply < depth * 2) {
+                if (is_capture and last_move.capture == 1 and move.end_square == last_move.end_square) {
+                    extension = 1;
+                }
+                // Also extend recaptures from 2 plies ago (less common but important)
+                else if (is_capture and self.ply >= 3 and last_last_last_move.capture == 1 and 
+                move.end_square == last_last_last_move.end_square) {
+                    extension = 1;
+                }
+            }
+            
+            // 4. PAWN PUSH EXTENSIONS (add this!)
+            else if (on_pv and !is_root and self.ply < depth * 2 and move.capture == 0) {
+                if (board.getPieceFromSquare(move.start_square)) |piece| {
+                    if (piece == .Pawn) {
+                        // Pawn to 7th rank
+                        const rank = move.end_square / 8;
+                        const is_white = board.toMove() == .White;
+            
+                        if ((is_white and rank == 6) or (!is_white and rank == 1)) {
+                            extension = 1;
+                        }
+                    }
+                }
+            }
+            // var extension: i32 = 0;
+//             if (self.ply > 0 and !is_root and self.ply < depth * 2 and depth >= 7 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3) {
+//                 const margin: i32 = @intCast(depth);
+//                 const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
+//            
+//                 self.excluded_moves[self.ply] = hash_move;
+//                 const singular_score = self.negamax(board, color, (depth - 1) / 2, singular_beta - 1, singular_beta, true, NodeType.NonPV, cutnode);
+//                 self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
+//                 if (singular_score < singular_beta) {
+//                     extension = 1;
+//                 } else if (singular_beta >= beta) {
+//                     return singular_beta;
+//                 } else if (cutnode) {
+//                     extension = -1;
+//                 }
+//             } else if (on_pv and !is_root and self.ply < depth * 2) {
+//                 // recapture extension
+//                 if (is_capture and (
+//     (last_move.capture == 1 and move.end_square == last_move.end_square) or
+//     (last_last_last_move.capture == 1 and move.end_square == last_last_last_move.end_square)
+// )) {
+//                     extension = 1;
+//                 }
+//             }
 
             const new_depth: usize = @as(usize, @intCast(@as(i32, @intCast(depth)) + extension - 1));
 
@@ -719,28 +718,29 @@ pub const Searcher = struct {
             self.ply += 1;
 
             mvs.makeMove(board, move);
+            searched_moves += 1;
 
-            if (kingInCheck(board, &self.move_gen, color)) {
-                mvs.undoMove(board, move);
-                self.ply -= 1;
-                continue;
-            }
+            // if (kingInCheck(board, &self.move_gen, color)) {
+            //     mvs.undoMove(board, move);
+            //     self.ply -= 1;
+            //     continue;
+            // }
 
             tt.global_tt.prefetch(board.game_state.zobrist);
 
             // probcut losing elo
-            // if (i <= 5 and depth >= 6 and @abs(beta) < eval.mate_score - 256) {
+            // if (i <= 5 and depth >= 5 and @abs(beta) < eval.mate_score - 256) {
             //     const probcut_beta = beta + probcut_margin;
             //     const probcut_score = -self.negamax(
-            //         board, 
-            //         brd.flipColor(color), 
-            //         new_depth - probcut_depth, 
-            //         -probcut_beta, 
-            //         -probcut_beta + 1, 
-            //         false, 
-            //         NodeType.NonPV, 
-            //         !cutnode
-            //     );
+            //     board, 
+            //     brd.flipColor(color), 
+            //     new_depth - probcut_depth, 
+            //     -probcut_beta, 
+            //     -probcut_beta + 1, 
+            //     false, 
+            //     NodeType.NonPV, 
+            //     !cutnode
+            // );
             //
             //     if (self.time_stop) {
             //         return 0;
@@ -758,7 +758,7 @@ pub const Searcher = struct {
             const min_lmr_move: usize = if (on_pv) 5 else 3;
             var do_full_search = false;
 
-            if (on_pv and legals == 1) {
+            if (on_pv and searched_moves == 1) {
                 score = -self.negamax(board, brd.flipColor(color), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
                 if (!in_check and depth >= 3 and i >= min_lmr_move and !is_capture) {
@@ -807,13 +807,6 @@ pub const Searcher = struct {
                 best_score = score;
                 best_move = move;
 
-                // if(move.capture == 1) {
-                //     const adj = @min(1536, @as(i32, @intCast(depth)) * 384);
-                //     // const current_hist = self.capture[@intFromEnum(color)][move.start_square][move.end_square];
-                //     self.capture[@intFromEnum(color)][move.start_square][move.end_square] += adj - @divTrunc(current_hist * adj, 16384);
-                // }
-
-
                 if (!is_null) {
                     self.pv[self.ply][0] = move;
                     std.mem.copyForwards(mvs.EncodedMove, self.pv[self.ply][1..(self.pv_length[self.ply + 1] + 1)], self.pv[self.ply + 1][0..(self.pv_length[self.ply + 1])]);
@@ -832,6 +825,16 @@ pub const Searcher = struct {
                         break;
                     }
                 }
+            }
+        }
+
+        if (legals == 0) {
+            // checkmate
+            if (in_check) {
+                return -eval.mate_score + @as(i32, @intCast(self.ply));
+            } else {
+                // stalemate
+                return 0;
             }
         }
 
@@ -945,7 +948,7 @@ pub const Searcher = struct {
 
         if (!in_check) {
             // static_eval = eval.evaluate(board, &self.move_gen);
-            static_eval = eval.evaluate(board, &self.move_gen, alpha, beta, true);
+            static_eval = eval.evaluate(board, &self.move_gen, alpha, beta, false);
 
             best_score = static_eval;
 
@@ -987,7 +990,11 @@ pub const Searcher = struct {
             move_list = self.move_gen.generateMoves(board, false);
             if (move_list.len == 0) {
                 // checkmate
-                return -eval.mate_score + @as(i32, @intCast(self.ply));
+                if (in_check) {
+                    return -eval.mate_score + @as(i32, @intCast(self.ply));
+                } else {
+                    return 0;
+                }
             }
         } else {
             move_list = self.move_gen.generateCaptureMoves(board, color);
@@ -1193,8 +1200,6 @@ pub const Searcher = struct {
                 if (move.promoted_piece == @intFromEnum(brd.Pieces.Queen)) {
                     score += SCORE_PROMOTION;
                 }
-
-                // score += self.capture[side][move.start_square][move.end_square];
             } 
             else {
                 if (move.promoted_piece != 0) {
