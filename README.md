@@ -110,7 +110,7 @@ Evaluation terms include:
 
 - **Material:** Separate middlegame and endgame piece values (e.g. pawn: 82/94cp, queen: 1025/936cp).
 - **Piece-Square Tables:** Middlegame and endgame PSTs for all piece types.
-- **Pawn Structure** (cached in the pawn TT): passed pawns (with bonuses scaling by rank), isolated pawns, doubled pawns, backward pawns, connected pawns, protected pawns.
+- **Pawn Structure** (cached in the pawn TT): passed pawns (with bonuses scaling by rank), isolated pawns, doubled pawns, pawns, protected pawns.
 - **King Safety:** Castling bonus, pawn shield, penalties for open/semi-open files near the king, and an attack unit table that aggregates threats from knights, bishops, rooks, and queens.
 - **Piece Activity:** Mobility counts for bishops, rooks, and queens; rook on open/semi-open file bonuses; rook on the 7th rank; rooks behind passed pawns; trapped rook penalty; bad bishop penalty; bishop pair bonus; knight outpost bonus.
 - **Threats:** Penalties for hanging pieces and pieces attacked by lower-value pieces.
@@ -147,4 +147,4 @@ It is highly reccomended to build with optimizations enabled for maximum perform
 zig build -release-fast -Dtarget=native
 ```
 
-The resulting binary accepts UCI commands on standard input/output and can be used with any UCI-compatible chess GUI (Arena, Cute Chess, En Croissant, etc.).
+The resulting binary accepts UCI commands on standard input/output and can be used with any UCI-compatible chess GUI
