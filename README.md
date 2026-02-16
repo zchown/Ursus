@@ -4,6 +4,16 @@ Ursus is a UCI-compatible chess engine written in [Zig](https://ziglang.org/). I
 
 ---
 
+# Lichess
+
+It can also be found on Lichess as [`Ursus_bot`](https://lichess.org/@/Ursus_bot) where its ratings are:
+
+[![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=bullet)](https://lichess.org/@/Ursus_bot/perf/bullet)
+[![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=blitz)](https://lichess.org/@/Ursus_bot/perf/blitz)
+[![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=rapid)](https://lichess.org/@/Ursus_bot/perf/rapid)
+
+---
+
 ## UCI Support
 
 Ursus implements the core UCI protocol. The following commands are supported:

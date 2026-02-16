@@ -1,0 +1,613 @@
+Indexing opening suite...
+7 >New(0): uci
+8 >Base(1): uci
+9 >Base(2): uci
+9 >New(3): uci
+13 <Base(1): id name Ursus
+13 <Base(1): id author Zander
+13 <Base(1): uciok
+13 >Base(1): isready
+13 <Base(1): readyok
+13 <Base(2): id name Ursus
+13 <Base(2): id author Zander
+13 <Base(2): uciok
+13 >Base(2): isready
+13 <Base(2): readyok
+207 <New(3): id name Ursus
+207 <New(0): id name Ursus
+207 <New(3): id author Zander
+207 <New(0): id author Zander
+207 <New(3): option name Ponder type check default true
+207 <New(0): option name Ponder type check default true
+207 <New(0): option name Hash type spin default 16 min 1 max 65536
+207 <New(3): option name Hash type spin default 16 min 1 max 65536
+207 <New(3): uciok
+207 <New(0): uciok
+207 >New(3): isready
+207 >New(0): isready
+207 <New(3): readyok
+207 <New(0): readyok
+Started game 2 of 2 (Base vs New)
+Started game 1 of 2 (New vs Base)
+210 >New(0): debug on
+210 >New(0): ucinewgame
+210 >Base(2): debug on
+210 >New(0): setoption name Ponder value true
+210 >Base(2): ucinewgame
+210 >New(0): position startpos
+210 >Base(2): position startpos
+210 >Base(1): debug on
+210 >Base(1): ucinewgame
+210 >Base(1): position startpos
+210 >New(3): debug on
+210 >New(3): ucinewgame
+210 >New(3): setoption name Ponder value true
+210 >New(3): position startpos
+210 >New(0): position startpos moves e2e4
+210 >Base(2): position startpos moves e2e4
+210 >Base(1): position startpos moves e2e4
+210 >New(3): position startpos moves e2e4
+210 >New(3): position startpos moves e2e4 c7c5
+210 >Base(2): position startpos moves e2e4 c7c5
+210 >Base(1): position startpos moves e2e4 c7c5
+210 >New(0): position startpos moves e2e4 c7c5
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3
+210 >New(3): position startpos moves e2e4 c7c5 g1f3
+210 >New(0): position startpos moves e2e4 c7c5 g1f3
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2
+210 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2
+210 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6
+210 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6
+210 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6
+210 >New(0): isready
+210 >Base(2): isready
+210 <New(3): 8 r n b q k b n r 
+210 <New(3): 7 p p p p p p p p 
+210 <New(3): 6 . . . . . . . . 
+210 <New(3): 5 . . . . . . . . 
+210 <New(3): 4 . . . . . . . . 
+210 <New(3): 3 . . . . . . . . 
+210 <New(3): 2 P P P P P P P P 
+210 <New(3): 1 R N B Q K B N R 
+210 <New(3):   a b c d e f g h
+210 <New(3): FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+210 <Base(2): 8 r n b q k b n r 
+210 <Base(2): 7 p p p p p p p p 
+210 <Base(2): 6 . . . . . . . . 
+210 <Base(2): 5 . . . . . . . . 
+210 <Base(2): 4 . . . . . . . . 
+210 <Base(2): 3 . . . . . . . . 
+210 <Base(2): 2 P P P P P P P P 
+210 <Base(2): 1 R N B Q K B N R 
+210 <Base(2):   a b c d e f g h
+210 <Base(2): FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+210 <Base(2): readyok
+210 <New(0): 8 r n b q k b n r 
+210 <New(0): 7 p p p p p p p p 
+210 <New(0): 6 . . . . . . . . 
+210 <New(0): 5 . . . . . . . . 
+210 <New(0): 4 . . . . . . . . 
+210 <New(0): 3 . . . . . . . . 
+210 <New(0): 2 P P P P P P P P 
+210 <New(0): 1 R N B Q K B N R 
+211 >Base(2): go wtime 1800 btime 1800 movestogo 1
+211 <New(0):   a b c d e f g h
+211 <New(0): FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+211 <New(0): readyok
+211 >New(0): go wtime 1800 btime 1800 movestogo 1
+211 <Base(1): 8 r n b q k b n r 
+211 <Base(1): 7 p p p p p p p p 
+211 <Base(1): 6 . . . . . . . . 
+211 <Base(1): 5 . . . . . . . . 
+211 <Base(1): 4 . . . . . . . . 
+211 <Base(1): 3 . . . . . . . . 
+211 <Base(1): 2 P P P P P P P P 
+211 <Base(1): 1 R N B Q K B N R 
+211 <Base(1):   a b c d e f g h
+211 <Base(1): FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+942 <New(0): info depth 19 seldepth 29 time 720 nodes 3485183 pv g5f6 d8f6 f3f6 g7f6 e1g1 b8c6 d4f3 f8e7 c3a4 c6e5 a4b6 a8d8 f3d4 h8g8 f1d1 e8f8 d1d2 d7e8 b6c4 d8c8 c4e5 f6e5 d4f3  score cp 293
+942 <New(0): bestmove g5f6 ponder d8f6
+942 >Base(1): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6
+942 >Base(1): isready
+942 >New(0): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6
+942 >New(0): isready
+942 <Base(1): readyok
+942 >Base(1): go wtime 1269 btime 1800 movestogo 1
+942 <New(0): readyok
+942 >New(0): go ponder wtime 1269 btime 1800 movestogo 1
+942 <Base(2): info depth 19 seldepth 31 time 720 nodes 3569553 pv  score cp 287
+942 <Base(2): bestmove g5f6
+942 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6
+942 >New(3): isready
+943 <New(3): readyok
+943 >New(3): go wtime 1269 btime 1800 movestogo 1
+1668 <Base(1): info depth 19 seldepth 25 time 720 nodes 2913776 pv  score cp -282
+1668 <Base(1): bestmove d8f6
+1668 >New(0): ponderhit
+1668 <New(3): info depth 20 seldepth 27 time 720 nodes 2948559 pv  score cp -292
+1668 <New(3): bestmove d8f6
+1668 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6
+1668 >Base(2): isready
+1668 <Base(2): readyok
+1668 >Base(2): go wtime 1269 btime 1275 movestogo 1
+2177 <Base(2): info depth 19 seldepth 31 time 507 nodes 2566290 pv  score cp 286
+2177 <Base(2): bestmove f3f6
+2177 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6
+2177 >New(3): isready
+2177 <New(3): readyok
+2177 >New(3): go wtime 961 btime 1275 movestogo 1
+2688 <New(3): info depth 20 seldepth 27 time 510 nodes 2621114 pv  score cp -283
+2688 <New(3): bestmove g7f6
+2688 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6
+2688 >Base(2): isready
+2688 <Base(2): readyok
+2688 >Base(2): go wtime 961 btime 964 movestogo 1
+3073 <Base(2): info depth 20 seldepth 28 time 384 nodes 2053958 pv  score cp 278
+3073 <Base(2): bestmove d4f3
+3073 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3
+3073 >New(3): isready
+3073 <New(3): readyok
+3073 >New(3): go wtime 776 btime 964 movestogo 1
+3195 >New(0): stop
+3195 <New(0): info depth 22 seldepth 28 time 1528 nodes 10696031 pv  score cp 277
+3195 <New(0): bestmove f3f6
+3195 >New(0): isready
+3195 >Base(1): isready
+3196 <New(0): readyok
+3196 <Base(1): readyok
+Finished game 1 (New vs Base): 0-1 {White loses on time}
+Score of New vs Base: 0 - 1 - 0  [0.000] 1
+3459 <New(3): info depth 20 seldepth 27 time 385 nodes 2022353 pv  score cp -274
+3459 <New(3): bestmove b8c6
+3460 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6
+3460 >Base(2): isready
+3460 <Base(2): readyok
+3460 >Base(2): go wtime 776 btime 778 movestogo 1
+3771 <Base(2): info depth 20 seldepth 24 time 310 nodes 1666355 pv a1d1 a8c8 e2c4 c6e5 c4e2 e5c6 d1a1 c6b4 e1d2 e8e7 d2c1 h8g8 g2g3 b4c6 h1d1 c6e5 f3e5  score cp 257
+3771 <Base(2): bestmove a1d1
+3771 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1
+3771 >New(3): isready
+3771 <New(3): readyok
+3771 >New(3): go wtime 665 btime 778 movestogo 1
+4083 <New(3): info depth 20 seldepth 25 time 311 nodes 1620221 pv  score cp -250
+4083 <New(3): bestmove c6b4
+4083 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4
+4083 >Base(2): isready
+4083 <Base(2): readyok
+4083 >Base(2): go wtime 665 btime 666 movestogo 1
+4351 <Base(2): info depth 20 seldepth 24 time 266 nodes 1397656 pv e1d2 h8g8 h1g1 a8c8 d2c1 b4c6 d1d2 c6e5 c1b1 f8e7 b1c1 e8f8 d2d1 d7c6 f3d4 c6d7 c1b1 g8g6 d4f3  score cp 232
+4351 <Base(2): bestmove e1d2
+4351 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2
+4351 >New(3): isready
+4351 <New(3): readyok
+4351 >New(3): go wtime 598 btime 666 movestogo 1
+4618 <New(3): info depth 20 seldepth 29 time 266 nodes 1346638 pv  score cp -243
+4618 <New(3): bestmove h8g8
+4618 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8
+4618 >Base(2): isready
+4618 <Base(2): readyok
+4618 >Base(2): go wtime 598 btime 600 movestogo 1
+4858 <Base(2): info depth 20 seldepth 25 time 239 nodes 1244504 pv  score cp 244
+4858 <Base(2): bestmove h1g1
+4858 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1
+4858 >New(3): isready
+4858 <New(3): readyok
+4858 >New(3): go wtime 558 btime 600 movestogo 1
+5099 <New(3): info depth 20 seldepth 26 time 240 nodes 1203757 pv  score cp -243
+5099 <New(3): bestmove a8c8
+5100 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8
+5100 >Base(2): isready
+5100 <Base(2): readyok
+5100 >Base(2): go wtime 558 btime 559 movestogo 1
+5324 <Base(2): info depth 20 seldepth 26 time 223 nodes 1158596 pv d2c1 b4c6 d1d2 c6e5 f3e5 f6e5 c3d1 d7c6 e2f3 f8e7 d1e3 e8f8 g1d1 f8g7 c1b1 c6b5 f3e2 b5c6 e2f3 c6b5 f3e2 b5c6 e2f3  score cp 239
+5324 <Base(2): bestmove d2c1
+5324 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1
+5324 >New(3): isready
+5324 <New(3): readyok
+5324 >New(3): go wtime 534 btime 559 movestogo 1
+5548 <New(3): info depth 20 seldepth 23 time 223 nodes 1160507 pv  score cp -235
+5548 <New(3): bestmove f8e7
+5548 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7
+5548 >Base(2): isready
+5548 <Base(2): readyok
+5548 >Base(2): go wtime 534 btime 536 movestogo 1
+5762 <Base(2): info depth 20 seldepth 26 time 213 nodes 1040943 pv  score cp 281
+5762 <Base(2): bestmove f3d2
+5762 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2
+5762 >New(3): isready
+5762 <New(3): readyok
+5762 >New(3): go wtime 520 btime 536 movestogo 1
+5977 <New(3): info depth 20 seldepth 28 time 214 nodes 1066701 pv  score cp -262
+5977 <New(3): bestmove e8d8
+5977 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8
+5977 >Base(2): isready
+5978 <Base(2): readyok
+5978 >Base(2): go wtime 520 btime 521 movestogo 1
+6187 <Base(2): info depth 20 seldepth 31 time 208 nodes 1030055 pv  score cp 278
+6187 <Base(2): bestmove d2c4
+6187 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4
+6187 >New(3): isready
+6187 <New(3): readyok
+6187 >New(3): go wtime 511 btime 521 movestogo 1
+6396 <New(3): info depth 20 seldepth 38 time 208 nodes 1053739 pv  score cp -215
+6396 <New(3): bestmove d7b5
+6396 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5
+6396 >Base(2): isready
+6396 <Base(2): readyok
+6396 >Base(2): go wtime 511 btime 512 movestogo 1
+6601 <Base(2): info depth 20 seldepth 33 time 204 nodes 1062130 pv  score cp 206
+6601 <Base(2): bestmove c4d6
+6601 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6
+6601 >New(3): isready
+6601 <New(3): readyok
+6601 >New(3): go wtime 507 btime 512 movestogo 1
+6806 <New(3): info depth 20 seldepth 34 time 204 nodes 1068598 pv  score cp -214
+6806 <New(3): bestmove b4a2
+6806 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2
+6806 >Base(2): isready
+6806 <Base(2): readyok
+6806 >Base(2): go wtime 507 btime 508 movestogo 1
+7010 <Base(2): info depth 20 seldepth 35 time 202 nodes 1114126 pv  score cp 204
+7010 <Base(2): bestmove c3a2
+7010 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2
+7010 >New(3): isready
+7010 <New(3): readyok
+7010 >New(3): go wtime 504 btime 508 movestogo 1
+7214 <New(3): info depth 20 seldepth 29 time 203 nodes 1097777 pv  score cp -213
+7214 <New(3): bestmove b5e2
+7214 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2
+7214 >Base(2): isready
+7214 <Base(2): readyok
+7214 >Base(2): go wtime 504 btime 505 movestogo 1
+7416 <Base(2): info depth 20 seldepth 26 time 201 nodes 1120079 pv  score cp 248
+7416 <Base(2): bestmove d6f7
+7416 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7
+7416 >New(3): isready
+7416 <New(3): readyok
+7416 >New(3): go wtime 502 btime 505 movestogo 1
+7619 <New(3): info depth 20 seldepth 31 time 202 nodes 1111183 pv  score cp -158
+7619 <New(3): bestmove d8c7
+7619 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7
+7619 >Base(2): isready
+7619 <Base(2): readyok
+7619 >Base(2): go wtime 502 btime 503 movestogo 1
+7820 <Base(2): info depth 20 seldepth 31 time 200 nodes 1076387 pv d1e1 e2h5 f7h6 g8h8 g2g4 h5e8 g4g5 f6g5 h6g4 e8h5 g4e5 c7d6 e5d3 h5f3 a2c3 h8h2 e4e5 d6d7 c3e4 f3e4 e1e4 h2h4 e4g4 h4g4 g1g4  score cp 101
+7821 <Base(2): bestmove d1e1
+7821 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1
+7821 >New(3): isready
+7821 <New(3): readyok
+7821 >New(3): go wtime 501 btime 503 movestogo 1
+8023 <New(3): info depth 20 seldepth 30 time 201 nodes 1064543 pv  score cp -66
+8023 <New(3): bestmove e2h5
+8023 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5
+8023 >Base(2): isready
+8023 <Base(2): readyok
+8023 >Base(2): go wtime 501 btime 501 movestogo 1
+8224 <Base(2): info depth 20 seldepth 34 time 200 nodes 1109620 pv f7h6 g8h8 g2g4 h5e8 g4g5 f6g5 h6g4 e8h5 g4e5 c7d6 e5d3 h5f3 e4e5 d6c6 a2c3 h8h2 c3e4 f3e4 e1e4 h2h4 e4e1 c6b6 e1d1 h4c4 d1d2 c8h8 g1d1 c4c7 d1e1 c7d7 e1d1 d7d5  score cp 82
+8224 <Base(2): bestmove f7h6
+8224 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6
+8224 >New(3): isready
+8224 <New(3): readyok
+8224 >New(3): go wtime 500 btime 501 movestogo 1
+8425 <New(3): info depth 20 seldepth 28 time 200 nodes 1085586 pv  score cp -114
+8425 <New(3): bestmove g8h8
+8425 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8
+8425 >Base(2): isready
+8425 <Base(2): readyok
+8425 >Base(2): go wtime 500 btime 501 movestogo 1
+8626 <Base(2): info depth 20 seldepth 38 time 200 nodes 1128585 pv  score cp 82
+8626 <Base(2): bestmove g2g4
+8626 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4
+8626 >New(3): isready
+8626 <New(3): readyok
+8626 >New(3): go wtime 499 btime 501 movestogo 1
+8827 <New(3): info depth 20 seldepth 30 time 200 nodes 1070807 pv  score cp -102
+8827 <New(3): bestmove h5g6
+8827 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6
+8827 >Base(2): isready
+8827 <Base(2): readyok
+8827 >Base(2): go wtime 499 btime 501 movestogo 1
+9027 <Base(2): info depth 20 seldepth 27 time 199 nodes 1090936 pv  score cp 83
+9027 <Base(2): bestmove g4g5
+9027 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5
+9027 >New(3): isready
+9027 <New(3): readyok
+9027 >New(3): go wtime 500 btime 501 movestogo 1
+9228 <New(3): info depth 20 seldepth 26 time 200 nodes 1069538 pv  score cp -102
+9228 <New(3): bestmove f6g5
+9228 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5
+9228 >Base(2): isready
+9228 <Base(2): readyok
+9228 >Base(2): go wtime 500 btime 501 movestogo 1
+9429 <Base(2): info depth 20 seldepth 33 time 200 nodes 1136850 pv  score cp 83
+9429 <Base(2): bestmove h6g4
+9430 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4
+9430 >New(3): isready
+9430 <New(3): readyok
+9430 >New(3): go wtime 499 btime 501 movestogo 1
+9631 <New(3): info depth 20 seldepth 33 time 200 nodes 1086403 pv  score cp -102
+9631 <New(3): bestmove e7d6
+9631 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6
+9631 >Base(2): isready
+9631 <Base(2): readyok
+9631 >Base(2): go wtime 499 btime 500 movestogo 1
+9831 <Base(2): info depth 20 seldepth 22 time 199 nodes 1051399 pv  score cp 151
+9831 <Base(2): bestmove c1b1
+9831 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1
+9831 >New(3): isready
+9831 <New(3): readyok
+9831 >New(3): go wtime 499 btime 500 movestogo 1
+10032 <New(3): info depth 20 seldepth 31 time 200 nodes 1143760 pv  score cp -83
+10032 <New(3): bestmove g6h5
+10032 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5
+10032 >Base(2): isready
+10032 <Base(2): readyok
+10032 >Base(2): go wtime 499 btime 499 movestogo 1
+10233 <Base(2): info depth 20 seldepth 24 time 199 nodes 1126286 pv  score cp 98
+10233 <Base(2): bestmove g4f6
+10233 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6
+10233 >New(3): isready
+10233 <New(3): readyok
+10233 >New(3): go wtime 499 btime 499 movestogo 1
+10433 <New(3): info depth 20 seldepth 25 time 199 nodes 1118607 pv  score cp -90
+10433 <New(3): bestmove d6e5
+10433 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5
+10433 >Base(2): isready
+10433 <Base(2): readyok
+10433 >Base(2): go wtime 499 btime 499 movestogo 1
+10633 <Base(2): info depth 20 seldepth 26 time 199 nodes 1116427 pv  score cp 83
+10633 <Base(2): bestmove f6h5
+10633 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5
+10633 >New(3): isready
+10633 <New(3): readyok
+10633 >New(3): go wtime 499 btime 499 movestogo 1
+10833 <New(3): info depth 20 seldepth 25 time 199 nodes 1194892 pv  score cp -99
+10833 <New(3): bestmove h8h5
+10833 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5
+10833 >Base(2): isready
+10833 <Base(2): readyok
+10833 >Base(2): go wtime 499 btime 499 movestogo 1
+11033 <Base(2): info depth 20 seldepth 26 time 199 nodes 1157686 pv a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 c8f8 g1f1 h2h7 b1a2 d4e3 d2e2 e3d4 c2c3 d4b6 f1d1 f8d8 a2b3 b8a7  score cp 80
+11033 <Base(2): bestmove a2b4
+11033 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4
+11033 >New(3): isready
+11033 <New(3): readyok
+11033 >New(3): go wtime 499 btime 499 movestogo 1
+11233 <New(3): info depth 20 seldepth 23 time 199 nodes 1144713 pv  score cp -80
+11233 <New(3): bestmove h5h2
+11233 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2
+11233 >Base(2): isready
+11233 <Base(2): readyok
+11233 >Base(2): go wtime 499 btime 500 movestogo 1
+11433 <Base(2): info depth 20 seldepth 30 time 199 nodes 1183813 pv  score cp 85
+11433 <Base(2): bestmove e1d1
+11433 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1
+11433 >New(3): isready
+11434 <New(3): readyok
+11434 >New(3): go wtime 499 btime 500 movestogo 1
+11634 <New(3): info depth 20 seldepth 26 time 200 nodes 1167299 pv  score cp -81
+11634 <New(3): bestmove c7b8
+11634 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8
+11634 >Base(2): isready
+11635 <Base(2): readyok
+11635 >Base(2): go wtime 499 btime 500 movestogo 1
+11835 <Base(2): info depth 20 seldepth 26 time 199 nodes 1198276 pv  score cp 94
+11835 <Base(2): bestmove b4d3
+11835 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3
+11835 >New(3): isready
+11835 <New(3): readyok
+11835 >New(3): go wtime 499 btime 500 movestogo 1
+12036 <New(3): info depth 20 seldepth 28 time 200 nodes 1180138 pv  score cp -99
+12036 <New(3): bestmove e5d4
+12036 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4
+12036 >Base(2): isready
+12036 <Base(2): readyok
+12036 >Base(2): go wtime 499 btime 499 movestogo 1
+12237 <Base(2): info depth 20 seldepth 26 time 199 nodes 1195560 pv d1d2 c8f8 g1f1 b8a7 b1a2 f8f7 a2b3 f7f8 b3c4 d4b6 c4b3 b6d4 b3c4 d4b6 c4b4 b6d4 b4a3 f8d8 f1d1 d8f8 d1f1 f8d8 f1d1  score cp 88
+12237 <Base(2): bestmove d1d2
+12237 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2
+12237 >New(3): isready
+12237 <New(3): readyok
+12237 >New(3): go wtime 499 btime 499 movestogo 1
+12437 <New(3): info depth 20 seldepth 28 time 199 nodes 1206666 pv d4f6 e4e5 f6e7 d2d1 c8d8 b1a2 b8a7 a2b3 h2h4 g1e1 d8h8 d1d2 h8d8 e1g1 e7b4 d2d1 b4e7 d1d2 e7b4 d2d1 b4e7  score cp -91
+12437 <New(3): bestmove d4f6 ponder e4e5
+12437 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6
+12437 >Base(2): isready
+12437 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 e4e5
+12437 >New(3): isready
+12437 <New(3): readyok
+12437 >New(3): go ponder wtime 499 btime 499 movestogo 1
+12437 <Base(2): readyok
+12437 >Base(2): go wtime 499 btime 499 movestogo 1
+12638 <Base(2): info depth 20 seldepth 25 time 199 nodes 612947 pv  score cp 97
+12638 <Base(2): bestmove b1a2
+12638 >New(3): stop
+12638 <New(3): info depth 20 seldepth 26 time 200 nodes 681514 pv  score cp -91
+12638 <New(3): bestmove f6e7
+12638 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2
+12638 >New(3): isready
+12639 <New(3): readyok
+12639 >New(3): go wtime 499 btime 499 movestogo 1
+12840 <New(3): info depth 20 seldepth 25 time 199 nodes 1081692 pv  score cp -92
+12840 <New(3): bestmove h2h4
+12840 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4
+12840 >Base(2): isready
+12840 <Base(2): readyok
+12840 >Base(2): go wtime 499 btime 498 movestogo 1
+13040 <Base(2): info depth 20 seldepth 25 time 199 nodes 1157449 pv  score cp 103
+13040 <Base(2): bestmove g1e1
+13040 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1
+13040 >New(3): isready
+13040 <New(3): readyok
+13040 >New(3): go wtime 499 btime 498 movestogo 1
+13240 <New(3): info depth 20 seldepth 24 time 199 nodes 1159361 pv  score cp -92
+13240 <New(3): bestmove b8a7
+13240 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7
+13240 >Base(2): isready
+13240 <Base(2): readyok
+13240 >Base(2): go wtime 499 btime 498 movestogo 1
+13440 <Base(2): info depth 20 seldepth 27 time 199 nodes 1157107 pv  score cp 93
+13440 <Base(2): bestmove e1e2
+13440 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2
+13440 >New(3): isready
+13440 <New(3): readyok
+13440 >New(3): go wtime 500 btime 498 movestogo 1
+13640 <New(3): info depth 20 seldepth 21 time 199 nodes 1143104 pv  score cp -96
+13640 <New(3): bestmove h4h7
+13640 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7
+13640 >Base(2): isready
+13640 <Base(2): readyok
+13640 >Base(2): go wtime 500 btime 498 movestogo 1
+13842 <Base(2): info depth 20 seldepth 25 time 200 nodes 1196737 pv  score cp 97
+13842 <Base(2): bestmove a2b3
+13842 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3
+13842 >New(3): isready
+13842 <New(3): readyok
+13842 >New(3): go wtime 499 btime 498 movestogo 1
+14042 <New(3): info depth 20 seldepth 24 time 199 nodes 1182352 pv  score cp -97
+14042 <New(3): bestmove h7h3
+14042 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3
+14042 >Base(2): isready
+14042 <Base(2): readyok
+14042 >Base(2): go wtime 499 btime 498 movestogo 1
+14242 <Base(2): info depth 20 seldepth 26 time 199 nodes 1202936 pv  score cp 97
+14242 <Base(2): bestmove e2e1
+14242 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1
+14243 >New(3): isready
+14243 <New(3): readyok
+14243 >New(3): go wtime 499 btime 498 movestogo 1
+14443 <New(3): info depth 20 seldepth 24 time 199 nodes 1176372 pv  score cp -99
+14443 <New(3): bestmove c8f8
+14443 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8
+14443 >Base(2): isready
+14443 <Base(2): readyok
+14443 >Base(2): go wtime 499 btime 498 movestogo 1
+14643 <Base(2): info depth 20 seldepth 26 time 199 nodes 1174946 pv  score cp 94
+14643 <Base(2): bestmove e1g1
+14643 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8 e1g1
+14643 >New(3): isready
+14643 <New(3): readyok
+14643 >New(3): go wtime 499 btime 498 movestogo 1
+14843 <New(3): info depth 20 seldepth 29 time 199 nodes 1147478 pv  score cp -90
+14843 <New(3): bestmove f6e7
+14843 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8 e1g1 f6e7
+14843 >Base(2): isready
+14843 <Base(2): readyok
+14843 >Base(2): go wtime 499 btime 499 movestogo 1
+15043 <Base(2): info depth 21 seldepth 28 time 199 nodes 1196130 pv  score cp 90
+15043 <Base(2): bestmove g1a1
+15043 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8 e1g1 f6e7 g1a1
+15043 >New(3): isready
+15043 <New(3): readyok
+15043 >New(3): go wtime 499 btime 499 movestogo 1
+15244 <New(3): info depth 20 seldepth 27 time 199 nodes 1148876 pv  score cp -91
+15244 <New(3): bestmove a7b6
+15244 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8 e1g1 f6e7 g1a1 a7b6
+15244 >Base(2): isready
+15244 <Base(2): readyok
+15244 >Base(2): go wtime 499 btime 499 movestogo 1
+15444 <Base(2): info depth 21 seldepth 26 time 199 nodes 1160442 pv  score cp 90
+15444 <Base(2): bestmove b3a2
+15444 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8 e1g1 f6e7 g1a1 a7b6 b3a2
+15444 >New(3): isready
+15444 <New(3): readyok
+15444 >New(3): go wtime 499 btime 499 movestogo 1
+15644 <New(3): info depth 23 seldepth 31 time 199 nodes 1224784 pv  score cp -90
+15644 <New(3): bestmove f8d8
+15644 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8 e1g1 f6e7 g1a1 a7b6 b3a2 f8d8
+15644 >Base(2): isready
+15644 <Base(2): readyok
+15644 >Base(2): go wtime 499 btime 499 movestogo 1
+15845 <Base(2): info depth 21 seldepth 35 time 199 nodes 1192933 pv  score cp 90
+15845 <Base(2): bestmove a2b3
+15845 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8 e1g1 f6e7 g1a1 a7b6 b3a2 f8d8 a2b3
+15845 >New(3): isready
+15845 <New(3): readyok
+15845 >New(3): go wtime 499 btime 499 movestogo 1
+16045 <New(3): info depth 23 seldepth 28 time 199 nodes 1215575 pv h3h4 d2e2 h4h2 e2d2 e7f6 e4e5 f6e7 d2e2 h2h3 e2d2 d8f8 b3a2 h3h4 a2b3 h4h3 b3c4 h3h4 c4c3 f8d8 c3b3 h4h3 a1d1 h3h4  score cp -90
+16045 <New(3): bestmove h3h4 ponder d2e2
+16045 >Base(2): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8 e1g1 f6e7 g1a1 a7b6 b3a2 f8d8 a2b3 h3h4
+16045 >Base(2): isready
+16045 >New(3): position startpos moves e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 c1g5 e7e6 d1f3 c8d7 f1e2 h7h6 g5f6 d8f6 f3f6 g7f6 d4f3 b8c6 a1d1 c6b4 e1d2 h8g8 h1g1 a8c8 d2c1 f8e7 f3d2 e8d8 d2c4 d7b5 c4d6 b4a2 c3a2 b5e2 d6f7 d8c7 d1e1 e2h5 f7h6 g8h8 g2g4 h5g6 g4g5 f6g5 h6g4 e7d6 c1b1 g6h5 g4f6 d6e5 f6h5 h8h5 a2b4 h5h2 e1d1 c7b8 b4d3 e5d4 d1d2 d4f6 b1a2 h2h4 g1e1 b8a7 e1e2 h4h7 a2b3 h7h3 e2e1 c8f8 e1g1 f6e7 g1a1 a7b6 b3a2 f8d8 a2b3 h3h4 d2e2
+16045 >New(3): isready
+16045 <New(3): readyok
+16045 >New(3): go ponder wtime 499 btime 499 movestogo 1
+16045 <Base(2): readyok
+16045 >Base(2): go wtime 499 btime 499 movestogo 1
+16245 <Base(2): info depth 21 seldepth 27 time 199 nodes 1150035 pv  score cp 90
+16245 <Base(2): bestmove d2e2
+16245 >New(3): ponderhit
+16996 >New(3): stop
+16996 <New(3): info depth 27 seldepth 35 time 750 nodes 5692370 pv  score cp -91
+16996 <New(3): bestmove h4h3
+16996 >Base(2): isready
+16996 >New(3): isready
+16996 <New(3): readyok
+16996 <Base(2): readyok
+Finished game 2 (Base vs New): 1-0 {Black loses on time}
+Score of New vs Base: 0 - 2 - 0  [0.000] 2
+...      New playing White: 0 - 1 - 0  [0.000] 1
+...      New playing Black: 0 - 1 - 0  [0.000] 1
+...      White vs Black: 1 - 1 - 0  [0.500] 2
+Elo difference: -inf +/- nan, LOS: 7.9 %, DrawRatio: 0.0 %
+SPRT: llr 0 (0.0%), lbound -inf, ubound inf
+
+Player: New
+   "Loss: Black loses on time": 1
+   "Loss: White loses on time": 1
+Player: Base
+   "Win: Black loses on time": 1
+   "Win: White loses on time": 1
+Finished match
+16996 >New(0): quit
+16996 >Base(1): quit
+16996 >Base(2): quit
+16996 >New(3): quit

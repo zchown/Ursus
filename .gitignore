@@ -58,5 +58,9 @@ temp.zig
 
 engines/
 matches/
+tournaments/
+Syzygy/
+Balsa/
+releaseEngines/
 
 lichess-bot/
