@@ -109,6 +109,18 @@ pub const UciProtocol = struct {
         try respond("id name Ursus");
         try respond("id author Zander");
 
+        try respond("option name aspiration_window type spin default 50 min 10 max 200");
+        try respond("option name rfp_depth type spin default 6 min 1 max 12");
+        try respond("option name rfp_mul type spin default 50 min 10 max 150");
+        try respond("option name rfp_improvement type spin default 75 min 10 max 150");
+        try respond("option name nmp_improvement type spin default 75 min 10 max 150");
+        try respond("option name nmp_base type spin default 3 min 1 max 8");
+        try respond("option name nmp_depth_div type spin default 3 min 1 max 8");
+        try respond("option name nmp_beta_div type spin default 150 min 50 max 300");
+        try respond("option name razoring_margin type spin default 300 min 100 max 600");
+        try respond("option name probcut_margin type spin default 200 min 50 max 600");
+        try respond("option name probcut_depth type spin default 3 min 1 max 8");
+
         try respond("uciok");
         try self.newGame();
     }
@@ -145,6 +157,30 @@ pub const UciProtocol = struct {
             // TODO: handle clear hash option
         } else if (std.mem.eql(u8, option_name, "Ponder")) {
             // TODO: handle ponder option
+        }
+
+        if (std.mem.eql(u8, option_name, "aspiration_window")) {
+            srch.aspiration_window = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "rfp_depth")) {
+            srch.rfp_depth = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "rfp_mul")) {
+            srch.rfp_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "rfp_improvement")) {
+            srch.rfp_improve = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "nmp_improvement")) {
+            srch.nmp_improve = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "nmp_base")) {
+            srch.nmp_base = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "nmp_depth_div")) {
+            srch.nmp_depth_div = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "nmp_beta_div")) {
+            srch.nmp_beta_div = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "razoring_margin")) {
+            srch.razoring_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "probcut_margin")) {
+            srch.probcut_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "probcut_depth")) {
+            srch.probcut_depth = try std.fmt.parseInt(usize, args[name_end + 1], 10);
         }
     }
 
@@ -276,7 +312,7 @@ pub const UciProtocol = struct {
         self.searcher.max_ms = time_allocation.max_ms;
         self.searcher.ideal_ms = time_allocation.ideal_ms;
 
-        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 8);
+        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 1);
         std.debug.print("Search completed", .{});
 
         var stdout_buffer: [1024]u8 = undefined;

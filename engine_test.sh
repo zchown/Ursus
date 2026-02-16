@@ -16,7 +16,7 @@ ENGINE_BASE="./engines/Ursus2.17.3"
 CUTECHESS="cutechess-cli"
 
 # Openings
-OPENINGS="Balsa/Balsa_v110221.pgn"
+OPENINGS="8moves_v3.pgn"
 # OPENINGS="Balsa/Balsa_v500.pgn"
 
 # Match settings

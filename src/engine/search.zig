@@ -13,17 +13,17 @@ inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Colo
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
 
-pub const aspiration_window: i32 = 50;
-pub const rfp_depth: i32 = 6;
-pub const rfp_mul: i32 = 50;
-pub const rfp_improve: i32 = 75;
+pub var aspiration_window: i32 = 50;
+pub var rfp_depth: i32 = 6;
+pub var rfp_mul: i32 = 50;
+pub var rfp_improve: i32 = 75;
 
-pub const nmp_improve: i32 = 25;
-pub const nmp_base: usize = 3;
-pub const nmp_depth_div: usize = 3;
-pub const nmp_beta_div: usize = 150;
+pub var nmp_improve: i32 = 25;
+pub var nmp_base: usize = 3;
+pub var nmp_depth_div: usize = 3;
+pub var nmp_beta_div: usize = 150;
 
-pub const razoring_margin: i32 = 300;
+pub var razoring_margin: i32 = 300;
 
 const lmp_table = [_]usize{ 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68 };
 
@@ -37,8 +37,8 @@ const score_killer_2: i32 = 790_000;
 const score_equal_capture: i32 = 700_000;
 const score_counter: i32 = 600_000;
 
-const probcut_margin: i32 = 200;
-const probcut_depth: usize = 3;
+pub var probcut_margin: i32 = 200;
+pub var probcut_depth: usize = 3;
 
 pub const quiet_lmr: [64][64]i32 = blk: {
     break :blk initQuietLMR();
@@ -400,7 +400,7 @@ pub const Searcher = struct {
 
         if (!tt.global_tt_initialized or tt.global_tt.items.len == 0) {
             std.debug.print("Initializing transposition table...\n", .{});
-            try tt.TranspositionTable.initGlobal(1024);
+            try tt.TranspositionTable.initGlobal(64);
             std.debug.print("Transposition table initialized with {} entries.\n", .{tt.global_tt.items.len});
         }
         if (!pawn_tt.pawn_tt_initialized or pawn_tt.pawn_tt.items.items.len == 0) {
