@@ -276,7 +276,7 @@ pub const UciProtocol = struct {
         self.searcher.max_ms = time_allocation.max_ms;
         self.searcher.ideal_ms = time_allocation.ideal_ms;
 
-        const result = try self.searcher.iterative_deepening(&self.board, null);
+        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 8);
         std.debug.print("Search completed", .{});
 
         var stdout_buffer: [1024]u8 = undefined;
@@ -356,7 +356,7 @@ fn calculateTimeAllocation(limits: *const SearchLimits, side_to_move: brd.Color)
 
         // Calculate ideal time (what we aim to use)
         // Use slightly less than base to have a buffer
-        const ideal_ms = @min(base_time * 9 / 10, time - 100); // Use 90% of base, leave 100ms buffer
+        const ideal_ms = @min(base_time * 9 / 10, time - 250); // Use 90% of base, leave 250ms buffer
 
         // Calculate max time (hard limit)
         // Allow using up to 3x ideal in critical positions, but never more than 40% of remaining time

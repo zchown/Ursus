@@ -96,6 +96,7 @@ pub const History = struct {
         self.history_list[self.history_count] = state;
         self.history_count += 1;
     }
+
 };
 
 pub const Board = struct {
@@ -250,7 +251,7 @@ pub const Board = struct {
         };
     }
 
-    pub fn copyFrom(self: *Board, other: Board) void {
+    pub fn copyFrom(self: *Board, other: *Board) void {
         self.piece_bb = other.piece_bb;
         self.color_bb = other.color_bb;
         self.game_state = other.game_state;
