@@ -16,7 +16,8 @@ ENGINES=(
 )
 
 # Openings
-OPENINGS="Balsa/Balsa_v110221.pgn"
+OPENINGS="8moves_v3.pgn"
+# OPENINGS="Balsa/Balsa_v110221.pgn"
 
 # Tournament size
 ROUNDS=100
