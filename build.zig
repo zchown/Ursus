@@ -139,6 +139,7 @@ pub fn build(b: *std.Build) void {
     uci_module.addImport("fen", fen_module);
     uci_module.addImport("transposition", transposition_module);
     uci_module.addImport("moves", moves_module);
+    uci_module.addImport("eval", eval_module);
 
     eval_module.addImport("board", board_module);
     eval_module.addImport("moves", moves_module);

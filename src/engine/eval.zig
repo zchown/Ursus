@@ -5,7 +5,7 @@ const zob = @import("zobrist");
 const pawn_tt = @import("pawn_tt");
 
 pub const mate_score: i32 = 888888;
-const lazy_margin: i32 = 800;
+pub var lazy_margin: i32 = 813;
 
 const total_phase: i32 = 24;
 const pawn_phase: i32 = 0;
