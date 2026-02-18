@@ -357,7 +357,7 @@ pub const UciProtocol = struct {
         self.searcher.max_ms = time_allocation.max_ms;
         self.searcher.ideal_ms = time_allocation.ideal_ms;
 
-        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 4);
+        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 2);
         std.debug.print("Search completed", .{});
 
         var stdout_buffer: [1024]u8 = undefined;
