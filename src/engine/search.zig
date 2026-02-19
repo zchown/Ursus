@@ -246,19 +246,21 @@ pub const Searcher = struct {
     }
 
     pub inline fn should_stop(self: *Searcher) bool {
+        const thinking = @atomicLoad(bool, &self.force_think, .acquire);
         return self.stop or
             (self.thread_id == 0 and self.search_depth > self.min_depth and
                 ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
-                    (!self.force_think and self.timer.read() / std.time.ns_per_ms >= self.max_ms)));
+                    (!thinking and self.timer.read() / std.time.ns_per_ms >= self.max_ms)));
     }
 
     pub inline fn should_not_continue(self: *Searcher, factor: f32) bool {
+        const thinking = @atomicLoad(bool, &self.force_think, .acquire);
         return self.stop or
             (self.thread_id == 0 and self.search_depth > self.min_depth and
                 ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
-                    (!self.force_think and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor))))));
+                    (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor))))));
     }
-
+    
     const ThreadContext = struct {
         searcher: *Searcher,
         board: *brd.Board,
@@ -452,7 +454,6 @@ pub const Searcher = struct {
 
             var window_failed = false;
             while (true) {
-                // std.debug.print("Starting search at depth {} with alpha={} and beta={}\n", .{depth, alpha, beta});
                 self.search_depth = @max(self.search_depth, depth);
                 self.nmp_min_ply = 0;
 
@@ -1100,6 +1101,7 @@ pub const Searcher = struct {
 
             if (captured_piece_idx < 6) {
                 const bonus = @min(1536, @as(i32, @intCast(depth)) * 256);
+                // const bonus = @as(i32, @intCast(@min(1024, depth * depth * 16)));
                 const max_cap_hist: i32 = 16384;
 
                 // Update the capture that worked

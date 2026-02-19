@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Paths to engines
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus2.19.2"
+ENGINE_BASE="./engines/Ursus2.20"
 # ENGINE_BASE="./engines/UrsusPRETUNE"
 # ENGINE_BASE="./engines/Ursus2.17.3"
 # ENGINE_BASE="./engines/Ursus2.15.1"
@@ -48,7 +48,7 @@ echo
 $CUTECHESS \
   -engine name=New cmd="$ENGINE_NEW" proto=uci \
   -engine name=Base cmd="$ENGINE_BASE" proto=uci \
-  -each tc=1+0.05 timemargin=50 \
+  -each tc=1+0.5 timemargin=50 \
   -openings file="$OPENINGS" format=pgn order=random \
   -repeat \
   -games $GAMES \

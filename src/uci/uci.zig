@@ -25,10 +25,59 @@ pub const UciOption = struct {
     name: []const u8,
     type: enum { check, spin, combo, button, string },
     default: ?[]const u8 = null,
-             min: ?i32 = null,
-             max: ?i32 = null,
-             vars: ?[][]const u8 = null,
-         };
+    min: ?i32 = null,
+    max: ?i32 = null,
+    vars: ?[][]const u8 = null,
+};
+
+const SearchContext = struct {
+    protocol: *UciProtocol,
+    board: brd.Board,
+};
+
+fn searchThreadFn(ctx: *SearchContext) void {
+    const protocol = ctx.protocol;
+
+    defer {
+        std.heap.c_allocator.destroy(ctx);
+        @atomicStore(bool, &protocol.is_searching, false, .release);
+        @atomicStore(bool, &protocol.is_pondering, false, .release);
+    }
+
+    const result = protocol.searcher.parallelIterativeDeepening(
+        &ctx.board,
+        null,
+        1, // Thread number
+    ) catch |err| {
+        std.debug.print("Search thread error: {}\n", .{err});
+        return;
+    };
+
+    outputBestMove(protocol, result) catch |err| {
+        std.debug.print("Output error in search thread: {}\n", .{err});
+    };
+}
+
+fn outputBestMove(protocol: *UciProtocol, result: srch.SearchResult) !void {
+    _ = protocol;
+
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    const move_str = try result.move.uciToString(std.heap.c_allocator);
+    defer std.heap.c_allocator.free(move_str);
+
+    if (result.pv_length >= 2) {
+        const ponder_str = try result.pv[1].uciToString(std.heap.c_allocator);
+        defer std.heap.c_allocator.free(ponder_str);
+        try stdout.print("bestmove {s} ponder {s}\n", .{ move_str, ponder_str });
+    } else {
+        try stdout.print("bestmove {s}\n", .{move_str});
+    }
+
+    try stdout.flush();
+}
 
 pub const UciProtocol = struct {
     board: brd.Board,
@@ -38,6 +87,11 @@ pub const UciProtocol = struct {
     is_searching: bool = false,
     hash_size_mb: u32 = 16,
     searcher: *srch.Searcher,
+
+    search_thread: ?std.Thread = null,
+    is_pondering: bool = false,
+    ponder_limits: SearchLimits = .{},
+    ponder_side: brd.Color = .White,
 
     pub fn init(a: std.mem.Allocator) !UciProtocol {
         std.debug.print("Initializing UCI protocol...\n", .{});
@@ -55,6 +109,7 @@ pub const UciProtocol = struct {
     }
 
     pub fn deinit(self: *UciProtocol) void {
+        self.stopSearch();
         self.searcher.deinit();
     }
 
@@ -76,8 +131,14 @@ pub const UciProtocol = struct {
         } else if (std.mem.eql(u8, commandName, "isready")) {
             try respond("readyok");
         } else if (std.mem.eql(u8, commandName, "debug")) {
-            // print fen of current position for debugging
-            try fen.debugPrintBoard(&self.board);
+            if (args.len > 0 and std.mem.eql(u8, args[0], "on")) {
+                self.debug_mode = true;
+            } else if (args.len > 0 and std.mem.eql(u8, args[0], "off")) {
+                self.debug_mode = false;
+            } else {
+                // Fallback: print board for convenience
+                try fen.debugPrintBoard(&self.board);
+            }
         } else if (std.mem.eql(u8, commandName, "ucinewgame")) {
             try self.newGame();
         } else if (std.mem.eql(u8, commandName, "position")) {
@@ -85,17 +146,15 @@ pub const UciProtocol = struct {
         } else if (std.mem.eql(u8, commandName, "go")) {
             try self.handleGo(args);
         } else if (std.mem.eql(u8, commandName, "stop")) {
-            self.is_searching = false;
+            self.stopSearch();
         } else if (std.mem.eql(u8, commandName, "ponderhit")) {
-            self.is_searching = true;
+            self.handlePonderHit();
         } else if (std.mem.eql(u8, commandName, "quit")) {
+            self.stopSearch();
             self.should_quit = true;
         } else if (std.mem.eql(u8, commandName, "setoption")) {
             try self.handleSetOption(args);
-        } else if (std.mem.eql(u8, commandName, "debug")) {
-            try self.handleDebug(args);
         } else if (std.mem.eql(u8, commandName, "register")) {
-            // Optional: handle registration if needed
             try respond("registration checking");
         } else if (std.mem.eql(u8, commandName, "d")) {
             try self.printBoard();
@@ -106,10 +165,124 @@ pub const UciProtocol = struct {
         }
     }
 
+    fn stopSearch(self: *UciProtocol) void {
+        self.searcher.stop = true;
+        self.searcher.force_think = false;
+        tt.stop_signal.store(true, .release);
+        srch.Searcher.stopAllThreads();
+
+        if (self.search_thread) |thread| {
+            thread.join();
+            self.search_thread = null;
+        }
+
+        self.is_searching = false;
+        @atomicStore(bool, &self.is_pondering, false, .release);
+    }
+
+    fn handlePonderHit(self: *UciProtocol) void {
+        if (!@atomicLoad(bool, &self.is_pondering, .acquire)) return;
+
+        const time_alloc = calculateTimeAllocation(&self.ponder_limits, self.ponder_side);
+
+        const elapsed_ms = self.searcher.timer.read() / std.time.ns_per_ms;
+        self.searcher.max_ms = time_alloc.max_ms + elapsed_ms;
+        self.searcher.ideal_ms = time_alloc.ideal_ms + elapsed_ms;
+
+        @atomicStore(bool, &self.searcher.force_think, false, .release);
+        @atomicStore(bool, &self.is_pondering, false, .release);
+
+    }
+
+    fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
+        if (self.search_thread != null) {
+            self.stopSearch();
+        }
+
+        var limits = SearchLimits{};
+        var i: usize = 0;
+
+        while (i < args.len) {
+            const arg = args[i];
+
+            if (std.mem.eql(u8, arg, "wtime") and i + 1 < args.len) {
+                limits.wtime = try std.fmt.parseInt(u64, args[i + 1], 10);
+                i += 2;
+            } else if (std.mem.eql(u8, arg, "btime") and i + 1 < args.len) {
+                limits.btime = try std.fmt.parseInt(u64, args[i + 1], 10);
+                i += 2;
+            } else if (std.mem.eql(u8, arg, "winc") and i + 1 < args.len) {
+                limits.winc = try std.fmt.parseInt(u64, args[i + 1], 10);
+                i += 2;
+            } else if (std.mem.eql(u8, arg, "binc") and i + 1 < args.len) {
+                limits.binc = try std.fmt.parseInt(u64, args[i + 1], 10);
+                i += 2;
+            } else if (std.mem.eql(u8, arg, "movestogo") and i + 1 < args.len) {
+                limits.movestogo = try std.fmt.parseInt(u32, args[i + 1], 10);
+                i += 2;
+            } else if (std.mem.eql(u8, arg, "depth") and i + 1 < args.len) {
+                limits.depth = try std.fmt.parseInt(u32, args[i + 1], 10);
+                i += 2;
+            } else if (std.mem.eql(u8, arg, "nodes") and i + 1 < args.len) {
+                limits.nodes = try std.fmt.parseInt(u64, args[i + 1], 10);
+                i += 2;
+            } else if (std.mem.eql(u8, arg, "mate") and i + 1 < args.len) {
+                limits.mate = try std.fmt.parseInt(u32, args[i + 1], 10);
+                i += 2;
+            } else if (std.mem.eql(u8, arg, "movetime") and i + 1 < args.len) {
+                limits.movetime = try std.fmt.parseInt(u64, args[i + 1], 10);
+                i += 2;
+            } else if (std.mem.eql(u8, arg, "infinite")) {
+                limits.infinite = true;
+                i += 1;
+            } else if (std.mem.eql(u8, arg, "ponder")) {
+                limits.ponder = true;
+                i += 1;
+            } else if (std.mem.eql(u8, arg, "searchmoves")) {
+                i += 1;
+            } else {
+                i += 1;
+            }
+        }
+
+        self.searcher.stop = false;
+        self.searcher.time_stop = false;
+        tt.stop_signal.store(false, .release);
+
+        if (limits.ponder) {
+            // Ponder: search indefinitely; ponderhit will install a real budget.
+            self.searcher.force_think = true;
+            self.searcher.max_ms = std.math.maxInt(u64);
+            self.searcher.ideal_ms = std.math.maxInt(u64);
+            // Save limits and side so ponderhit can reconstruct the budget.
+            self.ponder_limits = limits;
+            self.ponder_side = self.board.toMove();
+            @atomicStore(bool, &self.is_pondering, true, .release);
+        } else {
+            self.searcher.force_think = false;
+            const time_alloc = calculateTimeAllocation(&limits, self.board.toMove());
+            self.searcher.max_ms = time_alloc.max_ms;
+            self.searcher.ideal_ms = time_alloc.ideal_ms;
+            @atomicStore(bool, &self.is_pondering, false, .release);
+        }
+
+        self.is_searching = true;
+
+        // Allocate on the heap so the context outlives this stack frame.
+        const ctx = try std.heap.c_allocator.create(SearchContext);
+        ctx.* = .{
+            .protocol = self,
+            .board = self.board,
+        };
+
+        self.search_thread = try std.Thread.spawn(.{}, searchThreadFn, .{ctx});
+    }
+
     fn handleUci(self: *UciProtocol) !void {
         try respond("id name Ursus");
         try respond("id author Zander");
 
+        try respond("option name Ponder type check default false");
         try respond("option name aspiration_window type spin default 32 min 10 max 200");
         try respond("option name rfp_depth type spin default 7 min 1 max 12");
         try respond("option name rfp_mul type spin default 90 min 25 max 150");
@@ -131,9 +304,6 @@ pub const UciProtocol = struct {
         try respond("option name lmr_non_pv_min type spin default 4 min 1 max 10");
         try respond("option name futility_mul type spin default 137 min 25 max 400");
         try respond("option name iid_depth type spin default 1 min 1 max 4");
-        // try respond("option name lmp_base type spin default 3 min 0 max 10");
-        // try respond("option name lmp_mul type spin default 3 min 0 max 10");
-        // try respond("option name lmp_improve type spin default 2 min 0 max 3");
         try respond("option name se_reduction type spin default 4 min 0 max 10");
         try respond("option name history_div type spin default 8951 min 1000 max 12000");
 
@@ -142,16 +312,6 @@ pub const UciProtocol = struct {
         srch.quiet_lmr = srch.initQuietLMR();
 
         try self.newGame();
-    }
-
-    fn handleDebug(self: *UciProtocol, args: [][]const u8) !void {
-        if (args.len > 0) {
-            if (std.mem.eql(u8, args[0], "on")) {
-                self.debug_mode = true;
-            } else if (std.mem.eql(u8, args[0], "off")) {
-                self.debug_mode = false;
-            }
-        }
     }
 
     fn handleSetOption(self: *UciProtocol, args: [][]const u8) !void {
@@ -175,7 +335,7 @@ pub const UciProtocol = struct {
         } else if (std.mem.eql(u8, option_name, "Clear Hash")) {
             // TODO: handle clear hash option
         } else if (std.mem.eql(u8, option_name, "Ponder")) {
-            // TODO: handle ponder option
+            // UCI engines advertise Ponder as a check option; no extra state needed here.
         }
 
         if (std.mem.eql(u8, option_name, "aspiration_window")) {
@@ -233,13 +393,11 @@ pub const UciProtocol = struct {
         var stdout_buffer: [1024]u8 = undefined;
         var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
         const stdout = &stdout_writer.interface;
-
         try stdout.print("{s}\n", .{response});
         try stdout.flush();
     }
 
     fn newGame(self: *UciProtocol) !void {
-        // tt.global_tt.reset();
         self.board = brd.Board.init();
         fen.setupStartingPosition(&self.board);
         self.is_searching = false;
@@ -256,10 +414,10 @@ pub const UciProtocol = struct {
         if (std.mem.eql(u8, args[0], "startpos")) {
             self.board = brd.Board.init();
             fen.setupStartingPosition(&self.board);
-            var i: usize = 1;
-            if (i < args.len and std.mem.eql(u8, args[i], "moves")) {
-                i += 1;
-                for (args[i..]) |move_str| {
+            var j: usize = 1;
+            if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
+                j += 1;
+                for (args[j..]) |move_str| {
                     const move = mvs.parseMove(&self.board, move_str) orelse {
                         if (self.debug_mode) {
                             try respond("Error: invalid move");
@@ -273,9 +431,9 @@ pub const UciProtocol = struct {
             var fen_parts = try std.ArrayList([]const u8).initCapacity(self.allocator, 32);
             defer fen_parts.deinit(self.allocator);
 
-            var i: usize = 1;
-            while (i < args.len and !std.mem.eql(u8, args[i], "moves")) : (i += 1) {
-                try fen_parts.append(self.allocator, args[i]);
+            var j: usize = 1;
+            while (j < args.len and !std.mem.eql(u8, args[j], "moves")) : (j += 1) {
+                try fen_parts.append(self.allocator, args[j]);
             }
 
             const fen_str = try std.mem.join(self.allocator, " ", fen_parts.items);
@@ -283,9 +441,9 @@ pub const UciProtocol = struct {
 
             try fen.parseFEN(&self.board, fen_str);
 
-            if (i < args.len and std.mem.eql(u8, args[i], "moves")) {
-                i += 1;
-                for (args[i..]) |move_str| {
+            if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
+                j += 1;
+                for (args[j..]) |move_str| {
                     const move = mvs.parseMove(&self.board, move_str) orelse {
                         if (self.debug_mode) {
                             try respond("Error: invalid move");
@@ -302,76 +460,6 @@ pub const UciProtocol = struct {
         }
     }
 
-    fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
-        var limits = SearchLimits{};
-        var i: usize = 0;
-
-        while (i < args.len) {
-            const arg = args[i];
-
-            if (std.mem.eql(u8, arg, "wtime") and i + 1 < args.len) {
-                limits.wtime = try std.fmt.parseInt(u64, args[i + 1], 10);
-                i += 2;
-            } else if (std.mem.eql(u8, arg, "btime") and i + 1 < args.len) {
-                limits.btime = try std.fmt.parseInt(u64, args[i + 1], 10);
-                i += 2;
-            } else if (std.mem.eql(u8, arg, "winc") and i + 1 < args.len) {
-                limits.winc = try std.fmt.parseInt(u64, args[i + 1], 10);
-                i += 2;
-            } else if (std.mem.eql(u8, arg, "binc") and i + 1 < args.len) {
-                limits.binc = try std.fmt.parseInt(u64, args[i + 1], 10);
-                i += 2;
-            } else if (std.mem.eql(u8, arg, "movestogo") and i + 1 < args.len) {
-                limits.movestogo = try std.fmt.parseInt(u32, args[i + 1], 10);
-                i += 2;
-            } else if (std.mem.eql(u8, arg, "depth") and i + 1 < args.len) {
-                limits.depth = try std.fmt.parseInt(u32, args[i + 1], 10);
-                i += 2;
-            } else if (std.mem.eql(u8, arg, "nodes") and i + 1 < args.len) {
-                limits.nodes = try std.fmt.parseInt(u64, args[i + 1], 10);
-                i += 2;
-            } else if (std.mem.eql(u8, arg, "mate") and i + 1 < args.len) {
-                limits.mate = try std.fmt.parseInt(u32, args[i + 1], 10);
-                i += 2;
-            } else if (std.mem.eql(u8, arg, "movetime") and i + 1 < args.len) {
-                limits.movetime = try std.fmt.parseInt(u64, args[i + 1], 10);
-                i += 2;
-            } else if (std.mem.eql(u8, arg, "infinite")) {
-                limits.infinite = true;
-                i += 1;
-            } else if (std.mem.eql(u8, arg, "ponder")) {
-                limits.ponder = true;
-                i += 1;
-            } else if (std.mem.eql(u8, arg, "searchmoves")) {
-                i += 1;
-                // TODO: implement searchmoves parsing
-            } else {
-                i += 1;
-            }
-        }
-
-        self.is_searching = true;
-
-        self.is_searching = true;
-        const time_allocation = calculateTimeAllocation(&limits, self.board.toMove());
-        self.searcher.max_ms = time_allocation.max_ms;
-        self.searcher.ideal_ms = time_allocation.ideal_ms;
-
-        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 8);
-        // std.debug.print("Search completed", .{});
-
-        var stdout_buffer: [1024]u8 = undefined;
-        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-        const stdout = &stdout_writer.interface;
-        const move_str = try result.move.uciToString(self.allocator);
-        defer self.allocator.free(move_str);
-
-        try stdout.print("bestmove {s}\n", .{move_str});
-
-        try stdout.flush();
-self.is_searching = false;
-    }
-
     fn printBoard(self: *UciProtocol) !void {
         try fen.debugPrintBoard(&self.board);
     }
@@ -382,10 +470,8 @@ self.is_searching = false;
         var stdout_buffer: [1024]u8 = undefined;
         var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
         const stdout = &stdout_writer.interface;
-
         try stdout.print("info ", .{});
         try stdout.print(fmt, args);
-        try stdout.print("", .{});
         try stdout.flush();
     }
 };
