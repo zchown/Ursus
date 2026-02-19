@@ -80,73 +80,6 @@ const space_per_square: i32 = 2;
 const center_control_bonus: i32 = 10;
 const extended_center_bonus: i32 = 5;
 
-const EvalStruct = struct {
-    mg: i32,
-    eg: i32,
-};
-
-const AttackCache = struct {
-    occupancy: u64 = 0,
-
-    our_pawn_attacks: u64 = 0,
-    opp_pawn_attacks: u64 = 0,
-
-    our_knight_attacks: u64 = 0,
-    opp_knight_attacks: u64 = 0,
-
-    our_bishop_attacks: u64 = 0,
-    opp_bishop_attacks: u64 = 0,
-
-    our_rook_attacks: u64 = 0,
-    opp_rook_attacks: u64 = 0,
-
-    our_queen_attacks: u64 = 0,
-    opp_queen_attacks: u64 = 0,
-
-    our_defenses: u64 = 0,
-    opp_defenses: u64 = 0,
-};
-
-fn populateAttackCache(board: *brd.Board, move_gen: *mvs.MoveGen) AttackCache {
-    var cache = AttackCache{};
-
-    cache.occupancy = board.occupancy();
-
-    cache.our_pawn_attacks = getPawnAttacks(board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Pawn)], brd.Color.White);
-    cache.opp_pawn_attacks = getPawnAttacks(board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Pawn)], brd.Color.Black);
-
-    cache.our_knight_attacks = getAllKnightAttacks(board, move_gen, brd.Color.White);
-    cache.opp_knight_attacks = getAllKnightAttacks(board, move_gen, brd.Color.Black);
-
-    cache.our_bishop_attacks = getAllBishopAttacks(board, move_gen, brd.Color.White);
-    cache.opp_bishop_attacks = getAllBishopAttacks(board, move_gen, brd.Color.Black);
-
-    cache.our_rook_attacks = getAllRookAttacks(board, move_gen, brd.Color.White);
-    cache.opp_rook_attacks = getAllRookAttacks(board, move_gen, brd.Color.Black);
-
-    cache.our_queen_attacks = getAllQueenAttacks(board, move_gen, brd.Color.White);
-    cache.opp_queen_attacks = getAllQueenAttacks(board, move_gen, brd.Color.Black);
-
-    cache.our_defenses = (cache.our_pawn_attacks | cache.our_knight_attacks | cache.our_bishop_attacks | cache.our_rook_attacks | cache.our_queen_attacks);
-
-    const c_idx = @intFromEnum(brd.Color.White);
-    const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
-    if (king_bb != 0) {
-        const king_sq = brd.getLSB(king_bb);
-        cache.our_defenses |= move_gen.kings[king_sq];
-    }
-
-    cache.opp_defenses = (cache.opp_pawn_attacks | cache.opp_knight_attacks | cache.opp_bishop_attacks | cache.opp_rook_attacks | cache.opp_queen_attacks);
-
-    const c_idx_black = @intFromEnum(brd.Color.Black);
-    const opp_king_bb = board.piece_bb[c_idx_black][@intFromEnum(brd.Pieces.King)];
-    if (opp_king_bb != 0) {
-        const opp_king_sq = brd.getLSB(opp_king_bb);
-        cache.opp_defenses |= move_gen.kings[opp_king_sq];
-    }
-
-    return cache;
-}
 
 // Pawn Table (incentivize pushing)
 const mg_pawn_table = [64]i32{
@@ -270,6 +203,75 @@ const mg_king_table = [64]i32{
     -15, 36,  12,  -54, 8,   -28, 24,  14,
 };
 const eg_king_table = [64]i32{ -74, -35, -18, -18, -11, 15, 4, -17, -12, 17, 14, 17, 17, 38, 23, 11, 10, 17, 23, 15, 20, 45, 44, 13, -8, 22, 24, 27, 26, 33, 26, 3, -18, -4, 21, 24, 27, 23, 9, -11, -19, -3, 11, 21, 23, 16, 7, -9, -27, -11, 4, 13, 14, 4, -5, -17, -53, -34, -21, -11, -28, -14, -24, -43 };
+
+const EvalStruct = struct {
+    mg: i32,
+    eg: i32,
+};
+
+const AttackCache = struct {
+    occupancy: u64 = 0,
+
+    our_pawn_attacks: u64 = 0,
+    opp_pawn_attacks: u64 = 0,
+
+    our_knight_attacks: u64 = 0,
+    opp_knight_attacks: u64 = 0,
+
+    our_bishop_attacks: u64 = 0,
+    opp_bishop_attacks: u64 = 0,
+
+    our_rook_attacks: u64 = 0,
+    opp_rook_attacks: u64 = 0,
+
+    our_queen_attacks: u64 = 0,
+    opp_queen_attacks: u64 = 0,
+
+    our_defenses: u64 = 0,
+    opp_defenses: u64 = 0,
+};
+
+fn populateAttackCache(board: *brd.Board, move_gen: *mvs.MoveGen) AttackCache {
+    var cache = AttackCache{};
+
+    cache.occupancy = board.occupancy();
+
+    cache.our_pawn_attacks = getPawnAttacks(board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Pawn)], brd.Color.White);
+    cache.opp_pawn_attacks = getPawnAttacks(board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Pawn)], brd.Color.Black);
+
+    cache.our_knight_attacks = getAllKnightAttacks(board, move_gen, brd.Color.White);
+    cache.opp_knight_attacks = getAllKnightAttacks(board, move_gen, brd.Color.Black);
+
+    cache.our_bishop_attacks = getAllBishopAttacks(board, move_gen, brd.Color.White);
+    cache.opp_bishop_attacks = getAllBishopAttacks(board, move_gen, brd.Color.Black);
+
+    cache.our_rook_attacks = getAllRookAttacks(board, move_gen, brd.Color.White);
+    cache.opp_rook_attacks = getAllRookAttacks(board, move_gen, brd.Color.Black);
+
+    cache.our_queen_attacks = getAllQueenAttacks(board, move_gen, brd.Color.White);
+    cache.opp_queen_attacks = getAllQueenAttacks(board, move_gen, brd.Color.Black);
+
+    cache.our_defenses = (cache.our_pawn_attacks | cache.our_knight_attacks | cache.our_bishop_attacks | cache.our_rook_attacks | cache.our_queen_attacks);
+
+    const c_idx = @intFromEnum(brd.Color.White);
+    const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
+    if (king_bb != 0) {
+        const king_sq = brd.getLSB(king_bb);
+        cache.our_defenses |= move_gen.kings[king_sq];
+    }
+
+    cache.opp_defenses = (cache.opp_pawn_attacks | cache.opp_knight_attacks | cache.opp_bishop_attacks | cache.opp_rook_attacks | cache.opp_queen_attacks);
+
+    const c_idx_black = @intFromEnum(brd.Color.Black);
+    const opp_king_bb = board.piece_bb[c_idx_black][@intFromEnum(brd.Pieces.King)];
+    if (opp_king_bb != 0) {
+        const opp_king_sq = brd.getLSB(opp_king_bb);
+        cache.opp_defenses |= move_gen.kings[opp_king_sq];
+    }
+
+    return cache;
+}
+
 
 // Mirror array for black to flip the square index
 const mirror_sq = initMirror();
@@ -656,8 +658,6 @@ fn evalPieceActivity(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen
 
         brd.popBit(&bb, sq);
     }
-
-    // score += evalAllMobility(board, color, cache);
 
     var safety_bonus: i32 = 0;
     if (attacker_count > 1) {
@@ -1314,7 +1314,7 @@ fn evalExchangeAvoidance(board: *brd.Board) i32 {
 
     // The winning side wants more pieces on the board
     const sign: i32 = if (diff > 0) 1 else -1;
-    return sign * @divTrunc(total_pieces * 5, 1); // ~3cp per piece on the board
+    return sign * @divTrunc(total_pieces * 5, 1);
 }
 
 pub fn almostMate(score: i32) bool {

@@ -112,7 +112,7 @@ pub const UciProtocol = struct {
 
         try respond("option name aspiration_window type spin default 32 min 10 max 200");
         try respond("option name rfp_depth type spin default 7 min 1 max 12");
-        try respond("option name rfp_mul type spin default 90 min 25 max 100");
+        try respond("option name rfp_mul type spin default 90 min 25 max 150");
         try respond("option name rfp_improvement type spin default 41 min 10 max 150");
         try respond("option name nmp_improvement type spin default 31 min 10 max 150");
         try respond("option name nmp_base type spin default 4 min 1 max 8");
@@ -135,7 +135,7 @@ pub const UciProtocol = struct {
         // try respond("option name lmp_mul type spin default 3 min 0 max 10");
         // try respond("option name lmp_improve type spin default 2 min 0 max 3");
         try respond("option name se_reduction type spin default 4 min 0 max 10");
-        try respond("option name history_div type spin default 6229 min 0 max 16384");
+        try respond("option name history_div type spin default 8951 min 1000 max 12000");
 
         try respond("uciok");
 
@@ -357,7 +357,7 @@ pub const UciProtocol = struct {
         self.searcher.max_ms = time_allocation.max_ms;
         self.searcher.ideal_ms = time_allocation.ideal_ms;
 
-        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 2);
+        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 1);
         std.debug.print("Search completed", .{});
 
         var stdout_buffer: [1024]u8 = undefined;

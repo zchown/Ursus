@@ -35,10 +35,10 @@ from collections import deque
 
 ENGINE     = "./zig-out/bin/Ursus"
 CUTECHESS  = "cutechess-cli"
-TC         = "1+0.05"
+TC         = "2+0.05"
 OUTPUT_DIR = "tuning_results"
 
-GAMES_PER_ITER = 20
+GAMES_PER_ITER = 10
 
 
 C_INIT       = 2.5    # Perturbation size at iteration 1 (and during warmup)
@@ -62,7 +62,7 @@ ADAM_ENABLED = True
 
 ALL_PARAMS = {
     # Search window / independent
-    "aspiration_window": {"value": 31,   "min": 10,   "max": 200,   "step": 5 },
+    "aspiration_window": {"value": 32,   "min": 10,   "max": 200,   "step": 5 },
     "lazy_margin":       {"value": 813,  "min": 50,   "max": 1250,  "step": 5 },
     "futility_mul":      {"value": 137,   "min": 25,   "max": 250,   "step": 5 },
     "iid_depth":         {"value": 1,    "min": 1,    "max": 4,     "step": 1 },
@@ -87,10 +87,10 @@ ALL_PARAMS = {
     "rfp_mul":           {"value": 90,   "min": 10,   "max": 150,   "step": 5 },
     "rfp_improvement":   {"value": 41,   "min": 10,   "max": 150,   "step": 5 },
     # ProbCut
-    "probcut_margin":    {"value": 197,  "min": 50,   "max": 300,   "step": 5 },
-    "probcut_depth":     {"value": 4,    "min": 0,    "max": 8,     "step": 1 },
-    # History / move ordering
-    "history_div":       {"value": 6229, "min": 0,    "max": 16384, "step": 25},
+    # "probcut_margin":    {"value": 197,  "min": 50,   "max": 300,   "step": 5 },
+    # "probcut_depth":     {"value": 4,    "min": 0,    "max": 8,     "step": 1 },
+
+    "history_div":       {"value": 8951, "min": 1000,    "max": 12000, "step": 100},
 }
 
 STAGE_ORDER = [
@@ -98,7 +98,7 @@ STAGE_ORDER = [
     "stage2_nmp",
     "stage3_q_search",
     "stage4_rfp",
-    "stage5_probcut",
+    # "stage5_probcut",
     "stage6_history",
     "stage7_independent",
     "stage8_refinement",
@@ -145,14 +145,14 @@ STAGES = {
             "and stable QSearch (leaf scores)."
         ),
     },
-    "stage5_probcut": {
-        "name": "ProbCut",
-        "params": ["probcut_margin", "probcut_depth"],
-        "target_iters": 400,
-        "description": (
-            "Beta-cutoff early termination. Same LMR + QSearch dependency as RFP."
-        ),
-    },
+    # "stage5_probcut": {
+    #     "name": "ProbCut",
+    #     "params": ["probcut_margin", "probcut_depth"],
+    #     "target_iters": 400,
+    #     "description": (
+    #         "Beta-cutoff early termination. Same LMR + QSearch dependency as RFP."
+    #     ),
+    # },
     "stage6_history": {
         "name": "History Heuristic",
         "params": ["history_div"],
@@ -254,7 +254,7 @@ def run_match(params_a: dict, params_b: dict, games: int = GAMES_PER_ITER) -> fl
         CUTECHESS,
         *engine_args("Hero",    params_a),
         *engine_args("Villain", params_b),
-        "-each", "proto=uci", f"tc={TC}", "timemargin=75",
+        "-each", "proto=uci", f"tc={TC}", "timemargin=25",
         "-tb", "../Ursus/Syzygy/3-4-5",
         "-draw",   "movenumber=40", "movecount=6", "score=15",
         "-resign", "movecount=3",   "score=400",
@@ -325,7 +325,7 @@ def ck_schedule(iteration: int) -> float:
 def param_a_scale(param: dict) -> float:
     """
     Scale the global learning rate by sqrt(range / 100) so that
-    wide-range parameters (history_div: 0-16384) and narrow-range ones
+    wide-range parameters (history_div: 1000-12000) and narrow-range ones
     (iid_depth: 1-4) make proportionally sensible progress.
     """
     return math.sqrt((param["max"] - param["min"]) / 100.0)
