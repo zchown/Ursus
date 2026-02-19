@@ -130,6 +130,14 @@ pub const TranspositionTable = struct {
         });
     }
 
+    pub fn deinitGlobal() void {
+        if (global_tt_initialized) {
+            tt_arena.allocator().destroy(global_tt);
+            global_tt = undefined;
+            global_tt_initialized = false;
+        }
+    }
+
     pub inline fn clear(self: *TranspositionTable) void {
         for (self.items) |*item| {
             item.store(0, .monotonic);

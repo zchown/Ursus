@@ -24,7 +24,7 @@ pub const TranspositionTable = struct {
     pub fn initGlobal(size_in_mb: usize) !void {
         const raw_num_entries = (size_in_mb * mb) / @sizeOf(Entry);
         // Round down to the nearest power of two
-        const num_entries:usize = std.math.floorPowerOfTwo(usize, raw_num_entries);
+        const num_entries: usize = std.math.floorPowerOfTwo(usize, raw_num_entries);
 
         pawn_tt = try tt_arena.allocator().create(TranspositionTable);
         pawn_tt.* = TranspositionTable{
@@ -33,7 +33,7 @@ pub const TranspositionTable = struct {
         };
         pawn_tt.items.expandToCapacity();
         pawn_tt_initialized = true;
-     }
+    }
 
     pub inline fn clear(self: *TranspositionTable) void {
         self.items.clearRetainingCapacity();

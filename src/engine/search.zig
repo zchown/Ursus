@@ -4,7 +4,6 @@ const brd = @import("board");
 const eval = @import("eval");
 const tt = @import("transposition");
 const see = @import("see");
-const pawn_tt = @import("pawn_tt");
 
 inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) bool {
     return move_gen.isInCheck(board, color);
@@ -13,25 +12,27 @@ inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Colo
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
 
-pub var aspiration_window: i32 = 32;
+pub var aspiration_window: i32 = 92;
 
 pub var rfp_depth: i32 = 7;
-pub var rfp_mul: i32 = 90;
-pub var rfp_improve: i32 = 41;
+pub var rfp_mul: i32 = 102;
+pub var rfp_improve: i32 = 24;
 
-pub var nmp_improve: i32 = 31;
-pub var nmp_base: usize = 4;
+pub var nmp_improve: i32 = 23;
+pub var nmp_base: usize = 3;
 pub var nmp_depth_div: usize = 5;
 pub var nmp_beta_div: usize = 155;
 
-pub var razoring_base: i32 = 286;
-pub var razoring_mul: i32 = 84;
+pub var razoring_base: i32 = 294;
+pub var razoring_mul: i32 = 88;
 
 pub var iid_depth: usize = 1;
 
 pub var lmp_improve: usize = 2;
+pub var lmp_base: usize = 5;
+pub var lmp_mul: usize = 2;
 
-pub var futility_mul: i32 = 137;
+pub var futility_mul: i32 = 165;
 
 const score_hash: i32 = 2_000_000_000;
 const score_winning_capture: i32 = 1_000_000;
@@ -44,17 +45,27 @@ const score_counter: i32 = 600_000;
 pub var probcut_margin: i32 = 197;
 pub var probcut_depth: usize = 4;
 
-pub var q_see_margin: i32 = -27;
-pub var q_delta_margin: i32 = 192;
+pub var q_see_margin: i32 = -35;
+pub var q_delta_margin: i32 = 184;
 
-pub var lmr_base: i32 = 73;
-pub var lmr_mul: i32 = 41;
+pub var lmr_base: i32 = 64;
+pub var lmr_mul: i32 = 36;
 
 pub var lmr_pv_min: usize = 7;
 pub var lmr_non_pv_min: usize = 4;
 
 pub var se_reduction: usize = 4;
-pub var history_div: i32 = 8951;
+pub var history_div: i32 = 9319;
+
+pub const mvv_lva_table = [6][6]i32{
+    // Vict:  P    N    B    R    Q    K
+    .{ 105, 115, 125, 135, 145, 155 }, // Atk: Pawn
+    .{ 104, 114, 124, 134, 144, 154 }, // Atk: Knight
+    .{ 103, 113, 123, 133, 143, 153 }, // Atk: Bishop
+    .{ 102, 112, 122, 132, 142, 152 }, // Atk: Rook
+    .{ 101, 111, 121, 131, 141, 151 }, // Atk: Queen
+    .{ 100, 110, 120, 130, 140, 150 }, // Atk: King
+};
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 
@@ -129,7 +140,7 @@ pub const Searcher = struct {
     excluded_moves: [max_ply]mvs.EncodedMove = undefined,
     continuation: *[12][64][64][64]i32 = undefined,
     correction: [2][16384]i32 = undefined,
-    capture_history: [2][64][7]i32 = undefined,
+    capture_history: [2][7][64][7]i32 = undefined,
 
     nmp_min_ply: usize = 0,
 
@@ -208,12 +219,14 @@ pub const Searcher = struct {
         }
 
         for (0..64) |j| {
-            for (0..7) |t| {
-                for (0..2) |c| {
-                    if (total) {
-                        self.capture_history[c][j][t] = 0;
-                    } else {
-                        self.capture_history[c][j][t] = @divTrunc(self.capture_history[c][j][t] * 1, 8);
+            for (0..7) |a| {
+                for (0..7) |t| {
+                    for (0..2) |c| {
+                        if (total) {
+                            self.capture_history[c][a][j][t] = 0;
+                        } else {
+                            self.capture_history[c][a][j][t] = @divTrunc(self.capture_history[c][a][j][t] * 1, 8);
+                        }
                     }
                 }
             }
@@ -419,17 +432,7 @@ pub const Searcher = struct {
         self.best_move_score = -eval.mate_score;
         self.timer = std.time.Timer.start() catch unreachable;
 
-        if (!tt.global_tt_initialized or tt.global_tt.items.len == 0) {
-            std.debug.print("Initializing transposition table...\n", .{});
-            try tt.TranspositionTable.initGlobal(64);
-            std.debug.print("Transposition table initialized with {} entries.\n", .{tt.global_tt.items.len});
-        }
-        if (!pawn_tt.pawn_tt_initialized or pawn_tt.pawn_tt.items.items.len == 0) {
-            std.debug.print("Initializing pawn transposition table...\n", .{});
-            try pawn_tt.TranspositionTable.initGlobal(16);
-            std.debug.print("Pawn transposition table initialized with {} entries.\n", .{pawn_tt.pawn_tt.items.items.len});
-        }
-
+        
         var prev_score: i32 = -eval.mate_score;
         var score: i32 = -eval.mate_score;
 
@@ -773,7 +776,7 @@ pub const Searcher = struct {
         //     }
         // }
 
-        // If no TT hit do quick 1 ply search to populate TT
+        // If no TT hit do quick search to populate TT
         if (depth >= 4 and !tt_hit and (on_pv or is_root or cutnode)) {
             var iid = @min(iid_depth, @divTrunc(depth, 2));
             iid = @max(iid, 1);
@@ -843,9 +846,9 @@ pub const Searcher = struct {
                 continue;
             }
 
-            if (!is_root and i > 1 and !in_check and !on_pv) {
-                // var lmp_threshold: usize = lmp_base + depth * lmp_mul;
-                var lmp_threshold: usize = (3 + depth * depth);
+            if (depth <= 5 and !is_root and i > 1 and !in_check and !on_pv ) {
+                var lmp_threshold: usize = lmp_base + depth * lmp_mul;
+                // var lmp_threshold: usize = (3 + depth * depth);
 
                 if (self.thread_id % 2 == 1) {
                     lmp_threshold += 4;
@@ -972,11 +975,16 @@ pub const Searcher = struct {
                         reduction -= 1;
                     }
 
+                    if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
+                        reduction -= 1;
+                    }
+
                     if (!on_pv) {
                         reduction += 1;
                     }
 
                     reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], history_div);
+
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth + 1))));
 
@@ -1100,14 +1108,16 @@ pub const Searcher = struct {
             const captured_piece_idx = @as(usize, @intCast(best_move.captured_piece));
 
             if (captured_piece_idx < 6) {
-                const bonus = @min(1536, @as(i32, @intCast(depth)) * 256);
-                // const bonus = @as(i32, @intCast(@min(1024, depth * depth * 16)));
+                // const bonus = @min(1536, @as(i32, @intCast(depth)) * 256);
+                const bonus = @as(i32, @intCast(@min(1024, depth * depth * 16)));
                 const max_cap_hist: i32 = 16384;
 
-                // Update the capture that worked
-                const old_value = self.capture_history[@intFromEnum(color)][best_move.end_square][captured_piece_idx];
+                var attacking_piece = board.getPieceFromSquare(best_move.start_square).?;
+                var attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
+
+                const old_value = self.capture_history[@intFromEnum(color)][attacking_piece_idx][best_move.end_square][captured_piece_idx];
                 const hist = old_value * bonus;
-                self.capture_history[@intFromEnum(color)][best_move.end_square][captured_piece_idx] +=
+                self.capture_history[@intFromEnum(color)][attacking_piece_idx][best_move.end_square][captured_piece_idx] +=
                     bonus - @divTrunc(hist, max_cap_hist);
 
                 // Penalize other captures that were tried but didn't cause cutoff
@@ -1115,10 +1125,13 @@ pub const Searcher = struct {
                     if (m.capture == 1 and m.toU32() != best_move.toU32()) {
                         const cap_p_idx = @as(usize, @intCast(m.captured_piece));
 
+                        attacking_piece = board.getPieceFromSquare(m.start_square).?;
+                        attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
+
                         if (cap_p_idx < 6) {
-                            const old_val = self.capture_history[@intFromEnum(color)][m.end_square][cap_p_idx];
+                            const old_val = self.capture_history[@intFromEnum(color)][attacking_piece_idx][m.end_square][cap_p_idx];
                             const h = old_val * bonus;
-                            self.capture_history[@intFromEnum(color)][m.end_square][cap_p_idx] +=
+                            self.capture_history[@intFromEnum(color)][attacking_piece_idx][m.end_square][cap_p_idx] +=
                                 -bonus - @divTrunc(h, max_cap_hist);
                         }
                     }
@@ -1416,7 +1429,7 @@ pub const Searcher = struct {
                 score = score_hash;
             } else if (move.capture == 1) {
                 const see_val = see.seeCapture(board, &self.move_gen, move);
-
+                
                 if (see_val > 0) {
                     score = score_winning_capture + (see_val * 100);
                 } else if (see_val == 0) {
@@ -1424,14 +1437,18 @@ pub const Searcher = struct {
                 } else {
                     score = see_val;
                 }
-
+                
                 if (move.promoted_piece == @intFromEnum(brd.Pieces.Queen)) {
                     score += score_promotion;
                 }
 
                 const capture_piece_idx = @as(usize, @intCast(move.captured_piece));
                 const color_idx = @as(usize, @intCast(@intFromEnum(board.toMove())));
-                score += self.capture_history[color_idx][move.end_square][capture_piece_idx];
+
+                const attacking_piece = board.getPieceFromSquare(move.start_square).?;
+                const attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
+
+                score += self.capture_history[color_idx][attacking_piece_idx][move.end_square][capture_piece_idx];
             } else {
                 if (move.promoted_piece != 0) {
                     if (move.promoted_piece == @intFromEnum(brd.Pieces.Queen)) {

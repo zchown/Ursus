@@ -5,6 +5,7 @@ const fen = @import("fen");
 const srch = @import("search");
 const tt = @import("transposition");
 const eval = @import("eval");
+const pawn_tt = @import("pawn_tt");
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
@@ -47,7 +48,7 @@ fn searchThreadFn(ctx: *SearchContext) void {
     const result = protocol.searcher.parallelIterativeDeepening(
         &ctx.board,
         null,
-        1, // Thread number
+        ctx.protocol.threads,
     ) catch |err| {
         std.debug.print("Search thread error: {}\n", .{err});
         return;
@@ -85,7 +86,8 @@ pub const UciProtocol = struct {
     debug_mode: bool = false,
     should_quit: bool = false,
     is_searching: bool = false,
-    hash_size_mb: u32 = 16,
+    hash_size_mb: u32 = 64,
+    threads: usize = 1,
     searcher: *srch.Searcher,
 
     search_thread: ?std.Thread = null,
@@ -283,6 +285,9 @@ pub const UciProtocol = struct {
         try respond("id author Zander");
 
         try respond("option name Ponder type check default false");
+        try respond("option name Hash type spin default 64 min 1 max 2048");
+        try respond("option name Threads type spin default 1 min 1 max 8");
+
         try respond("option name aspiration_window type spin default 32 min 10 max 200");
         try respond("option name rfp_depth type spin default 7 min 1 max 12");
         try respond("option name rfp_mul type spin default 90 min 25 max 150");
@@ -305,7 +310,6 @@ pub const UciProtocol = struct {
         try respond("option name futility_mul type spin default 137 min 25 max 400");
         try respond("option name iid_depth type spin default 1 min 1 max 4");
         try respond("option name se_reduction type spin default 4 min 0 max 10");
-        try respond("option name history_div type spin default 8951 min 1000 max 12000");
 
         try respond("uciok");
 
@@ -331,14 +335,47 @@ pub const UciProtocol = struct {
         defer self.allocator.free(option_name);
 
         if (std.mem.eql(u8, option_name, "Hash")) {
-            // TODO: handle hash size option
+            if (args.len < name_end + 2) {
+                if (self.debug_mode) {
+                    try respond("Error: Hash option requires a value");
+                }
+                return;
+            }
+            const new_size_mb = try std.fmt.parseInt(u32, args[name_end + 1], 10);
+            if (new_size_mb == self.hash_size_mb) {
+                return; // No change needed
+            }
+            self.hash_size_mb = new_size_mb;
+
+
+            // free old tables before initializing new ones
+            if (tt.global_tt_initialized) {
+                tt.TranspositionTable.deinitGlobal();
+            }
+
+            try tt.TranspositionTable.initGlobal(self.hash_size_mb);
+
         } else if (std.mem.eql(u8, option_name, "Clear Hash")) {
-            // TODO: handle clear hash option
+            if (tt.global_tt_initialized) {
+                tt.global_tt.reset();
+            }
+
+            if (pawn_tt.pawn_tt_initialized) {
+                pawn_tt.pawn_tt.reset();
+            }
         } else if (std.mem.eql(u8, option_name, "Ponder")) {
             // UCI engines advertise Ponder as a check option; no extra state needed here.
-        }
-
-        if (std.mem.eql(u8, option_name, "aspiration_window")) {
+        } else if (std.mem.eql(u8, option_name, "Threads")) {
+            if (args.len < name_end + 2) {
+                if (self.debug_mode) {
+                    try respond("Error: Threads option requires a value");
+                }
+                return;
+            }
+            const new_thread_count = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+            self.threads = new_thread_count;
+        } 
+        else if (std.mem.eql(u8, option_name, "aspiration_window")) {
             srch.aspiration_window = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "rfp_depth")) {
             srch.rfp_depth = try std.fmt.parseInt(i32, args[name_end + 1], 10);
@@ -398,6 +435,18 @@ pub const UciProtocol = struct {
     }
 
     fn newGame(self: *UciProtocol) !void {
+        if (!tt.global_tt_initialized or tt.global_tt.items.len == 0) {
+            // std.debug.print("Initializing transposition table...\n", .{});
+            try tt.TranspositionTable.initGlobal(self.hash_size_mb);
+            // std.debug.print("Transposition table initialized with {} entries.\n", .{tt.global_tt.items.len});
+        }
+        if (!pawn_tt.pawn_tt_initialized or pawn_tt.pawn_tt.items.items.len == 0) {
+            // std.debug.print("Initializing pawn transposition table...\n", .{});
+            try pawn_tt.TranspositionTable.initGlobal(16);
+            // std.debug.print("Pawn transposition table initialized with {} entries.\n", .{pawn_tt.pawn_tt.items.items.len});
+        }
+
+
         self.board = brd.Board.init();
         fen.setupStartingPosition(&self.board);
         self.is_searching = false;

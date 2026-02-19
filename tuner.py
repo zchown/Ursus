@@ -9,12 +9,12 @@ Stage order rationale:
   2. NMP        - High Elo impact, but nmp_base / nmp_depth_div are calibrated
                   against effective depths that LMR sets.  Tune after LMR is settled.
   3. Q-Search   - Produces the leaf scores every pruning margin is measured against.
-                  rfp_mul, probcut_margin, futility_mul, razoring_* all ask "is the
+                  rfp_mul, futility_mul, razoring_* all ask "is the
                   static eval far enough from beta to prune?" - that question only
                   has a stable answer once QSearch is correct.
-  4. RFP        - Depth-based forward pruning.  Stable LMR + QSearch baseline needed.
-  5. ProbCut    - Beta-cutoff early termination.  Same dependency as RFP.
-  6. History    - Move ordering quality directly affects how many moves receive LMR
+  4. RFP + LMP  - Depth-based and move-count forward pruning.  Stable LMR + QSearch
+                  baseline needed.  lmp_base / lmp_mul share the same dependency.
+  5. History    - Move ordering quality directly affects how many moves receive LMR
                   reductions and how often NMP fails high.  Tune after the heuristics
                   it feeds into are settled.
   7. Independent - Low-coupling parameters: aspiration window, lazy eval margin,
@@ -86,9 +86,9 @@ ALL_PARAMS = {
     "rfp_depth":         {"value": 7,    "min": 1,    "max": 12,    "step": 1 },
     "rfp_mul":           {"value": 90,   "min": 10,   "max": 150,   "step": 5 },
     "rfp_improvement":   {"value": 41,   "min": 10,   "max": 150,   "step": 5 },
-    # ProbCut
-    # "probcut_margin":    {"value": 197,  "min": 50,   "max": 300,   "step": 5 },
-    # "probcut_depth":     {"value": 4,    "min": 0,    "max": 8,     "step": 1 },
+    # LMP
+    "lmp_base":          {"value": 6,    "min": 1,    "max": 10,    "step": 1 },
+    "lmp_mul":           {"value": 4,    "min": 1,    "max": 15,    "step": 1 },
 
     "history_div":       {"value": 8951, "min": 1000,    "max": 12000, "step": 100},
 }
@@ -98,7 +98,6 @@ STAGE_ORDER = [
     "stage2_nmp",
     "stage3_q_search",
     "stage4_rfp",
-    # "stage5_probcut",
     "stage6_history",
     "stage7_independent",
     "stage8_refinement",
@@ -111,7 +110,7 @@ STAGES = {
             "lmr_base", "lmr_mul", "lmr_pv_min", "lmr_non_pv_min",
             "se_reduction",
         ],
-        "target_iters": 500,
+        "target_iters": 250,
         "description": (
             "Most pervasive heuristic — shapes effective depth across the whole tree. "
             "se_reduction is directly coupled: singular extensions re-expand exactly "
@@ -121,7 +120,7 @@ STAGES = {
     "stage2_nmp": {
         "name": "Null Move Pruning",
         "params": ["nmp_improvement", "nmp_base", "nmp_depth_div", "nmp_beta_div"],
-        "target_iters": 300,
+        "target_iters": 200,
         "description": (
             "High Elo impact. nmp_base / nmp_depth_div are calibrated against "
             "the effective depths set by LMR, so LMR must be settled first."
@@ -130,29 +129,22 @@ STAGES = {
     "stage3_q_search": {
         "name": "Quiescent Search",
         "params": ["q_see_margin", "q_delta_margin"],
-        "target_iters": 250,
+        "target_iters": 150,
         "description": (
             "Produces the leaf scores that all pruning margins are measured against. "
             "Must be stable before tuning RFP / ProbCut / futility margins."
         ),
     },
     "stage4_rfp": {
-        "name": "Reverse Futility Pruning",
-        "params": ["rfp_depth", "rfp_mul", "rfp_improvement"],
-        "target_iters": 300,
+        "name": "Reverse Futility Pruning + LMP",
+        "params": ["rfp_depth", "rfp_mul", "rfp_improvement", "lmp_base", "lmp_mul"],
+        "target_iters": 400,
         "description": (
-            "Depth-based forward pruning. Requires stable LMR (effective depths) "
-            "and stable QSearch (leaf scores)."
+            "Depth-based and move-count forward pruning. Requires stable LMR "
+            "(effective depths) and stable QSearch (leaf scores). lmp_base / lmp_mul "
+            "share the same dependency and scale with depth."
         ),
     },
-    # "stage5_probcut": {
-    #     "name": "ProbCut",
-    #     "params": ["probcut_margin", "probcut_depth"],
-    #     "target_iters": 400,
-    #     "description": (
-    #         "Beta-cutoff early termination. Same LMR + QSearch dependency as RFP."
-    #     ),
-    # },
     "stage6_history": {
         "name": "History Heuristic",
         "params": ["history_div"],
