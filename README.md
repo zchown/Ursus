@@ -67,21 +67,28 @@ Ursus implements the core UCI protocol. The following commands are supported:
 | `stop` | ✅ | |
 | `ponderhit` | ✅ | |
 | `quit` | ✅ | |
-| `setoption name Hash` | ⚠️ | Parsed but not yet wired up |
-| `setoption name Clear Hash` | ⚠️ | Parsed but not yet wired up |
-| `setoption name Ponder` | ⚠️ | Parsed but not yet wired up |
+| `setoption name Hash` | ✅ | |
+| `setoption name Clear Hash` | ✅ | |
+| `setoption name Ponder` | ✅ | |
 | `searchmoves` | ⚠️ | Parsed but not yet implemented |
-| `debug` | ✅ | Prints current board FEN |
-| `d` | ✅ | Prints the current board |
+| `debug` | ✅ | Prints current board |
 | `register` | ✅ | Accepted (returns `registration checking`) |
 
-After each search, Ursus outputs a standard `info` line containing `depth`, `seldepth`, `time`, `nodes`, `pv`, and `score cp`, followed by `bestmove`.
+After each new depth in the search, Ursus outputs a standard `info` line containing `depth`, `seldepth`, `time`, `nodes`, `pv`, and `score cp`, followed by `bestmove`.
 
 ### Time Management
 
-- **`movetime`:** Hard limit at 90% of allotted time, soft limit at 80%.
-- **`wtime`/`btime`:** Assumes 40 moves remaining when `movestogo` is unspecified. The ideal time per move is 90% of the per-move share; the hard limit allows up to 3× the ideal, capped at 40% of the remaining clock. A 100 ms safety buffer is always preserved.
-- **`infinite` / `ponder`:** No time limit applied.
+- **`movetime`:** Both the soft and hard limit are set to the full allotted time with no additional scaling.
+- **`wtime`/`btime`:** Assumes **25 moves remaining** when `movestogo` is unspecified. The total budget is the remaining clock (minus a 30 ms network overhead) plus the increment times the remaining moves minus one. The ideal time per move is 90% of that per-move share, capped at `remaining − 50 ms`. The hard limit is 3× the ideal, further capped at 40% of the remaining clock. Both limits are floored at 1 ms.
+- **`infinite` / `ponder`:** No time limit applied; the search runs until `stop` or `ponderhit` is received.
+
+### Pondering
+
+When `go ponder` is received, Ursus begins searching the expected opponent reply immediately with `force_think` set — the search ignores normal time limits and runs indefinitely. The limits and side to move are saved so the budget can be reconstructed later.
+
+When `ponderhit` arrives (the opponent played the expected move), Ursus calculates the normal time allocation for the position and **adds the time already spent pondering** to both the ideal and hard limits. This means every millisecond spent thinking on the opponent's turn translates directly into extra thinking time on Ursus's own turn, giving pondering a concrete Elo benefit on time controls where the GUI supports it.
+
+When the search concludes, `bestmove` is followed by a `ponder` move whenever the PV contains at least two moves, allowing the GUI to immediately start the next ponder search.
 
 ---
 
