@@ -357,35 +357,14 @@ pub const UciProtocol = struct {
         self.searcher.max_ms = time_allocation.max_ms;
         self.searcher.ideal_ms = time_allocation.ideal_ms;
 
-        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 1);
-        std.debug.print("Search completed", .{});
+        const result = try self.searcher.parallelIterativeDeepening(&self.board, null, 8);
+        // std.debug.print("Search completed", .{});
 
         var stdout_buffer: [1024]u8 = undefined;
         var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
         const stdout = &stdout_writer.interface;
         const move_str = try result.move.uciToString(self.allocator);
         defer self.allocator.free(move_str);
-
-        // construct PV string
-        var pv_string_buffer: [512]u8 = @splat(0);
-        var pv_string_len: usize = 0;
-        for (result.pv[0..result.pv_length]) |move| {
-            const cur_move_str = try move.uciToString(self.allocator);
-            defer self.allocator.free(cur_move_str);
-            const needed_len = pv_string_len + cur_move_str.len + 1;
-            if (needed_len > pv_string_buffer.len) {
-                break; // PV string is too long, stop adding moves
-            }
-            std.mem.copyForwards(u8, pv_string_buffer[pv_string_len..], cur_move_str);
-            pv_string_len += cur_move_str.len;
-            pv_string_buffer[pv_string_len] = ' ';
-            pv_string_len += 1;
-        }
-        const pv_string = pv_string_buffer[0..pv_string_len];
-
-        // output info about the best move found
-        try stdout.print("info depth {d} seldepth {d} time {d} nodes {d} pv {s} score cp {d}\n",
-            .{self.searcher.search_depth, self.searcher.seldepth, result.time_ms, result.nodes, pv_string, result.score});
 
         try stdout.print("bestmove {s}\n", .{move_str});
 

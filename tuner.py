@@ -35,7 +35,7 @@ from collections import deque
 
 ENGINE     = "./zig-out/bin/Ursus"
 CUTECHESS  = "cutechess-cli"
-TC         = "2+0.05"
+TC         = "1+0.05"
 OUTPUT_DIR = "tuning_results"
 
 GAMES_PER_ITER = 10
@@ -111,7 +111,7 @@ STAGES = {
             "lmr_base", "lmr_mul", "lmr_pv_min", "lmr_non_pv_min",
             "se_reduction",
         ],
-        "target_iters": 1500,
+        "target_iters": 500,
         "description": (
             "Most pervasive heuristic — shapes effective depth across the whole tree. "
             "se_reduction is directly coupled: singular extensions re-expand exactly "
@@ -121,7 +121,7 @@ STAGES = {
     "stage2_nmp": {
         "name": "Null Move Pruning",
         "params": ["nmp_improvement", "nmp_base", "nmp_depth_div", "nmp_beta_div"],
-        "target_iters": 800,
+        "target_iters": 300,
         "description": (
             "High Elo impact. nmp_base / nmp_depth_div are calibrated against "
             "the effective depths set by LMR, so LMR must be settled first."
@@ -130,7 +130,7 @@ STAGES = {
     "stage3_q_search": {
         "name": "Quiescent Search",
         "params": ["q_see_margin", "q_delta_margin"],
-        "target_iters": 500,
+        "target_iters": 250,
         "description": (
             "Produces the leaf scores that all pruning margins are measured against. "
             "Must be stable before tuning RFP / ProbCut / futility margins."
@@ -139,7 +139,7 @@ STAGES = {
     "stage4_rfp": {
         "name": "Reverse Futility Pruning",
         "params": ["rfp_depth", "rfp_mul", "rfp_improvement"],
-        "target_iters": 800,
+        "target_iters": 300,
         "description": (
             "Depth-based forward pruning. Requires stable LMR (effective depths) "
             "and stable QSearch (leaf scores)."
@@ -168,7 +168,7 @@ STAGES = {
             "aspiration_window", "lazy_margin", "futility_mul",
             "iid_depth", "razoring_base", "razoring_mul",
         ],
-        "target_iters": 1200,
+        "target_iters": 750,
         "description": (
             "Low cross-stage coupling. Aspiration window, lazy eval margin, "
             "futility multiplier, IID depth, razoring."

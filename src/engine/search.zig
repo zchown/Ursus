@@ -56,16 +56,6 @@ pub var lmr_non_pv_min: usize = 4;
 pub var se_reduction: usize = 4;
 pub var history_div: i32 = 8951;
 
-pub const mvv_lva_table = [6][6]i32{
-    // Victim:  P,   N,   B,   R,   Q,   K
-    .{ 15, 25, 35, 45, 55, 0 }, // Attacker: Pawn
-    .{ 14, 24, 34, 44, 54, 0 }, // Attacker: Knight
-    .{ 13, 23, 33, 43, 53, 0 }, // Attacker: Bishop
-    .{ 12, 22, 32, 42, 52, 0 }, // Attacker: Rook
-    .{ 11, 21, 31, 41, 51, 0 }, // Attacker: Queen
-    .{ 10, 20, 30, 40, 50, 0 }, // Attacker: King
-};
-
 pub var quiet_lmr: [64][64]i32 = undefined;
 
 pub fn initQuietLMR() [64][64]i32 {
@@ -434,7 +424,7 @@ pub const Searcher = struct {
         }
         if (!pawn_tt.pawn_tt_initialized or pawn_tt.pawn_tt.items.items.len == 0) {
             std.debug.print("Initializing pawn transposition table...\n", .{});
-            try pawn_tt.TranspositionTable.initGlobal(8);
+            try pawn_tt.TranspositionTable.initGlobal(16);
             std.debug.print("Pawn transposition table initialized with {} entries.\n", .{pawn_tt.pawn_tt.items.items.len});
         }
 
@@ -442,6 +432,8 @@ pub const Searcher = struct {
         var score: i32 = -eval.mate_score;
 
         var bm = mvs.EncodedMove.fromU32(0);
+        var best_pv: [max_ply]mvs.EncodedMove = undefined;
+        var best_pv_length: usize = 0;
 
         var stability: usize = 0;
 
@@ -458,6 +450,7 @@ pub const Searcher = struct {
 
             const depth = outer_depth;
 
+            var window_failed = false;
             while (true) {
                 // std.debug.print("Starting search at depth {} with alpha={} and beta={}\n", .{depth, alpha, beta});
                 self.search_depth = @max(self.search_depth, depth);
@@ -475,10 +468,13 @@ pub const Searcher = struct {
                     beta = @divTrunc(alpha + beta, 2);
                     alpha = @max(alpha - delta, -eval.mate_score);
                     delta += @divTrunc(delta, 2);
+                    window_failed = false; // fail high is still good
                 } else if (score >= beta) {
                     beta = @min(beta + delta, eval.mate_score);
                     delta += @divTrunc(delta, 2);
+                    window_failed = true;
                 } else {
+                    window_failed = false;
                     break;
                 }
             }
@@ -489,7 +485,24 @@ pub const Searcher = struct {
                 stability += 1;
             }
 
-            bm = self.best_move;
+            // bm = self.best_move;
+            // best_pv = self.pv[0];
+            // best_pv_length = self.pv_length[0];
+            if (!window_failed) {
+                bm = self.best_move;
+                best_pv = self.pv[0];
+                best_pv_length = self.pv_length[0];
+            }
+
+            if (!self.silent_output) {
+                var total_nodes = self.nodes;
+                for (search_helpers.items) |helper| {
+                    total_nodes += helper.nodes;
+                }
+
+                self.printInfo(total_nodes, score, best_pv[0..best_pv_length], std.heap.c_allocator);
+            }
+
             var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
 
             if (stability == 0) {
@@ -534,8 +547,8 @@ pub const Searcher = struct {
             .depth = self.search_depth,
             .nodes = self.nodes,
             .time_ms = (self.timer.read() / std.time.ns_per_ms) -| self.time_offset,
-            .pv = self.pv[0],
-            .pv_length = self.pv_length[0],
+            .pv = best_pv,
+            .pv_length = best_pv_length,
         };
     }
 
@@ -1036,9 +1049,9 @@ pub const Searcher = struct {
             self.killer[self.ply][1] = self.killer[self.ply][0];
             self.killer[self.ply][0] = best_move;
 
-            // const adj = @min(1536, @as(i32, @intCast(if (static_eval <= alpha) depth + 1 else depth)) * 384 - 384);
             const depth_i32 = @as(i32, @intCast(depth));
-            const adj = @min(16384, 32 * depth_i32 * depth_i32);
+            const bonus = @min(16384, 32 * depth_i32 * depth_i32);
+            const max_history: i32 = 16384;
 
             if (!is_null and self.ply >= 1) {
                 const last = self.move_history[self.ply - 1];
@@ -1046,16 +1059,19 @@ pub const Searcher = struct {
             }
 
             const b = best_move.toU32();
-            const max_history: i32 = 16384;
 
             for (quiet_moves.items) |m| {
+                const h = &self.history[@intFromEnum(color)][m.start_square][m.end_square];
+
                 const is_best = m.toU32() == b;
-                const hist = self.history[@intFromEnum(color)][m.start_square][m.end_square] * adj;
-                if (is_best) {
-                    self.history[@intFromEnum(color)][m.start_square][m.end_square] += adj - @divTrunc(hist, max_history);
-                } else {
-                    self.history[@intFromEnum(color)][m.start_square][m.end_square] += -adj - @divTrunc(hist, max_history);
-                }
+
+                const clamped_bonus = if (is_best)
+                    bonus
+                else
+                    -bonus;
+
+                // Gravity update:
+                h.* += clamped_bonus - @divTrunc(h.* * @as(i32, @intCast(@abs(clamped_bonus))), max_history);
 
                 if (!is_null and self.ply >= 1) {
                     const plies: [3]usize = .{ 0, 1, 3 };
@@ -1066,11 +1082,11 @@ pub const Searcher = struct {
 
                             const piece_color = self.moved_piece_history[self.ply - p - 1];
                             const pc_index = @as(usize, @intCast(@intFromEnum(piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(piece_color.piece)));
-                            const cont_hist = self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square] * adj;
+                            const cont_hist = self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square] * bonus;
                             if (is_best) {
-                                self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square] += adj - @divTrunc(cont_hist, max_history);
+                                self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square] += bonus - @divTrunc(cont_hist, max_history);
                             } else {
-                                self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square] += -adj - @divTrunc(cont_hist, max_history);
+                                self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square] += -bonus - @divTrunc(cont_hist, max_history);
                             }
                         }
                     }
@@ -1459,5 +1475,37 @@ pub const Searcher = struct {
             }
         }
         return move_list.items[start_index];
+    }
+
+    pub fn printInfo(self: *Searcher, nodes: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
+        const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
+
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
+
+        var pv_string_buffer: [512]u8 = @splat(0);
+        var pv_string_len: usize = 0;
+        for (pv) |move| {
+            const cur_move_str = move.uciToString(allocator) catch {
+                return; // If conversion fails, skip printing the PV
+            };
+            defer allocator.free(cur_move_str);
+            const needed_len = pv_string_len + cur_move_str.len + 1;
+            if (needed_len > pv_string_buffer.len) {
+                break;
+            }
+            std.mem.copyForwards(u8, pv_string_buffer[pv_string_len..], cur_move_str);
+            pv_string_len += cur_move_str.len;
+            pv_string_buffer[pv_string_len] = ' ';
+            pv_string_len += 1;
+        }
+        const pv_string = pv_string_buffer[0..pv_string_len];
+
+        // output info about the best move found
+        stdout.print("info depth {d} seldepth {d} time {d} nodes {d} pv {s} score cp {d}\n", .{ self.search_depth, self.seldepth, elapsed_ms, nodes, pv_string, score }) catch {
+            return;
+        };
+        stdout.flush() catch {};
     }
 };
