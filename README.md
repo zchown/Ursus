@@ -133,7 +133,6 @@ Moves are scored and sorted lazily (partial selection sort) in this priority ord
 | Razoring | At depth ≤ 2, if `static_eval + 286 + depth × 84 < α`, drop directly into quiescence search |
 | Futility Pruning | At low depths, prune quiet moves where `static_eval + depth × 137 ≤ α` |
 | Late Move Reductions (LMR) | Non-PV quiet moves reduced by `7.3 + 4.1 × ln(depth) × ln(move_index)`, precomputed at startup; minimum reduction of 7 plies on PV nodes, 4 on non-PV |
-| Probcut | At depth ≥ 4, a reduced-depth capture search prunes moves unlikely to beat `β + 197` |
 | Check Extension | Depth extended by 1 when the side to move is in check |
 | Singular Extensions | A reduced-depth search with a narrowed window tests for singular moves; singular moves extended by 1 ply (`se_reduction = 4`) |
 | Internal Iterative Deepening (IID) | On PV nodes without a TT hit, a reduced search populates the TT before the main search |
@@ -235,8 +234,6 @@ All 23 tunable parameters are search heuristics with explicit bounds and perturb
 | `rfp_depth` | 7 | 1–12 | Maximum depth for RFP |
 | `rfp_mul` | 90 | 10–150 | RFP depth multiplier (cp) |
 | `rfp_improvement` | 41 | 10–150 | RFP improvement reduction (cp) |
-| `probcut_margin` | 197 | 50–300 | ProbCut beta margin (cp) |
-| `probcut_depth` | 4 | 0–8 | ProbCut minimum depth |
 | `history_div` | 6229 | 0–16384 | History score divisor for move ordering |
 
 ### Staged tuning pipeline
@@ -247,9 +244,8 @@ Rather than tuning all parameters at once, the tuner runs 8 sequential stages or
 |---|---|---|---|
 | 1 | LMR + Singular Extensions | 1500 | LMR shapes effective depth across the whole tree; SE fires on exactly the moves LMR would reduce, so they are tuned together first |
 | 2 | Null Move Pruning | 800 | High Elo impact, but NMP reduction depth is calibrated against effective depths set by LMR |
-| 3 | Quiescent Search | 500 | Produces the leaf scores all pruning margins are measured against — must be stable before tuning RFP/ProbCut |
+| 3 | Quiescent Search | 500 | Produces the leaf scores all pruning margins are measured against — must be stable before tuning RFP|
 | 4 | Reverse Futility Pruning | 800 | Depth-based forward pruning; requires stable LMR effective depths and stable QSearch leaf scores |
-| 5 | ProbCut | 400 | Beta-cutoff early termination; same LMR + QSearch dependency as RFP |
 | 6 | History | 200 | Move ordering quality affects how many moves receive LMR reductions and how often NMP fails high |
 | 7 | Independent parameters | 1200 | Low cross-stage coupling: aspiration window, lazy margin, futility multiplier, IID depth, razoring |
 | 8 | Full refinement | 5000 | Joint fine-tune of all parameters together |
