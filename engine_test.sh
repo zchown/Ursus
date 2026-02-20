@@ -23,7 +23,7 @@ OPENINGS="8moves_v3.pgn"
 
 # Match settings
 GAMES=4098
-CONCURRENCY=2
+CONCURRENCY=10
 TC="100/30"
 
 # Output
@@ -54,13 +54,13 @@ $CUTECHESS \
   -games $GAMES \
   -tb "../Ursus/Syzygy/3-4-5" \
   -concurrency $CONCURRENCY \
-  -draw movenumber=40 movecount=8 score=15 \
-  -resign movecount=5 score=600 \
   -recover \
   -ratinginterval 10 \
   -pgnout "$PGN" \
   | tee "$LOG"
 
+# -draw movenumber=40 movecount=8 score=15 \
+# 	-resign movecount=5 score=600 \
 
 echo
 echo "Match finished"
