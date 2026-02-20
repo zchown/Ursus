@@ -62,35 +62,35 @@ ADAM_ENABLED = True
 
 ALL_PARAMS = {
     # Search window / independent
-    "aspiration_window": {"value": 32,   "min": 10,   "max": 200,   "step": 5 },
-    "lazy_margin":       {"value": 813,  "min": 50,   "max": 1250,  "step": 5 },
-    "futility_mul":      {"value": 137,   "min": 25,   "max": 250,   "step": 5 },
+    "aspiration_window": {"value": 39,   "min": 10,   "max": 200,   "step": 5 },
+    "lazy_margin":       {"value": 810,  "min": 50,   "max": 1250,  "step": 5 },
+    "futility_mul":      {"value": 165,   "min": 25,   "max": 250,   "step": 5 },
     "iid_depth":         {"value": 1,    "min": 1,    "max": 4,     "step": 1 },
-    "razoring_base":     {"value": 286,  "min": 50,   "max": 500,   "step": 5 },
-    "razoring_mul":      {"value": 84,  "min": 10,   "max": 300,   "step": 5 },
+    "razoring_base":     {"value": 294,  "min": 50,   "max": 500,   "step": 5 },
+    "razoring_mul":      {"value": 88,  "min": 10,   "max": 300,   "step": 5 },
     # LMR + singular extensions (coupled — tune together)
-    "lmr_base":          {"value": 73,   "min": 25,   "max": 125,   "step": 5 },
-    "lmr_mul":           {"value": 41,   "min": 10,   "max": 100,   "step": 5 },
+    "lmr_base":          {"value": 64,   "min": 25,   "max": 125,   "step": 5 },
+    "lmr_mul":           {"value": 36,   "min": 10,   "max": 100,   "step": 5 },
     "lmr_pv_min":        {"value": 7,    "min": 1,    "max": 10,    "step": 1 },
     "lmr_non_pv_min":    {"value": 4,    "min": 1,    "max": 10,    "step": 1 },
     "se_reduction":      {"value": 4,    "min": 0,    "max": 10,    "step": 1 },
     # NMP
-    "nmp_improvement":   {"value": 31,   "min": 10,   "max": 100,   "step": 5 },
-    "nmp_base":          {"value": 4,    "min": 1,    "max": 8,     "step": 1 },
+    "nmp_improvement":   {"value": 23,   "min": 10,   "max": 100,   "step": 5 },
+    "nmp_base":          {"value": 3,    "min": 1,    "max": 8,     "step": 1 },
     "nmp_depth_div":     {"value": 5,    "min": 1,    "max": 8,     "step": 1 },
     "nmp_beta_div":      {"value": 155,  "min": 50,   "max": 300,   "step": 5 },
     # Quiescent search
-    "q_see_margin":      {"value": -27,  "min": -200, "max": 0,     "step": 5 },
-    "q_delta_margin":    {"value": 192,  "min": 0,    "max": 400,   "step": 5 },
+    "q_see_margin":      {"value": -35,  "min": -200, "max": 0,     "step": 5 },
+    "q_delta_margin":    {"value": 184,  "min": 0,    "max": 400,   "step": 5 },
     # RFP
     "rfp_depth":         {"value": 7,    "min": 1,    "max": 12,    "step": 1 },
-    "rfp_mul":           {"value": 90,   "min": 10,   "max": 150,   "step": 5 },
-    "rfp_improvement":   {"value": 41,   "min": 10,   "max": 150,   "step": 5 },
+    "rfp_mul":           {"value": 102,   "min": 10,   "max": 150,   "step": 5 },
+    "rfp_improvement":   {"value": 24,   "min": 10,   "max": 150,   "step": 5 },
     # LMP
-    "lmp_base":          {"value": 6,    "min": 1,    "max": 10,    "step": 1 },
-    "lmp_mul":           {"value": 4,    "min": 1,    "max": 15,    "step": 1 },
+    "lmp_base":          {"value": 5,    "min": 1,    "max": 10,    "step": 1 },
+    "lmp_mul":           {"value": 2,    "min": 1,    "max": 15,    "step": 1 },
 
-    "history_div":       {"value": 8951, "min": 1000,    "max": 12000, "step": 100},
+    "history_div":       {"value": 9319, "min": 1000,    "max": 12000, "step": 100},
 }
 
 STAGE_ORDER = [
@@ -249,7 +249,7 @@ def run_match(params_a: dict, params_b: dict, games: int = GAMES_PER_ITER) -> fl
         "-each", "proto=uci", f"tc={TC}", "timemargin=25",
         "-tb", "../Ursus/Syzygy/3-4-5",
         "-draw",   "movenumber=40", "movecount=6", "score=15",
-        "-resign", "movecount=3",   "score=400",
+        "-resign", "movecount=4",   "score=800",
         "-games", str(games),
         "-repeat",
         "-concurrency", "10",

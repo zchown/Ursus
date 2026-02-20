@@ -181,4 +181,37 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
+
+    const tuner_optimize = b.option(
+        std.builtin.OptimizeMode,
+        "tuner-optimize",
+        "Optimization for the tuner binary (default: ReleaseFast)",
+    ) orelse .ReleaseFast;
+
+    const tuner_exe = b.addExecutable(.{
+        .name = "texel_tuner",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/texel_tuner.zig"),
+            .target = target,
+            .optimize = tuner_optimize,
+        }),
+        .use_llvm = true,
+    });
+
+    tuner_exe.root_module.addImport("board", board_module);
+    tuner_exe.root_module.addImport("moves", moves_module);
+    tuner_exe.root_module.addImport("eval", eval_module);
+    tuner_exe.root_module.addImport("fen", fen_module);
+    tuner_exe.root_module.addImport("pawn_tt", pawn_tt_module);
+    tuner_exe.root_module.addImport("zobrist", zobrist_module);
+
+    b.installArtifact(tuner_exe);
+
+    const run_tuner_step = b.step("tune", "Run the texel tuner");
+    const run_tuner_cmd = b.addRunArtifact(tuner_exe);
+    run_tuner_step.dependOn(&run_tuner_cmd.step);
+    run_tuner_cmd.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        run_tuner_cmd.addArgs(args);
+    }
 }
