@@ -34,6 +34,7 @@ pub const UciOption = struct {
 const SearchContext = struct {
     protocol: *UciProtocol,
     board: brd.Board,
+    max_depth: ?u8 = null,
 };
 
 fn searchThreadFn(ctx: *SearchContext) void {
@@ -42,17 +43,20 @@ fn searchThreadFn(ctx: *SearchContext) void {
     defer {
         std.heap.c_allocator.destroy(ctx);
         @atomicStore(bool, &protocol.is_searching, false, .release);
-        @atomicStore(bool, &protocol.is_pondering, false, .release);
     }
 
     const result = protocol.searcher.parallelIterativeDeepening(
         &ctx.board,
-        null,
+        ctx.max_depth,
         ctx.protocol.threads,
     ) catch |err| {
         std.debug.print("Search thread error: {}\n", .{err});
         return;
     };
+
+    while (@atomicLoad(bool, &protocol.is_pondering, .acquire)) {
+        std.Thread.sleep(1_000_000); // 1ms
+    }
 
     outputBestMove(protocol, result) catch |err| {
         std.debug.print("Output error in search thread: {}\n", .{err});
@@ -86,8 +90,8 @@ pub const UciProtocol = struct {
     debug_mode: bool = false,
     should_quit: bool = false,
     is_searching: bool = false,
-    hash_size_mb: u32 = 64,
-    threads: usize = 1,
+    hash_size_mb: u32 = 2048,
+    threads: usize = 4,
     searcher: *srch.Searcher,
 
     search_thread: ?std.Thread = null,
@@ -173,27 +177,33 @@ pub const UciProtocol = struct {
         tt.stop_signal.store(true, .release);
         srch.Searcher.stopAllThreads();
 
+        @atomicStore(bool, &self.is_pondering, false, .release);
+
         if (self.search_thread) |thread| {
             thread.join();
             self.search_thread = null;
         }
 
         self.is_searching = false;
-        @atomicStore(bool, &self.is_pondering, false, .release);
     }
 
     fn handlePonderHit(self: *UciProtocol) void {
         if (!@atomicLoad(bool, &self.is_pondering, .acquire)) return;
 
-        const time_alloc = calculateTimeAllocation(&self.ponder_limits, self.ponder_side);
-
         const elapsed_ms = self.searcher.timer.read() / std.time.ns_per_ms;
-        self.searcher.max_ms = time_alloc.max_ms + elapsed_ms;
-        self.searcher.ideal_ms = time_alloc.ideal_ms + elapsed_ms;
+        self.searcher.max_ms = @min(
+            self.searcher.max_ms,
+            elapsed_ms +| self.searcher.ideal_ms,
+        );
 
         @atomicStore(bool, &self.searcher.force_think, false, .release);
-        @atomicStore(bool, &self.is_pondering, false, .release);
 
+        for (srch.search_helpers.items) |*helper| {
+            helper.max_ms = self.searcher.max_ms;
+            @atomicStore(bool, &helper.force_think, false, .release);
+        }
+
+        @atomicStore(bool, &self.is_pondering, false, .release);
     }
 
     fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
@@ -252,11 +262,12 @@ pub const UciProtocol = struct {
         tt.stop_signal.store(false, .release);
 
         if (limits.ponder) {
-            // Ponder: search indefinitely; ponderhit will install a real budget.
+            var real_limits = limits;
+            real_limits.ponder = false;
+            const time_alloc = calculateTimeAllocation(&real_limits, self.board.toMove());
+            self.searcher.max_ms = time_alloc.max_ms;
+            self.searcher.ideal_ms = time_alloc.ideal_ms;
             self.searcher.force_think = true;
-            self.searcher.max_ms = std.math.maxInt(u64);
-            self.searcher.ideal_ms = std.math.maxInt(u64);
-            // Save limits and side so ponderhit can reconstruct the budget.
             self.ponder_limits = limits;
             self.ponder_side = self.board.toMove();
             @atomicStore(bool, &self.is_pondering, true, .release);
@@ -270,11 +281,11 @@ pub const UciProtocol = struct {
 
         self.is_searching = true;
 
-        // Allocate on the heap so the context outlives this stack frame.
         const ctx = try std.heap.c_allocator.create(SearchContext);
         ctx.* = .{
             .protocol = self,
             .board = self.board,
+            .max_depth = if (limits.depth) |d| @as(u8, @intCast(@min(d, 255))) else null,
         };
 
         self.search_thread = try std.Thread.spawn(.{}, searchThreadFn, .{ctx});
@@ -288,28 +299,29 @@ pub const UciProtocol = struct {
         try respond("option name Hash type spin default 64 min 1 max 2048");
         try respond("option name Threads type spin default 1 min 1 max 8");
 
-        try respond("option name aspiration_window type spin default 32 min 10 max 200");
+        try respond("option name aspiration_window type spin default 39 min 10 max 200");
         try respond("option name rfp_depth type spin default 7 min 1 max 12");
-        try respond("option name rfp_mul type spin default 90 min 25 max 150");
-        try respond("option name rfp_improvement type spin default 41 min 10 max 150");
-        try respond("option name nmp_improvement type spin default 31 min 10 max 150");
-        try respond("option name nmp_base type spin default 4 min 1 max 8");
+        try respond("option name rfp_mul type spin default 102 min 25 max 150");
+        try respond("option name rfp_improvement type spin default 24 min 10 max 150");
+        try respond("option name nmp_improvement type spin default 23 min 10 max 150");
+        try respond("option name nmp_base type spin default 3 min 1 max 8");
         try respond("option name nmp_depth_div type spin default 5 min 1 max 8");
         try respond("option name nmp_beta_div type spin default 155 min 50 max 300");
-        try respond("option name razoring_base type spin default 286 min 100 max 600");
-        try respond("option name razoring_mul type spin default 84 min 10 max 200");
-        try respond("option name probcut_margin type spin default 197 min 50 max 600");
-        try respond("option name probcut_depth type spin default 4 min 1 max 8");
-        try respond("option name lazy_margin type spin default 813 min 50 max 2000");
-        try respond("option name q_see_margin type spin default -27 min -200 max 0");
-        try respond("option name q_delta_margin type spin default 192 min 0 max 400");
-        try respond("option name lmr_base type spin default 73 min 25 max 125");
-        try respond("option name lmr_mul type spin default 41 min 10 max 100");
+        try respond("option name razoring_base type spin default 294 min 100 max 600");
+        try respond("option name razoring_mul type spin default 88 min 10 max 200");
+        try respond("option name lazy_margin type spin default 810 min 50 max 2000");
+        try respond("option name q_see_margin type spin default -35 min -200 max 0");
+        try respond("option name q_delta_margin type spin default 184 min 0 max 400");
+        try respond("option name lmr_base type spin default 64 min 25 max 125");
+        try respond("option name lmr_mul type spin default 36 min 10 max 100");
         try respond("option name lmr_pv_min type spin default 7 min 1 max 10");
         try respond("option name lmr_non_pv_min type spin default 4 min 1 max 10");
-        try respond("option name futility_mul type spin default 137 min 25 max 400");
+        try respond("option name futility_mul type spin default 165 min 25 max 400");
         try respond("option name iid_depth type spin default 1 min 1 max 4");
         try respond("option name se_reduction type spin default 4 min 0 max 10");
+        try respond("option name history_div type spin default 9319 min 1000 max 12000");
+        try respond("option name lmp_base type spin default 5 min 0 max 10");
+        try respond("option name lmp_mul type spin default 2 min 0 max 10");
 
         try respond("uciok");
 
@@ -347,14 +359,11 @@ pub const UciProtocol = struct {
             }
             self.hash_size_mb = new_size_mb;
 
-
-            // free old tables before initializing new ones
             if (tt.global_tt_initialized) {
                 tt.TranspositionTable.deinitGlobal();
             }
 
             try tt.TranspositionTable.initGlobal(self.hash_size_mb);
-
         } else if (std.mem.eql(u8, option_name, "Clear Hash")) {
             if (tt.global_tt_initialized) {
                 tt.global_tt.reset();
@@ -364,7 +373,7 @@ pub const UciProtocol = struct {
                 pawn_tt.pawn_tt.reset();
             }
         } else if (std.mem.eql(u8, option_name, "Ponder")) {
-            // UCI engines advertise Ponder as a check option; no extra state needed here.
+            // TODO: ?
         } else if (std.mem.eql(u8, option_name, "Threads")) {
             if (args.len < name_end + 2) {
                 if (self.debug_mode) {
@@ -374,8 +383,7 @@ pub const UciProtocol = struct {
             }
             const new_thread_count = try std.fmt.parseInt(usize, args[name_end + 1], 10);
             self.threads = new_thread_count;
-        } 
-        else if (std.mem.eql(u8, option_name, "aspiration_window")) {
+        } else if (std.mem.eql(u8, option_name, "aspiration_window")) {
             srch.aspiration_window = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "rfp_depth")) {
             srch.rfp_depth = try std.fmt.parseInt(i32, args[name_end + 1], 10);
@@ -395,10 +403,6 @@ pub const UciProtocol = struct {
             srch.razoring_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "razoring_mul")) {
             srch.razoring_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        } else if (std.mem.eql(u8, option_name, "probcut_margin")) {
-            srch.probcut_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        } else if (std.mem.eql(u8, option_name, "probcut_depth")) {
-            srch.probcut_depth = try std.fmt.parseInt(usize, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "lazy_margin")) {
             eval.lazy_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "q_see_margin")) {
@@ -423,6 +427,14 @@ pub const UciProtocol = struct {
             srch.se_reduction = try std.fmt.parseInt(usize, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "history_div")) {
             srch.history_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "lmp_base")) {
+            srch.lmp_base = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "lmp_mul")) {
+            srch.lmp_mul = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else {
+            if (self.debug_mode) {
+                try respond("Unknown option");
+            }
         }
     }
 
@@ -436,16 +448,11 @@ pub const UciProtocol = struct {
 
     fn newGame(self: *UciProtocol) !void {
         if (!tt.global_tt_initialized or tt.global_tt.items.len == 0) {
-            // std.debug.print("Initializing transposition table...\n", .{});
             try tt.TranspositionTable.initGlobal(self.hash_size_mb);
-            // std.debug.print("Transposition table initialized with {} entries.\n", .{tt.global_tt.items.len});
         }
         if (!pawn_tt.pawn_tt_initialized or pawn_tt.pawn_tt.items.items.len == 0) {
-            // std.debug.print("Initializing pawn transposition table...\n", .{});
             try pawn_tt.TranspositionTable.initGlobal(16);
-            // std.debug.print("Pawn transposition table initialized with {} entries.\n", .{pawn_tt.pawn_tt.items.items.len});
         }
-
 
         self.board = brd.Board.init();
         fen.setupStartingPosition(&self.board);

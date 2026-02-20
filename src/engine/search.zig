@@ -12,7 +12,7 @@ inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Colo
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
 
-pub var aspiration_window: i32 = 92;
+pub var aspiration_window: i32 = 39;
 
 pub var rfp_depth: i32 = 7;
 pub var rfp_mul: i32 = 102;
@@ -42,9 +42,6 @@ const score_killer_2: i32 = 790_000;
 const score_equal_capture: i32 = 700_000;
 const score_counter: i32 = 600_000;
 
-pub var probcut_margin: i32 = 197;
-pub var probcut_depth: usize = 4;
-
 pub var q_see_margin: i32 = -35;
 pub var q_delta_margin: i32 = 184;
 
@@ -56,16 +53,6 @@ pub var lmr_non_pv_min: usize = 4;
 
 pub var se_reduction: usize = 4;
 pub var history_div: i32 = 9319;
-
-pub const mvv_lva_table = [6][6]i32{
-    // Vict:  P    N    B    R    Q    K
-    .{ 105, 115, 125, 135, 145, 155 }, // Atk: Pawn
-    .{ 104, 114, 124, 134, 144, 154 }, // Atk: Knight
-    .{ 103, 113, 123, 133, 143, 153 }, // Atk: Bishop
-    .{ 102, 112, 122, 132, 142, 152 }, // Atk: Rook
-    .{ 101, 111, 121, 131, 141, 151 }, // Atk: Queen
-    .{ 100, 110, 120, 130, 140, 150 }, // Atk: King
-};
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 

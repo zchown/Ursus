@@ -1,30 +1,10 @@
-//! Texel Tuner — Adam gradient descent over eval parameters.
-//!
-//! Build as a separate binary that shares eval.zig with the main engine:
-//!   zig build-exe tuner.zig -O ReleaseFast [your other source files]
-//!
-//! Position file format (one per line):
-//!   <FEN> | <r>
-//!   e.g.  rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1 | 0.5
-//!
-//! result: 1.0 = white win, 0.5 = draw, 0.0 = black win
-//!
-//! Workflow:
-//!   1. Generate / download a position file (see comments below for sources).
-//!   2. Run the tuner: ./tuner positions.epd
-//!   3. After convergence it prints updated Zig constant declarations to stdout.
-//!   4. Paste them back into eval.zig.
-
 const std = @import("std");
 const brd = @import("board");
 const mvs = @import("moves");
 const fen_mod = @import("fen");
 const eval = @import("eval");
 
-// ---------------------------------------------------------------------------
-// Hyper-parameters — adjust as needed
-// ---------------------------------------------------------------------------
-var K: f64 = 0.5; // Scaling constant. Calibrate first with findK().
+const K: f64 = 0.3479; // Scaling constant. Calibrate first with findK().
 const NUM_THREADS: usize = 0; // 0 = auto-detect CPU count
 const CHUNK_SIZE: usize = 500_000; // Positions loaded into memory at once
 const BATCH_SIZE: usize = 8192; // Positions per mini-batch (power of 2)
@@ -32,13 +12,10 @@ const LEARNING_RATE: f64 = 1.0; // Adam lr — good starting point for integer p
 const BETA1: f64 = 0.9;
 const BETA2: f64 = 0.999;
 const EPSILON: f64 = 1e-8;
-const MAX_EPOCHS: usize = 5;
+const MAX_EPOCHS: usize = 10;
 const PRINT_EVERY: usize = 1; // Print MSE every N epochs
 const CHECKPOINT_EVERY: usize = 5; // Save params every N epochs
 
-// ---------------------------------------------------------------------------
-// Position dataset
-// ---------------------------------------------------------------------------
 const Position = struct {
     board: brd.Board,
     result: f64, // 1.0 / 0.5 / 0.0 from white's perspective
@@ -99,7 +76,6 @@ fn parseLine(trimmed: []const u8, skip_count: *usize) ?Position {
     return Position{ .board = board, .result = result };
 }
 
-/// Read one line from a Zig 0.15 `*std.Io.Reader` into `buf`.
 fn readLine(reader: *std.Io.Reader, buf: []u8) error{ EndOfStream, StreamTooLong, ReadFailed }![]u8 {
     var i: usize = 0;
     while (true) {
@@ -118,10 +94,6 @@ fn readLine(reader: *std.Io.Reader, buf: []u8) error{ EndOfStream, StreamTooLong
     }
 }
 
-/// Streaming chunk loader.
-/// Reads up to CHUNK_SIZE positions from `reader`.
-/// Sets `eof_out` to true when the reader is exhausted.
-/// Caller owns the returned slice and must free it with `allocator.free`.
 fn loadChunk(
     reader: *std.Io.Reader,
     line_buf: []u8,
@@ -153,10 +125,6 @@ fn loadChunk(
     return positions.toOwnedSlice(allocator);
 }
 
-
-// ---------------------------------------------------------------------------
-// Sigmoid and MSE
-// ---------------------------------------------------------------------------
 inline fn sigmoid(score: f64) f64 {
     return 1.0 / (1.0 + std.math.pow(f64, 10.0, -K * score / 400.0));
 }
@@ -173,29 +141,14 @@ fn computeMSE(positions: []const Position, move_gen: *mvs.MoveGen) f64 {
     return total_error / @as(f64, @floatFromInt(positions.len));
 }
 
-// ---------------------------------------------------------------------------
-// Parallel ANALYTICAL gradient computation
-//
-// Instead of perturbing each of ~950 params and re-evaluating (which was
-// O(N * NUM_PARAMS * 2) eval calls per batch), we now:
-//   1. Evaluate each position once to get the score.
-//   2. Extract the coefficient vector via eval.computeCoefficients().
-//   3. gradient[i] += common_factor * coefficients[i]
-//
-// This reduces each position from ~1900 evals to 1 eval + 1 coefficient
-// extraction — roughly 500-1000x faster.
-// ---------------------------------------------------------------------------
-
-/// Work item passed to each gradient worker thread.
 const GradientWork = struct {
     positions: []const Position,
-    int_params_base: []const i32, // read-only snapshot of current params
-    partial_gradient: []f64,      // per-thread output; never shared between threads
-    n_total: f64,                 // full batch size for correct normalisation
+    int_params_base: []const i32,
+    partial_gradient: []f64,
+    n_total: f64,
 };
 
 fn gradientWorker(work: *const GradientWork) void {
-    // Each thread sets its own eval state from the shared param snapshot.
     var local_buf: [eval.NUM_PARAMS]i32 = undefined;
     @memcpy(&local_buf, work.int_params_base);
     eval.importParams(&local_buf);
@@ -226,9 +179,6 @@ fn gradientWorker(work: *const GradientWork) void {
     }
 }
 
-// ---------------------------------------------------------------------------
-// K calibration — do this once before tuning with a ternary search
-// ---------------------------------------------------------------------------
 fn findK(positions: []const Position, move_gen: *mvs.MoveGen) f64 {
     var stderr_buf: [512]u8 = undefined;
     var stderr_writer = std.fs.File.stderr().writer(&stderr_buf);
@@ -263,9 +213,6 @@ fn findK(positions: []const Position, move_gen: *mvs.MoveGen) f64 {
     return best_k;
 }
 
-// ---------------------------------------------------------------------------
-// Gradient computation — parallel dispatch
-// ---------------------------------------------------------------------------
 fn computeGradientBatch(
     positions: []const Position,
     int_params: []i32,
@@ -325,9 +272,6 @@ fn computeGradientBatch(
     eval.importParams(int_params);
 }
 
-// ---------------------------------------------------------------------------
-// Adam optimizer
-// ---------------------------------------------------------------------------
 const Adam = struct {
     m: []f64,
     v: []f64,
@@ -360,9 +304,6 @@ const Adam = struct {
     }
 };
 
-// ---------------------------------------------------------------------------
-// Print params as Zig source to paste back into eval.zig
-// ---------------------------------------------------------------------------
 fn printParams(int_params: []const i32, writer: anytype) !void {
     try writer.print("\n// ===== Tuned parameters — paste into eval.zig =====\n", .{});
 
@@ -376,22 +317,24 @@ fn printParams(int_params: []const i32, writer: anytype) !void {
     try writer.print("pub var eg_rook: i32 = {};\n", .{int_params[eval.P_EG_ROOK]});
     try writer.print("pub var mg_queen: i32 = {};\n", .{int_params[eval.P_MG_QUEEN]});
     try writer.print("pub var eg_queen: i32 = {};\n", .{int_params[eval.P_EG_QUEEN]});
+    try writer.print("pub var mg_king: i32 = {};\n", .{int_params[eval.P_MG_KING]});
+    try writer.print("pub var eg_king: i32 = {};\n", .{int_params[eval.P_EG_KING]});
 
     const pst_names = [12][]const u8{
-        "mg_pawn_table", "eg_pawn_table",
+        "mg_pawn_table",   "eg_pawn_table",
         "mg_knight_table", "eg_knight_table",
         "mg_bishop_table", "eg_bishop_table",
-        "mg_rook_table", "eg_rook_table",
-        "mg_queen_table", "eg_queen_table",
-        "mg_king_table", "eg_king_table",
+        "mg_rook_table",   "eg_rook_table",
+        "mg_queen_table",  "eg_queen_table",
+        "mg_king_table",   "eg_king_table",
     };
     const pst_offsets = [12]usize{
-        eval.P_MG_PAWN_TABLE, eval.P_EG_PAWN_TABLE,
+        eval.P_MG_PAWN_TABLE,   eval.P_EG_PAWN_TABLE,
         eval.P_MG_KNIGHT_TABLE, eval.P_EG_KNIGHT_TABLE,
         eval.P_MG_BISHOP_TABLE, eval.P_EG_BISHOP_TABLE,
-        eval.P_MG_ROOK_TABLE, eval.P_EG_ROOK_TABLE,
-        eval.P_MG_QUEEN_TABLE, eval.P_EG_QUEEN_TABLE,
-        eval.P_MG_KING_TABLE, eval.P_EG_KING_TABLE,
+        eval.P_MG_ROOK_TABLE,   eval.P_EG_ROOK_TABLE,
+        eval.P_MG_QUEEN_TABLE,  eval.P_EG_QUEEN_TABLE,
+        eval.P_MG_KING_TABLE,   eval.P_EG_KING_TABLE,
     };
     for (pst_names, pst_offsets) |name, off| {
         try writer.print("pub var {s} = [64]i32{{\n", .{name});
@@ -434,41 +377,35 @@ fn printParams(int_params: []const i32, writer: anytype) !void {
     try writer.print(" }};\n", .{});
 
     const scalar_names = [_][]const u8{
-        "castled_bonus", "pawn_shield_bonus", "open_file_penalty", "semi_open_penalty",
-        "knight_attack_bonus", "bishop_attack_bonus", "rook_attack_bonus", "queen_attack_bonus",
-        "rook_on_7th_bonus", "rook_behind_passer_bonus", "king_pawn_proximity",
-        "protected_pawn_bonus", "doubled_pawn_penalty", "isolated_pawn_penalty",
-        "connected_pawn_bonus", "backward_pawn_penalty",
-        "rook_on_open_file_bonus", "rook_on_semi_open_file_bonus", "trapped_rook_penalty",
-        "minor_threat_penalty", "rook_threat_penalty", "queen_threat_penalty",
-        "rook_on_queen_bonus", "rook_on_king_bonus", "queen_on_king_bonus",
-        "bad_bishop_penalty", "bishop_on_queen_bonus", "bishop_on_king_bonus",
-        "hanging_piece_penalty", "attacked_by_pawn_penalty", "attacked_by_minor_penalty",
-        "attacked_by_rook_penalty", "tempo_bonus", "bishop_pair_bonus",
-        "knight_outpost_bonus", "space_per_square", "center_control_bonus", "extended_center_bonus",
+        "castled_bonus",            "pawn_shield_bonus",        "open_file_penalty",        "semi_open_penalty",
+        "knight_attack_bonus",      "bishop_attack_bonus",      "rook_attack_bonus",        "queen_attack_bonus",
+        "rook_on_7th_bonus",        "rook_behind_passer_bonus", "king_pawn_proximity",      "protected_pawn_bonus",
+        "doubled_pawn_penalty",     "isolated_pawn_penalty",    "rook_on_open_file_bonus",  "rook_on_semi_open_file_bonus",
+        "minor_threat_penalty",     "rook_threat_penalty",      "queen_threat_penalty",     "rook_on_queen_bonus",
+        "rook_on_king_bonus",       "queen_on_king_bonus",      "bad_bishop_penalty",       "bishop_on_queen_bonus",
+        "bishop_on_king_bonus",     "hanging_piece_penalty",    "attacked_by_pawn_penalty", "attacked_by_minor_penalty",
+        "attacked_by_rook_penalty", "tempo_bonus",              "bishop_pair_bonus",        "knight_outpost_bonus",
+        "space_per_square",         "center_control_bonus",     "extended_center_bonus",
     };
     const scalar_offsets = [_]usize{
-        eval.P_CASTLED_BONUS, eval.P_PAWN_SHIELD_BONUS, eval.P_OPEN_FILE_PENALTY,
+        eval.P_CASTLED_BONUS,     eval.P_PAWN_SHIELD_BONUS,   eval.P_OPEN_FILE_PENALTY,
         eval.P_SEMI_OPEN_PENALTY, eval.P_KNIGHT_ATTACK_BONUS, eval.P_BISHOP_ATTACK_BONUS,
-        eval.P_ROOK_ATTACK_BONUS, eval.P_QUEEN_ATTACK_BONUS, eval.P_ROOK_7TH_BONUS,
+        eval.P_ROOK_ATTACK_BONUS, eval.P_QUEEN_ATTACK_BONUS,  eval.P_ROOK_7TH_BONUS,
         eval.P_ROOK_PASSER_BONUS, eval.P_KING_PAWN_PROXIMITY, eval.P_PROTECTED_PAWN,
-        eval.P_DOUBLED_PAWN, eval.P_ISOLATED_PAWN, eval.P_CONNECTED_PAWN, eval.P_BACKWARD_PAWN,
-        eval.P_ROOK_OPEN_FILE, eval.P_ROOK_SEMI_OPEN, eval.P_TRAPPED_ROOK,
-        eval.P_MINOR_THREAT, eval.P_ROOK_THREAT, eval.P_QUEEN_THREAT,
-        eval.P_ROOK_ON_QUEEN, eval.P_ROOK_ON_KING, eval.P_QUEEN_ON_KING,
-        eval.P_BAD_BISHOP, eval.P_BISHOP_ON_QUEEN, eval.P_BISHOP_ON_KING,
-        eval.P_HANGING_PIECE, eval.P_ATK_BY_PAWN, eval.P_ATK_BY_MINOR, eval.P_ATK_BY_ROOK,
-        eval.P_TEMPO_BONUS, eval.P_BISHOP_PAIR, eval.P_KNIGHT_OUTPOST,
-        eval.P_SPACE_PER_SQ, eval.P_CENTER_CTRL, eval.P_EXTENDED_CENTER,
+        eval.P_DOUBLED_PAWN,      eval.P_ISOLATED_PAWN,       eval.P_ROOK_OPEN_FILE,
+        eval.P_ROOK_SEMI_OPEN,    eval.P_MINOR_THREAT,        eval.P_ROOK_THREAT,
+        eval.P_QUEEN_THREAT,      eval.P_ROOK_ON_QUEEN,       eval.P_ROOK_ON_KING,
+        eval.P_QUEEN_ON_KING,     eval.P_BAD_BISHOP,          eval.P_BISHOP_ON_QUEEN,
+        eval.P_BISHOP_ON_KING,    eval.P_HANGING_PIECE,       eval.P_ATK_BY_PAWN,
+        eval.P_ATK_BY_MINOR,      eval.P_ATK_BY_ROOK,         eval.P_TEMPO_BONUS,
+        eval.P_BISHOP_PAIR,       eval.P_KNIGHT_OUTPOST,      eval.P_SPACE_PER_SQ,
+        eval.P_CENTER_CTRL,       eval.P_EXTENDED_CENTER,
     };
     for (scalar_names, scalar_offsets) |name, off| {
         try writer.print("pub var {s}: i32 = {};\n", .{ name, int_params[off] });
     }
 }
 
-// ---------------------------------------------------------------------------
-// Main training loop
-// ---------------------------------------------------------------------------
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -482,7 +419,7 @@ pub fn main() !void {
         var usage_writer = std.fs.File.stderr().writer(&usage_buf);
         const usage_err = &usage_writer.interface;
         try usage_err.print(
-            \\Usage: texel_tuner <positions_file> [checkpoint.bin]
+            \\Usage: texel_tuner <positions_file> [checkpoints/checkpoint.bin]
             \\
             \\Position file format (one per line):
             \\  <FEN> | <r>
@@ -495,15 +432,12 @@ pub fn main() !void {
         return;
     }
 
-    // Initialize move generator
     var move_gen = mvs.MoveGen.init();
 
-    // Reusable stderr writer for all progress output
     var stderr_buf: [512]u8 = undefined;
     var stderr_writer = std.fs.File.stderr().writer(&stderr_buf);
     const stderr = &stderr_writer.interface;
 
-    // Allocate param buffers
     var int_params = try allocator.alloc(i32, eval.NUM_PARAMS);
     defer allocator.free(int_params);
     eval.exportParams(int_params);
@@ -512,7 +446,6 @@ pub fn main() !void {
     defer allocator.free(float_params);
     for (0..eval.NUM_PARAMS) |i| float_params[i] = @floatFromInt(int_params[i]);
 
-    // Optionally load a checkpoint
     if (args.len >= 3) {
         try stderr.print("Loading checkpoint from '{s}'...\n", .{args[2]});
         try stderr.flush();
@@ -531,36 +464,37 @@ pub fn main() !void {
     const gradient = try allocator.alloc(f64, eval.NUM_PARAMS);
     defer allocator.free(gradient);
 
-    // Per-chunk line buffer (large enough for any FEN line)
     var line_buf: [1024]u8 = undefined;
 
-    // =====================================================================
     // Calibrate K on first chunk
-    // =====================================================================
-    {
-        try stderr.print("Running initial calibration...\n", .{});
-        try stderr.flush();
+    // {
+    //     try stderr.print("Running initial calibration...\n", .{});
+    //     try stderr.flush();
+    //
+    //     const calib_file = try std.fs.cwd().openFile(args[1], .{});
+    //     defer calib_file.close();
+    //
+    //     var calib_read_buf: [65536]u8 = undefined;
+    //     var calib_file_reader = calib_file.reader(&calib_read_buf);
+    //     const calib_reader: *std.Io.Reader = &calib_file_reader.interface;
+    //
+    //     var calib_eof = false;
+    //     var calib_skip: usize = 0;
+    //     const calib_chunk = try loadChunk(calib_reader, &line_buf, allocator, &calib_skip, &calib_eof);
+    //     defer allocator.free(calib_chunk);
+    //
+    //     if (calib_chunk.len > 0) {
+    //         _ = findK(calib_chunk, &move_gen);
+    //     }
+    // }
 
-        const calib_file = try std.fs.cwd().openFile(args[1], .{});
-        defer calib_file.close();
-
-        var calib_read_buf: [65536]u8 = undefined;
-        var calib_file_reader = calib_file.reader(&calib_read_buf);
-        const calib_reader: *std.Io.Reader = &calib_file_reader.interface;
-
-        var calib_eof = false;
-        var calib_skip: usize = 0;
-        const calib_chunk = try loadChunk(calib_reader, &line_buf, allocator, &calib_skip, &calib_eof);
-        defer allocator.free(calib_chunk);
-
-        if (calib_chunk.len > 0) {
-            _ = findK(calib_chunk, &move_gen);
-        }
-    }
-
-    // RNG for in-chunk shuffling
     var rng = std.Random.DefaultPrng.init(42);
     const rand = rng.random();
+
+    std.fs.cwd().makeDir("checkpoints") catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return err,
+    };
 
     try stderr.print("Starting Adam tuning: {} params, CHUNK_SIZE={}, lr={d}\n", .{
         eval.NUM_PARAMS, CHUNK_SIZE, LEARNING_RATE,
@@ -569,7 +503,6 @@ pub fn main() !void {
 
     var epoch: usize = 0;
     while (epoch < MAX_EPOCHS) : (epoch += 1) {
-        // Re-open the file at the start of every epoch so we stream through all positions.
         const file = try std.fs.cwd().openFile(args[1], .{});
         defer file.close();
         var read_buf: [65536]u8 = undefined;
@@ -582,7 +515,6 @@ pub fn main() !void {
         var epoch_mse_sum: f64 = 0.0;
         var epoch_mse_count: usize = 0;
 
-        // Stream the file in CHUNK_SIZE-position chunks
         while (true) {
             var eof = false;
             const chunk = try loadChunk(reader, &line_buf, allocator, &skip_count, &eof);
@@ -600,7 +532,6 @@ pub fn main() !void {
             });
             try stderr.flush();
 
-            // Shuffle the chunk in-place
             for (0..chunk.len) |i| {
                 const j = rand.intRangeAtMost(usize, i, chunk.len - 1);
                 const tmp = chunk[i];
@@ -608,13 +539,11 @@ pub fn main() !void {
                 chunk[j] = tmp;
             }
 
-            // Process mini-batches within chunk
             var batch_start: usize = 0;
             while (batch_start < chunk.len) : (batch_start += BATCH_SIZE) {
                 const batch_end = @min(batch_start + BATCH_SIZE, chunk.len);
                 const batch = chunk[batch_start..batch_end];
 
-                // Sync int_params from current float_params.
                 for (0..eval.NUM_PARAMS) |i| {
                     const v = @round(float_params[i]);
                     int_params[i] = if (std.math.isFinite(v)) @intFromFloat(v) else 0;
@@ -625,7 +554,6 @@ pub fn main() !void {
                 adam.step(float_params, gradient);
             }
 
-            // Accumulate MSE for progress reporting
             if ((epoch + 1) % PRINT_EVERY == 0) {
                 for (0..eval.NUM_PARAMS) |i| {
                     const v = @round(float_params[i]);
@@ -639,7 +567,6 @@ pub fn main() !void {
             if (eof) break;
         }
 
-        // Print weighted average MSE over all chunks
         if ((epoch + 1) % PRINT_EVERY == 0 and epoch_mse_count > 0) {
             const mse = epoch_mse_sum / @as(f64, @floatFromInt(epoch_mse_count));
             try stderr.print("Epoch {}: MSE = {d:.6} ({} positions, {} skipped)\n", .{
@@ -648,26 +575,51 @@ pub fn main() !void {
             try stderr.flush();
         }
 
-        // Checkpoint
         if ((epoch + 1) % CHECKPOINT_EVERY == 0) {
-            for (0..eval.NUM_PARAMS) |i| { const v = @round(float_params[i]); int_params[i] = if (std.math.isFinite(v)) @intFromFloat(v) else 0; }
+            for (0..eval.NUM_PARAMS) |i| {
+                const v = @round(float_params[i]);
+                int_params[i] = if (std.math.isFinite(v)) @intFromFloat(v) else 0;
+            }
 
-            var fname_buf: [32]u8 = undefined;
-            const fname = try std.fmt.bufPrint(&fname_buf, "checkpoint_{}.bin", .{epoch + 1});
+            var fname_buf: [64]u8 = undefined;
+            const fname = try std.fmt.bufPrint(&fname_buf, "checkpoints/checkpoint_{}.bin", .{epoch + 1});
             const f = try std.fs.cwd().createFile(fname, .{});
             defer f.close();
             try f.writeAll(std.mem.sliceAsBytes(int_params));
             try stderr.print("  Saved checkpoint: {s}\n", .{fname});
             try stderr.flush();
         }
+
+        try stderr.print("  Shuffling input file in place...\n", .{});
+        try stderr.flush();
+
+        const shuf_args = &[_][]const u8{ "shuf", "-o", args[1], args[1] };
+        const shuf_result = try std.process.Child.run(.{
+            .allocator = allocator,
+            .argv = shuf_args,
+        });
+
+        // Child.run allocates slices for stdout and stderr, so we must free them
+        allocator.free(shuf_result.stdout);
+        allocator.free(shuf_result.stderr);
+
+        try stderr.print("  Shuffle complete.\n", .{});
+        try stderr.flush();
     }
 
-    // Final params
-    for (0..eval.NUM_PARAMS) |i| { const v = @round(float_params[i]); int_params[i] = if (std.math.isFinite(v)) @intFromFloat(v) else 0; }
+    for (0..eval.NUM_PARAMS) |i| {
+        const v = @round(float_params[i]);
+        int_params[i] = if (std.math.isFinite(v)) @intFromFloat(v) else 0;
+    }
     eval.importParams(int_params);
 
     try stderr.print("\nTuning complete. Printing Zig declarations to stdout...\n", .{});
     try stderr.flush();
 
-    try printParams(int_params, stderr);
+    var stdout_buf: [512]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buf);
+    const stdout = &stdout_writer.interface;
+    try printParams(int_params, stdout);
+    try stdout.flush();
 }
+
