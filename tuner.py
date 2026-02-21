@@ -35,10 +35,10 @@ from collections import deque
 
 ENGINE     = "./zig-out/bin/Ursus"
 CUTECHESS  = "cutechess-cli"
-TC         = "1+0.05"
+TC         = "2+0.1"
 OUTPUT_DIR = "tuning_results"
 
-GAMES_PER_ITER = 10
+GAMES_PER_ITER = 16
 
 
 C_INIT       = 2.5    # Perturbation size at iteration 1 (and during warmup)
@@ -110,7 +110,7 @@ STAGES = {
             "lmr_base", "lmr_mul", "lmr_pv_min", "lmr_non_pv_min",
             "se_reduction",
         ],
-        "target_iters": 250,
+        "target_iters": 150,
         "description": (
             "Most pervasive heuristic — shapes effective depth across the whole tree. "
             "se_reduction is directly coupled: singular extensions re-expand exactly "
@@ -138,7 +138,7 @@ STAGES = {
     "stage4_rfp": {
         "name": "Reverse Futility Pruning + LMP",
         "params": ["rfp_depth", "rfp_mul", "rfp_improvement", "lmp_base", "lmp_mul"],
-        "target_iters": 400,
+        "target_iters": 200,
         "description": (
             "Depth-based and move-count forward pruning. Requires stable LMR "
             "(effective depths) and stable QSearch (leaf scores). lmp_base / lmp_mul "
@@ -250,9 +250,9 @@ def run_match(params_a: dict, params_b: dict, games: int = GAMES_PER_ITER) -> fl
         "-tb", "../Ursus/Syzygy/3-4-5",
         "-draw",   "movenumber=40", "movecount=6", "score=15",
         "-resign", "movecount=4",   "score=800",
-        "-games", str(games),
+        "-rounds", str(games // 2),
         "-repeat",
-        "-concurrency", "10",
+        "-concurrency", "8",
         "-openings", "file=../Ursus/8moves_v3.pgn", "order=random",
         "-recover",
     ]

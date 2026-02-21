@@ -10,9 +10,9 @@ CUTECHESS="cutechess-cli"
 # Engines (edit paths + names)
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
-  "Ursus2.14=./engines/Ursus2.14"
-  "Ursus2.15.1=./engines/Ursus2.15.1"
-  "Cehss-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
+  "Ursus2.24=./engines/Ursus2.22"
+  "Ursus2.15.3=./engines/Ursus2.15.3"
+  "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 )
 
 # Openings
@@ -21,10 +21,10 @@ OPENINGS="8moves_v3.pgn"
 
 # Tournament size
 ROUNDS=100
-CONCURRENCY=4
+CONCURRENCY=5
 
 # Time control
-TC="100/10"
+TC="5/0.1"
 
 # Output
 OUTDIR="tournaments/$(date +%Y%m%d_%H%M%S)"
