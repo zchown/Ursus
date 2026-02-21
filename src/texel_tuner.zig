@@ -4,15 +4,15 @@ const mvs = @import("moves");
 const fen_mod = @import("fen");
 const eval = @import("eval");
 
-const K: f64 = 0.3479; // Scaling constant. Calibrate first with findK().
+const K: f64 = 1.0976; // Scaling constant. Calibrate first with findK().
 const NUM_THREADS: usize = 0; // 0 = auto-detect CPU count
 const CHUNK_SIZE: usize = 500_000; // Positions loaded into memory at once
-const BATCH_SIZE: usize = 8192; // Positions per mini-batch (power of 2)
-const LEARNING_RATE: f64 = 1.0; // Adam lr — good starting point for integer params
+const BATCH_SIZE: usize = 32768; // Positions per mini-batch (power of 2)
+const LEARNING_RATE: f64 = 0.2; // Adam lr — good starting point for integer params
 const BETA1: f64 = 0.9;
 const BETA2: f64 = 0.999;
 const EPSILON: f64 = 1e-8;
-const MAX_EPOCHS: usize = 10;
+const MAX_EPOCHS: usize = 2;
 const PRINT_EVERY: usize = 1; // Print MSE every N epochs
 const CHECKPOINT_EVERY: usize = 5; // Save params every N epochs
 
@@ -31,7 +31,6 @@ fn parseResult(s: []const u8) ?f64 {
     return std.fmt.parseFloat(f64, s) catch null;
 }
 
-/// Parse a single line into a Position. Returns null if the line should be skipped.
 fn parseLine(trimmed: []const u8, skip_count: *usize) ?Position {
     if (trimmed.len == 0 or trimmed[0] == '#') return null;
 
@@ -386,6 +385,10 @@ fn printParams(int_params: []const i32, writer: anytype) !void {
         "bishop_on_king_bonus",     "hanging_piece_penalty",    "attacked_by_pawn_penalty", "attacked_by_minor_penalty",
         "attacked_by_rook_penalty", "tempo_bonus",              "bishop_pair_bonus",        "knight_outpost_bonus",
         "space_per_square",         "center_control_bonus",     "extended_center_bonus",
+        "exchange_avoidance_weight", "mopup_edge_weight",       "mopup_proximity_weight",
+        "king_centralization_weight", "king_far_pawn_penalty",  "defended_by_pawn_penalty",
+        "pawn_advancement_scaler",  "pawn_storm_penalty",       "king_zone_attack_weight",
+        "king_defender_bonus",      "rule_of_square_bonus",     "trapped_piece_penalty",
     };
     const scalar_offsets = [_]usize{
         eval.P_CASTLED_BONUS,     eval.P_PAWN_SHIELD_BONUS,   eval.P_OPEN_FILE_PENALTY,
@@ -400,6 +403,10 @@ fn printParams(int_params: []const i32, writer: anytype) !void {
         eval.P_ATK_BY_MINOR,      eval.P_ATK_BY_ROOK,         eval.P_TEMPO_BONUS,
         eval.P_BISHOP_PAIR,       eval.P_KNIGHT_OUTPOST,      eval.P_SPACE_PER_SQ,
         eval.P_CENTER_CTRL,       eval.P_EXTENDED_CENTER,
+        eval.P_EXCHANGE_AVOIDANCE, eval.P_MOPUP_EDGE,         eval.P_MOPUP_PROXIMITY,
+        eval.P_KING_CENTRALIZATION, eval.P_KING_FAR_PAWN,     eval.P_DEFENDED_BY_PAWN,
+        eval.P_PAWN_ADVANCEMENT,  eval.P_PAWN_STORM,           eval.P_KING_ZONE_ATTACK,
+        eval.P_KING_DEFENDER,     eval.P_RULE_OF_SQUARE,       eval.P_TRAPPED_PIECE,
     };
     for (scalar_names, scalar_offsets) |name, off| {
         try writer.print("pub var {s}: i32 = {};\n", .{ name, int_params[off] });
@@ -622,4 +629,3 @@ pub fn main() !void {
     try printParams(int_params, stdout);
     try stdout.flush();
 }
-

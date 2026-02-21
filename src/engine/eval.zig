@@ -15,193 +15,194 @@ const bishop_phase: i32 = 1;
 const rook_phase: i32 = 2;
 const queen_phase: i32 = 4;
 
-pub var mg_pawn: i32 = 141;
-pub var eg_pawn: i32 = 302;
-pub var mg_knight: i32 = 715;
-pub var eg_knight: i32 = 1033;
-pub var mg_bishop: i32 = 765;
-pub var eg_bishop: i32 = 1127;
-pub var mg_rook: i32 = 965;
-pub var eg_rook: i32 = 1855;
-pub var mg_queen: i32 = 2400;
-pub var eg_queen: i32 = 3991;
-pub var mg_king: i32 = 20000;
-pub var eg_king: i32 = 20000;
+pub var mg_pawn: i32 = 77;
+pub var eg_pawn: i32 = 111;
+pub var mg_knight: i32 = 299;
+pub var eg_knight: i32 = 426;
+pub var mg_bishop: i32 = 309;
+pub var eg_bishop: i32 = 453;
+pub var mg_rook: i32 = 409;
+pub var eg_rook: i32 = 765;
+pub var mg_queen: i32 = 905;
+pub var eg_queen: i32 = 1463;
+pub var mg_king: i32 = 0;
+pub var eg_king: i32 = 0;
 
 pub var mg_pawn_table = [64]i32{
        0,   0,   0,   0,   0,   0,   0,   0,
-     -11, -21, -10,   6,   4, 107, 135,  13,
-     -20, -23,   6,  16,  46,  53,  59,  -2,
-     -12,  10,  29,  40,  76,  82,  70,   1,
-      12,  52,  36,  79, 138, 169, 114,  23,
-      22, 102, 170, 151, 203, 401, 219,  46,
-     312, 330, 240, 333, 288, 149, -295, -269,
+      -14,  -13,  -14,   -7,   -8,  19,  28,  -10,
+      -16,  -19,  -11,   -8,   3,   -1,   5,  -14,
+      -14,  -11,   0,   3,  12,  10,   6,  -14,
+      -11,   4,   0,  12,  29,  39,  24,   1,
+       -8,  20,  36,  28,  38, 105,  64,   9,
+     120, 125,  97, 120, 101,  61,  -59,  -52,
        0,   0,   0,   0,   0,   0,   0,   0,
 };
-
 pub var eg_pawn_table = [64]i32{
        0,   0,   0,   0,   0,   0,   0,   0,
-     125,  88,  90,  66,  98, 100,  40,  10,
-      87,  70,  50,  26,  49,  52,  17,  18,
-     123, 100,  26,   4,   1,  18,  29,  36,
-     183, 129,  76, -10,  -4,  14,  65,  79,
-     282, 244, 147,  35, -11,  55, 125, 163,
-     350, 324, 286, 107, 101, 167, 353, 371,
+      26,  24,  21,  15,  28,  22,   7,   -1,
+      20,  14,   7,   4,   9,  12,   2,   1,
+      27,  24,   1,   -5,   -5,   2,   6,   5,
+      47,  32,  19,  -11,   -5,   -1,  18,  18,
+      73,  69,  39,   7,   4,  14,  38,  49,
+     166, 159, 157, 112, 110, 124, 178, 180,
        0,   0,   0,   0,   0,   0,   0,   0,
 };
-
 pub var mg_knight_table = [64]i32{
-    -239, -26, -87, -10,  16,  30,  -4, -161,
-     -73, -67,   3,  61,  52,  42,  18,  19,
-     -47,  34,  41, 107, 112,  88,  62,  28,
-       9,  28,  77,  84, 110,  90, 148,  74,
-      64,  66, 129, 168,  95, 185, 114, 177,
-      -4,  72, 177, 191, 334, 345, 212, 141,
-       5,   2, 114, 209, 159, 277, -10, 127,
-    -504,-395,-269, -61, 107,-308,-236,-363,
+      -88,  -22,  -42,  -16,   -7,   -4,  -20,  -58,
+      -38,  -32,  -10,   7,   4,   5,   -6,   -5,
+      -28,   -3,   1,  18,  23,  11,   8,   -4,
+       -8,   -2,  10,  17,  26,  13,  32,  10,
+       7,  10,  27,  46,   8,  39,   4,  35,
+      -18,  10,  42,  41,  80,  83,  40,  22,
+       -8,  -11,  25,  44,  33,  69,  -14,  27,
+     -190, -148, -104,  -33,  18, -123,  -94, -147,
 };
-
 pub var eg_knight_table = [64]i32{
-     -84,-112,  -6,  26,   8,  -8, -56,-111,
-     -20,  44,  16,  48,  61,   4,  14, -11,
-     -50,  66,  87, 148, 136,  74,  53,  -7,
-      38,  88, 169, 178, 181, 162, 100,  64,
-      35,  88, 154, 191, 215, 170, 151,  67,
-      28,  77, 132, 135,  85, 117,  68,  20,
-     -42,  43,  35, 108,  92, -32,  51, -46,
-    -175,  68, 110,  61,  56, 156,  51,-245,
+      -44,  -53,  -17,   -8,  -10,  -18,  -33,  -49,
+      -22,   0,   -7,   -1,   6,  -10,  -11,  -16,
+      -30,   3,  12,  31,  25,   5,   3,  -16,
+       1,  13,  36,  38,  42,  34,  18,   2,
+       -2,  15,  34,  43,  47,  36,  33,   6,
+       -8,   8,  25,  26,  10,  19,   3,  -11,
+      -20,   -3,   -4,  12,   7,  -21,   0,  -32,
+      -66,   2,  21,   1,   0,  30,   1,  -91,
 };
-
 pub var mg_bishop_table = [64]i32{
-      60,  70,  -1, -50, -40,  16,  11,  47,
-      36,  58,  75,  23,  36,  52, 108,  56,
-       5,  55,  43,  61,  42,  64,  50,  73,
-       9,  11,  36,  90,  98,   4,  33,  37,
-     -20,  75,  48, 163, 104, 109,  65,  19,
-      23,  64, 124,  82, 140, 201, 163,  60,
-     -81,  -7, -19, -62, -16,  30, -93, -46,
-    -151,-155,-307,-326,-288,-378, -43,-177,
+       9,  15,   -8,  -18,  -15,   -3,   -1,   5,
+       6,   9,  18,   -1,   6,  11,  26,  11,
+      -10,  11,   9,  10,   8,  11,   9,  14,
+       -5,   -6,   3,  23,  24,   -4,   3,   6,
+       -8,  12,   9,  41,  21,  24,   9,   -6,
+       0,  10,  32,  19,  31,  48,  37,   4,
+      -29,   -3,  -11,  -26,  -15,   0,  -36,  -28,
+      -58,  -56, -105, -110, -102, -134,  -18,  -58,
 };
-
 pub var eg_bishop_table = [64]i32{
-     -33,  18,  -3,  51,  60,  42,   0, -38,
-      46,   0,  35,  73,  69,  35,  13, -60,
-      64,  99, 101, 127, 134,  95,  70,  45,
-      76, 100, 157, 134, 138, 146, 107,  56,
-     116, 130, 129, 140, 158, 135, 165, 141,
-     106, 131, 127, 103, 117, 149, 119, 111,
-      81, 113, 134, 124, 115, 122, 128,  84,
-     114, 134, 138, 179, 152, 146,  73,  84,
+      -22,   -4,   -8,   2,   3,   5,   -9,  -30,
+       -3,  -14,   -3,  11,   9,   -1,   -6,  -32,
+       5,  16,  21,  25,  32,  18,   7,   2,
+       9,  20,  33,  31,  29,  32,  21,   4,
+      21,  27,  26,  30,  34,  26,  32,  25,
+      21,  25,  24,  20,  21,  30,  21,  22,
+       8,  21,  23,  24,  21,  19,  27,   9,
+      23,  24,  32,  40,  33,  33,  10,  13,
 };
-
 pub var mg_rook_table = [64]i32{
-     -26,  -8,  16,  39,  43,  45,  73, -10,
-    -140, -67, -36, -19,  -6,  33,  62, -68,
-     -84, -57, -63, -37, -31, -24,  79,  -6,
-     -68, -63, -52, -17, -29, -13,  58,   3,
-     -25,  17,  42, 123, 103, 132, 158, 133,
-       7, 127,  85, 165, 240, 299, 379, 191,
-      50,  12, 108, 164, 148, 266, 197, 274,
-     145, 146,  59, 119, 113, 206, 262, 304,
+      -21,  -16,  -10,   1,   3,   1,   8,  -14,
+      -53,  -34,  -21,  -16,  -13,   -3,   8,  -34,
+      -40,  -30,  -33,  -25,  -21,  -23,   8,  -15,
+      -32,  -32,  -29,  -18,  -18,  -24,   3,  -16,
+      -17,   -2,   6,  27,  18,  26,  31,  20,
+       -9,  28,  16,  36,  59,  76, 100,  41,
+       2,   -7,  18,  33,  26,  63,  42,  66,
+      31,  31,   -1,  16,  14,  47,  66,  73,
 };
-
 pub var eg_rook_table = [64]i32{
-     192, 192, 186, 152, 154, 183, 161, 141,
-     174, 172, 168, 147, 139, 124, 120, 145,
-     168, 213, 196, 173, 171, 174, 160, 140,
-     243, 286, 267, 242, 239, 246, 232, 220,
-     273, 271, 258, 230, 231, 228, 220, 250,
-     290, 242, 260, 222, 196, 220, 155, 234,
-     310, 330, 295, 287, 293, 213, 263, 245,
-     311, 325, 334, 317, 337, 330, 332, 326,
+      12,   9,   8,   0,   -6,   5,   -3,   1,
+       6,   5,   4,   -5,   -5,  -10,  -12,   -3,
+       7,  17,  11,   4,   4,   0,   -4,   -7,
+      26,  37,  30,  20,  19,  23,  18,  16,
+      34,  31,  29,  21,  15,  16,  13,  24,
+      38,  24,  31,  15,   7,  14,   0,  19,
+      42,  50,  41,  35,  37,  18,  29,  23,
+      46,  49,  55,  44,  49,  48,  47,  48,
 };
-
 pub var mg_queen_table = [64]i32{
-       2,  11,  32,  53,  64, -19, -15,  -6,
-      -4,   9,  34,  31,  39,  86,  72,  62,
-     -14,   4,  17, -17,   6,   4,  27,  40,
-     -28, -21, -46, -45, -47,  -2,   9,  54,
-     -42, -57, -85, -86, -63,   2,  63,  58,
-     -76, -64, -86, -74,   8, 218, 260, 156,
-     -97,-220,-111,-182,-139, 110, -57, 184,
-     -92, -59, -42,   8,  53, 150, 228, 131,
+       -2,   1,   6,  11,  15,   -5,   -5,   -8,
+       -1,   0,   8,  11,  10,  26,  23,  18,
+       -8,   -2,   0,   -7,   1,   1,   7,  10,
+       -5,  -10,  -19,  -15,  -17,   -4,   -2,  11,
+      -12,  -16,  -27,  -31,  -23,   -8,   6,   5,
+      -18,  -16,  -21,  -21,   -4,  47,  56,  18,
+      -29,  -61,  -36,  -59,  -54,  18,  -26,  47,
+      -39,  -30,  -26,  -12,   -6,  23,  48,  28,
 };
-
 pub var eg_queen_table = [64]i32{
-    -175,-238,-217,-157,-233,-220,-276,-187,
-    -181,-147,-201,-148,-165,-290,-341,-271,
-    -136, -61, -20, -46, -39, -19, -66,-104,
-     -80,  45,  46, 129, 125, 130,  93, 107,
-     -51,  87,  95, 188, 271, 305, 289, 223,
-       2,   4, 124, 183, 278, 257, 182, 213,
-      62, 209, 201, 333, 416, 282, 315, 170,
-     105, 171, 207, 220, 248, 257, 158, 172,
+      -28,  -44,  -39,  -20,  -43,  -43,  -59,  -28,
+      -24,  -19,  -28,  -15,  -16,  -65,  -80,  -63,
+       -8,  11,  22,  19,  20,  24,   9,  -11,
+      11,  43,  45,  71,  70,  64,  54,  54,
+      21,  59,  63,  92, 109, 118, 110,  92,
+      34,  40,  72,  95, 114, 108,  84,  96,
+      52,  87,  95, 137, 165, 112, 121,  75,
+      61,  82,  96, 100, 109, 105,  77,  78,
 };
-
 pub var mg_king_table = [64]i32{
-       4, 112, -32,-220, -77,-246,  24,  75,
-      51, -39, -82,-206,-160,-168,  27,  56,
-    -155, -38, -92,-108, -61, -85, -24,-142,
-    -183,  31,  59,-116, -17,   4,  32,-321,
-     -96, 133, 120, -33,   7, 114,  84,-215,
-    -105, 365, 307, 123, 255, 406, 275,-140,
-    -187, 245, 244, 437, 251, 307, 251,-119,
-     221, 458, 501, 194, 112, 281, 446, 365,
+       -7,  27,   4,  -71,  -24,  -69,   9,  15,
+      12,   -5,  -16,  -47,  -36,  -39,  13,  15,
+      -45,   9,   -2,   -8,   3,   -9,   5,  -39,
+      -50,  20,  31,  -21,   5,  18,  27,  -89,
+      -40,  37,  24,  -28,   -9,  29,  31,  -69,
+      -58,  91,  75,   3,  39,  90,  62,  -59,
+      -88,  42,  40, 107,  40,  46,  34,  -74,
+     119, 161, 141,  58,  25,  64, 125, 169,
 };
-
 pub var eg_king_table = [64]i32{
-    -222,-121, -44, -24,-139,  -2,-117,-315,
-     -39,  17,  68,  75,  71,  76, -21,-107,
-     -21,  42,  96, 127, 120,  86,  19, -21,
-     -41,  61, 116, 150, 121,  97,  53,  21,
-      14,  85, 125, 134, 115, 105,  94,  29,
-      26,  94, 102, 114,  73, 111, 137,  42,
-     -39,  79,  64,  -5,  58,  74, 145,  -9,
-    -467,-244,-179, -35, -67, -67, -95,-428,
+      -42,  -21,   -6,   -6,  -31,   8,  -22,  -69,
+       2,   9,  13,   9,   9,  16,   -1,  -17,
+       -4,   3,   9,  10,   5,   8,   -3,   -2,
+      -19,   0,   6,   8,   1,   4,   -2,   1,
+       1,  11,  19,  10,   8,  16,  21,   8,
+      24,  31,  21,  22,  17,  36,  47,  29,
+      15,  39,  29,   -5,  13,  34,  61,  29,
+     -135,  -59,  -38,   -9,  -22,  -10,   2, -126,
 };
 
-pub var knight_mobility_bonus = [9]i32{ 80, 126, 143, 160, 177, 188, 199, 206, 181, };
-pub var bishop_mobility_bonus = [14]i32{ 71, 82, 102, 122, 145, 159, 171, 180, 188, 194, 198, 192, 211, 159, };
-pub var rook_mobility_bonus = [15]i32{ 167, 188, 204, 215, 223, 236, 247, 260, 274, 284, 293, 297, 304, 278, 244, };
-pub var queen_mobility_bonus = [28]i32{ 206, 228, 246, 258, 260, 272, 285, 292, 307, 326, 336, 342, 350, 360, 359, 370, 372, 365, 371, 375, 383, 367, 368, 358, 376, 386, 406, 388, };
-pub var mg_passed_bonus = [8]i32{ 0, 11, 1, 17, 127, 235, 394, 0, };
-pub var passed_pawn_bonus = [8]i32{ 0, 7, 20, 69, 112, 204, 227, 0, };
-pub var safety_table = [16]i32{ 161, 70, 49, 62, 72, 65, 56, 55, 74, 61, 59, 54, 90, 169, 128, 74, };
-pub var castled_bonus: i32 = 30;
-pub var pawn_shield_bonus: i32 = 30;
-pub var open_file_penalty: i32 = -142;
-pub var semi_open_penalty: i32 = -26;
-pub var knight_attack_bonus: i32 = 869;
-pub var bishop_attack_bonus: i32 = -869;
-pub var rook_attack_bonus: i32 = -20869;
-pub var queen_attack_bonus: i32 = -19170;
+pub var knight_mobility_bonus = [9]i32{ -16, 0, 9, 15, 19, 25, 29, 31, 21, };
+pub var bishop_mobility_bonus = [14]i32{ -17, -11, -2, 5, 12, 18, 21, 23, 27, 27, 25, 23, 28, 11, };
+pub var rook_mobility_bonus = [15]i32{ -7, 4, 9, 11, 13, 18, 21, 25, 28, 31, 34, 35, 35, 28, 20, };
+pub var queen_mobility_bonus = [28]i32{ -13, -4, -2, 0, 3, 5, 9, 13, 18, 19, 24, 26, 28, 29, 32, 32, 34, 34, 35, 37, 38, 37, 37, 31, 37, 37, 38, 28, };
+pub var mg_passed_bonus = [8]i32{ 0, 4, 0, 4, 34, 57, 62, 0, };
+pub var passed_pawn_bonus = [8]i32{ 0, -22, -15, 6, 26, 86, 53, 0, };
+pub var safety_table = [16]i32{ 39, 14, 17, 21, 21, 20, 14, 42, 18, 66, 18, 156, 35, 233, 10, 227, };
+pub var castled_bonus: i32 = 1;
+pub var pawn_shield_bonus: i32 = 11;
+pub var open_file_penalty: i32 = -45;
+pub var semi_open_penalty: i32 = -13;
+pub var knight_attack_bonus: i32 = 0;
+pub var bishop_attack_bonus: i32 = 0;
+pub var rook_attack_bonus: i32 = -4757;
+pub var queen_attack_bonus: i32 = -5492;
 pub var rook_on_7th_bonus: i32 = 2;
-pub var rook_behind_passer_bonus: i32 = 22;
-pub var king_pawn_proximity: i32 = 14;
-pub var protected_pawn_bonus: i32 = 27;
-pub var doubled_pawn_penalty: i32 = -22;
-pub var isolated_pawn_penalty: i32 = -39;
-pub var rook_on_open_file_bonus: i32 = 77;
-pub var rook_on_semi_open_file_bonus: i32 = 45;
-pub var minor_threat_penalty: i32 = 81;
-pub var rook_threat_penalty: i32 = 23;
-pub var queen_threat_penalty: i32 = 33;
-pub var rook_on_queen_bonus: i32 = 20;
-pub var rook_on_king_bonus: i32 = 1;
-pub var queen_on_king_bonus: i32 = 13;
-pub var bad_bishop_penalty: i32 = 20;
-pub var bishop_on_queen_bonus: i32 = 50;
-pub var bishop_on_king_bonus: i32 = -10;
-pub var hanging_piece_penalty: i32 = -28;
-pub var attacked_by_pawn_penalty: i32 = 10;
-pub var attacked_by_minor_penalty: i32 = 68;
-pub var attacked_by_rook_penalty: i32 = 99;
-pub var tempo_bonus: i32 = 34;
-pub var bishop_pair_bonus: i32 = 121;
-pub var knight_outpost_bonus: i32 = 33;
-pub var space_per_square: i32 = -3;
+pub var rook_behind_passer_bonus: i32 = 7;
+pub var king_pawn_proximity: i32 = 6;
+pub var protected_pawn_bonus: i32 = 10;
+pub var doubled_pawn_penalty: i32 = -7;
+pub var isolated_pawn_penalty: i32 = -11;
+pub var rook_on_open_file_bonus: i32 = 25;
+pub var rook_on_semi_open_file_bonus: i32 = 15;
+pub var minor_threat_penalty: i32 = 32;
+pub var rook_threat_penalty: i32 = 11;
+pub var queen_threat_penalty: i32 = 14;
+pub var rook_on_queen_bonus: i32 = 7;
+pub var rook_on_king_bonus: i32 = 0;
+pub var queen_on_king_bonus: i32 = 4;
+pub var bad_bishop_penalty: i32 = 5;
+pub var bishop_on_queen_bonus: i32 = 26;
+pub var bishop_on_king_bonus: i32 = -5;
+pub var hanging_piece_penalty: i32 = -22;
+pub var attacked_by_pawn_penalty: i32 = 13;
+pub var attacked_by_minor_penalty: i32 = 29;
+pub var attacked_by_rook_penalty: i32 = 35;
+pub var tempo_bonus: i32 = 16;
+pub var bishop_pair_bonus: i32 = 43;
+pub var knight_outpost_bonus: i32 = 10;
+pub var space_per_square: i32 = 0;
 pub var center_control_bonus: i32 = 1;
-pub var extended_center_bonus: i32 = 4;
+pub var extended_center_bonus: i32 = 2;
+pub var exchange_avoidance_weight: i32 = 2;
+pub var mopup_edge_weight: i32 = 10;
+pub var mopup_proximity_weight: i32 = -8;
+pub var king_centralization_weight: i32 = 10;
+pub var king_far_pawn_penalty: i32 = 36;
+pub var defended_by_pawn_penalty: i32 = 1;
+pub var pawn_advancement_scaler: i32 = -8;
+pub var pawn_storm_penalty: i32 = -9;
+pub var king_zone_attack_weight: i32 = 10;
+pub var king_defender_bonus: i32 = 0;
+pub var rule_of_square_bonus: i32 = 149;
+pub var trapped_piece_penalty: i32 = 0;
 
 const EvalStruct = struct {
     mg: i32,
@@ -350,17 +351,17 @@ pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen, alpha: i32, beta: i32
     const white_base = evalBase(board, brd.Color.White);
     const black_base = evalBase(board, brd.Color.Black);
 
-    // pawn_tt.pawn_tt.prefetch(board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(current_phase))]);
+    pawn_tt.pawn_tt.prefetch(board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(current_phase))]);
     mg_score += white_base.mg - black_base.mg;
     eg_score += white_base.eg - black_base.eg;
 
     // checking pawn_tt is fast so if we get a hit we use it
-    const got_pawns = false;
-    // if (pawn_tt.pawn_tt.get(board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(current_phase))])) |e| {
-    //     mg_score += e.mg;
-    //     eg_score += e.eg;
-    //     got_pawns = true;
-    // }
+    var got_pawns = false;
+    if (pawn_tt.pawn_tt.get(board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(current_phase))])) |e| {
+        mg_score += e.mg;
+        eg_score += e.eg;
+        got_pawns = true;
+    }
 
     var score = (mg_score * current_phase + eg_score * (total_phase - current_phase));
     score = @divTrunc(score, total_phase);
@@ -390,6 +391,16 @@ pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen, alpha: i32, beta: i32
     mg_score += evalKingSafety(board, brd.Color.White);
     mg_score -= evalKingSafety(board, brd.Color.Black);
 
+    // Pawn storm (mg-only king safety feature)
+    mg_score += evalPawnStorm(board, brd.Color.White);
+    mg_score -= evalPawnStorm(board, brd.Color.Black);
+
+    // King zone control and defenders (mg-weighted features)
+    mg_score += evalKingZoneControl(board, brd.Color.White, move_gen, attack_cache);
+    mg_score -= evalKingZoneControl(board, brd.Color.Black, move_gen, attack_cache);
+    mg_score += evalKingDefenders(board, brd.Color.White, move_gen, attack_cache);
+    mg_score -= evalKingDefenders(board, brd.Color.Black, move_gen, attack_cache);
+
     if (!got_pawns) {
         const pawn_eval = evalPawnStructure(board, current_phase);
         mg_score += pawn_eval.mg;
@@ -399,6 +410,10 @@ pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen, alpha: i32, beta: i32
     if (current_phase < total_phase / 2) {
         const eg_eval = evalEndgame(board, current_phase);
         eg_score += eg_eval;
+
+        // Rule of the Square (endgame only - when few pieces)
+        eg_score += evalRuleOfSquare(board, brd.Color.White);
+        eg_score -= evalRuleOfSquare(board, brd.Color.Black);
     }
 
     const white_bishops = @popCount(board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Bishop)]);
@@ -420,6 +435,10 @@ pub fn evaluate(board: *brd.Board, move_gen: *mvs.MoveGen, alpha: i32, beta: i32
     global_score -= evalSpace(board, brd.Color.Black, attack_cache);
 
     global_score += evalExchangeAvoidance(board);
+
+    // Trapped pieces (applies all game)
+    global_score += evalTrappedPieces(board, brd.Color.White, move_gen, attack_cache);
+    global_score -= evalTrappedPieces(board, brd.Color.Black, move_gen, attack_cache);
 
     mg_score += global_score;
     eg_score += global_score;
@@ -766,11 +785,11 @@ fn evalPawnStructure(board: *brd.Board, phase: i32) PawnEval {
     result.mg = white_eval.mg - black_eval.mg;
     result.eg = white_eval.eg - black_eval.eg;
 
-    // pawn_tt.pawn_tt.set(pawn_tt.Entry{
-    //     .hash = board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(phase))],
-    //     .mg = result.mg,
-    //     .eg = result.eg,
-    // });
+    pawn_tt.pawn_tt.set(pawn_tt.Entry{
+        .hash = board.game_state.pawn_hash ^ zob.ZobristKeys.eval_phase[@as(usize, @intCast(phase))],
+        .mg = result.mg,
+        .eg = result.eg,
+    });
 
     return result;
 }
@@ -823,7 +842,7 @@ fn evalPawnsForColor(board: *brd.Board, color: brd.Color, phase: i32) PawnEval {
             }
 
             const advancement_bonus = if (relative_rank >= 5)
-                @divTrunc((total_phase - phase) * @as(i32, @intCast(relative_rank)) * 3, total_phase)
+                @divTrunc((total_phase - phase) * @as(i32, @intCast(relative_rank)) * pawn_advancement_scaler, total_phase)
             else
                 0;
 
@@ -900,9 +919,9 @@ fn evalEndgame(board: *brd.Board, phase: i32) i32 {
             const loser_king_sq = brd.getLSB(loser_king_bb);
 
             // Drive losing king to the edge
-            const edge_score = centerDistance(loser_king_sq) * 10;
+            const edge_score = centerDistance(loser_king_sq) * mopup_edge_weight;
             // Bring winning king closer to losing king
-            const king_proximity = (14 - manhattanDistance(winner_king_sq, loser_king_sq)) * 4;
+            const king_proximity = (14 - manhattanDistance(winner_king_sq, loser_king_sq)) * mopup_proximity_weight;
             const mopup_score = edge_score + king_proximity;
 
             if (material_diff > 0) {
@@ -949,7 +968,7 @@ fn evalKingActivity(board: *brd.Board, color: brd.Color, phase: i32) i32 {
 
     // Bonus for centralized king in endgame
     const centralization = 7 - centerDistance(king_sq);
-    score += centralization * 2;
+    score += centralization * king_centralization_weight;
 
     // Bonus for king being close to passed pawns
     const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
@@ -979,7 +998,7 @@ fn evalKingActivity(board: *brd.Board, color: brd.Color, phase: i32) i32 {
         if (is_passed) {
             const dist = manhattanDistance(king_sq, pawn_sq);
             if (dist > 4) {
-                score -= 3;
+                score -= king_far_pawn_penalty;
             }
         }
 
@@ -1122,7 +1141,7 @@ fn evalThreats(board: *brd.Board, color: brd.Color, cache: AttackCache) i32 {
                 if (!is_defended) {
                     score -= hanging_piece_penalty + attacked_by_pawn_penalty;
                 } else {
-                    score -= @divTrunc(attacked_by_pawn_penalty, 2);
+                    score -= defended_by_pawn_penalty;
                 }
             }
 
@@ -1298,7 +1317,186 @@ fn evalExchangeAvoidance(board: *brd.Board) i32 {
 
     // The winning side wants more pieces on the board
     const sign: i32 = if (diff > 0) 1 else -1;
-    return sign * @divTrunc(total_pieces * 5, 1);
+    return sign * total_pieces * exchange_avoidance_weight;
+}
+
+// Pawn Storm: penalize opponent pawns advancing toward our castled king
+fn evalPawnStorm(board: *brd.Board, color: brd.Color) i32 {
+    const c_idx = @intFromEnum(color);
+    const opp_idx = 1 - c_idx;
+    const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
+    if (king_bb == 0) return 0;
+
+    const king_sq = brd.getLSB(king_bb);
+    const king_file: i32 = @intCast(@mod(king_sq, 8));
+    const king_rank: i32 = @intCast(@divTrunc(king_sq, 8));
+
+    // Only relevant when king is on flanks (castled position)
+    if (king_file > 2 and king_file < 5) return 0;
+
+    const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
+    var penalty: i32 = 0;
+
+    const files = [3]i32{ king_file - 1, king_file, king_file + 1 };
+    for (files) |file| {
+        if (file < 0 or file > 7) continue;
+        const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
+        var pawns = opp_pawns & file_mask;
+        while (pawns != 0) {
+            const sq = brd.getLSB(pawns);
+            const pawn_rank: i32 = @intCast(@divTrunc(sq, 8));
+            // How close is the pawn to our king's rank?
+            const advance = if (color == brd.Color.White)
+                7 - pawn_rank // For white king, black pawns advance by decreasing rank
+            else
+                pawn_rank; // For black king, white pawns advance by increasing rank
+            // More advanced pawns = more dangerous
+            if (advance >= 4) {
+                penalty += (advance - 3) * pawn_storm_penalty;
+            }
+            brd.popBit(&pawns, sq);
+        }
+    }
+    _ = king_rank;
+    return -penalty;
+}
+
+// King Zone Control: penalize based on how many squares around king the opponent controls
+fn evalKingZoneControl(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen, cache: AttackCache) i32 {
+    const c_idx = @intFromEnum(color);
+    const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
+    if (king_bb == 0) return 0;
+
+    const king_sq = brd.getLSB(king_bb);
+    const king_zone = getKingZone(king_sq, color, move_gen);
+
+    var opp_attacks: u64 = 0;
+    if (color == .White) {
+        opp_attacks = cache.opp_pawn_attacks | cache.opp_knight_attacks | cache.opp_bishop_attacks | cache.opp_rook_attacks | cache.opp_queen_attacks;
+    } else {
+        opp_attacks = cache.our_pawn_attacks | cache.our_knight_attacks | cache.our_bishop_attacks | cache.our_rook_attacks | cache.our_queen_attacks;
+    }
+
+    const attacked_zone_squares = @popCount(opp_attacks & king_zone);
+    return -@as(i32, @intCast(attacked_zone_squares)) * king_zone_attack_weight;
+}
+
+// King Defenders: bonus for friendly pieces defending the king zone
+fn evalKingDefenders(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen, cache: AttackCache) i32 {
+    const c_idx = @intFromEnum(color);
+    const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
+    if (king_bb == 0) return 0;
+
+    const king_sq = brd.getLSB(king_bb);
+    const king_zone = getKingZone(king_sq, color, move_gen);
+
+    var our_attacks: u64 = 0;
+    if (color == .White) {
+        our_attacks = cache.our_pawn_attacks | cache.our_knight_attacks | cache.our_bishop_attacks | cache.our_rook_attacks | cache.our_queen_attacks;
+    } else {
+        our_attacks = cache.opp_pawn_attacks | cache.opp_knight_attacks | cache.opp_bishop_attacks | cache.opp_rook_attacks | cache.opp_queen_attacks;
+    }
+
+    const defended_zone_squares = @popCount(our_attacks & king_zone);
+    return @as(i32, @intCast(defended_zone_squares)) * king_defender_bonus;
+}
+
+// Rule of the Square: massive bonus for unstoppable passed pawns
+fn evalRuleOfSquare(board: *brd.Board, color: brd.Color) i32 {
+    const c_idx = @intFromEnum(color);
+    const opp_idx = 1 - c_idx;
+    var score: i32 = 0;
+
+    const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
+    const opp_king_bb = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.King)];
+    if (opp_king_bb == 0) return 0;
+    const opp_king_sq = brd.getLSB(opp_king_bb);
+
+    // Only apply when opponent has no pieces other than king and pawns
+    const opp_knights = @popCount(board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Knight)]);
+    const opp_bishops = @popCount(board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Bishop)]);
+    const opp_rooks = @popCount(board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Rook)]);
+    const opp_queens = @popCount(board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Queen)]);
+    if (opp_knights + opp_bishops + opp_rooks + opp_queens > 0) return 0;
+
+    var pawn_bb = our_pawns;
+    while (pawn_bb != 0) {
+        const sq = brd.getLSB(pawn_bb);
+        if (checkPassedPawn(board, sq, color)) {
+            const rank: i32 = @intCast(@divTrunc(sq, 8));
+            const file: i32 = @intCast(@mod(sq, 8));
+            const promo_rank: i32 = if (color == brd.Color.White) 7 else 0;
+            const promo_sq_file = file;
+            const pawn_dist = @abs(promo_rank - rank);
+
+            // Adjust for tempo: if it's opponent's turn, they get one extra move
+            const tempo_adjust: i32 = if (board.toMove() != color) 1 else 0;
+
+            const king_rank: i32 = @intCast(@divTrunc(opp_king_sq, 8));
+            const king_file: i32 = @intCast(@mod(opp_king_sq, 8));
+            const king_dist = @as(i32, @intCast(@max(@abs(king_rank - promo_rank), @abs(king_file - promo_sq_file))));
+
+            if (pawn_dist < king_dist - tempo_adjust) {
+                score += rule_of_square_bonus;
+            }
+        }
+        brd.popBit(&pawn_bb, sq);
+    }
+
+    return score;
+}
+
+// Trapped Pieces: penalize pieces with very low mobility
+fn evalTrappedPieces(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen, cache: AttackCache) i32 {
+    const c_idx = @intFromEnum(color);
+    const our_pieces = board.color_bb[c_idx];
+    const occupancy = cache.occupancy;
+    var score: i32 = 0;
+
+    var opp_pawn_attacks: u64 = 0;
+    if (color == .White) {
+        opp_pawn_attacks = cache.opp_pawn_attacks;
+    } else {
+        opp_pawn_attacks = cache.our_pawn_attacks;
+    }
+
+    // Knights
+    var bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Knight)];
+    while (bb != 0) {
+        const sq = brd.getLSB(bb);
+        const attacks = move_gen.knights[sq];
+        const safe = attacks & ~our_pieces & ~opp_pawn_attacks;
+        if (@popCount(safe) == 0) {
+            score -= trapped_piece_penalty;
+        }
+        brd.popBit(&bb, sq);
+    }
+
+    // Bishops
+    bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Bishop)];
+    while (bb != 0) {
+        const sq = brd.getLSB(bb);
+        const attacks = move_gen.getBishopAttacks(sq, occupancy);
+        const safe = attacks & ~our_pieces & ~opp_pawn_attacks;
+        if (@popCount(safe) == 0) {
+            score -= trapped_piece_penalty;
+        }
+        brd.popBit(&bb, sq);
+    }
+
+    // Rooks
+    bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Rook)];
+    while (bb != 0) {
+        const sq = brd.getLSB(bb);
+        const attacks = move_gen.getRookAttacks(sq, occupancy);
+        const safe = attacks & ~our_pieces & ~opp_pawn_attacks;
+        if (@popCount(safe) <= 1) {
+            score -= trapped_piece_penalty;
+        }
+        brd.popBit(&bb, sq);
+    }
+
+    return score;
 }
 
 pub fn almostMate(score: i32) bool {
@@ -1383,7 +1581,23 @@ pub const P_SPACE_PER_SQ: usize = P_KNIGHT_OUTPOST + 1;
 pub const P_CENTER_CTRL: usize = P_SPACE_PER_SQ + 1;
 pub const P_EXTENDED_CENTER: usize = P_CENTER_CTRL + 1;
 
-pub const NUM_PARAMS: usize = P_EXTENDED_CENTER + 1;
+// Newly exposed parameters
+pub const P_EXCHANGE_AVOIDANCE: usize = P_EXTENDED_CENTER + 1;
+pub const P_MOPUP_EDGE: usize = P_EXCHANGE_AVOIDANCE + 1;
+pub const P_MOPUP_PROXIMITY: usize = P_MOPUP_EDGE + 1;
+pub const P_KING_CENTRALIZATION: usize = P_MOPUP_PROXIMITY + 1;
+pub const P_KING_FAR_PAWN: usize = P_KING_CENTRALIZATION + 1;
+pub const P_DEFENDED_BY_PAWN: usize = P_KING_FAR_PAWN + 1;
+pub const P_PAWN_ADVANCEMENT: usize = P_DEFENDED_BY_PAWN + 1;
+
+// New feature parameters
+pub const P_PAWN_STORM: usize = P_PAWN_ADVANCEMENT + 1;
+pub const P_KING_ZONE_ATTACK: usize = P_PAWN_STORM + 1;
+pub const P_KING_DEFENDER: usize = P_KING_ZONE_ATTACK + 1;
+pub const P_RULE_OF_SQUARE: usize = P_KING_DEFENDER + 1;
+pub const P_TRAPPED_PIECE: usize = P_RULE_OF_SQUARE + 1;
+
+pub const NUM_PARAMS: usize = P_TRAPPED_PIECE + 1;
 
 /// Serialize all tunable parameters into a flat i32 buffer.
 pub fn exportParams(buf: []i32) void {
@@ -1460,6 +1674,18 @@ pub fn exportParams(buf: []i32) void {
     buf[P_SPACE_PER_SQ] = space_per_square;
     buf[P_CENTER_CTRL] = center_control_bonus;
     buf[P_EXTENDED_CENTER] = extended_center_bonus;
+    buf[P_EXCHANGE_AVOIDANCE] = exchange_avoidance_weight;
+    buf[P_MOPUP_EDGE] = mopup_edge_weight;
+    buf[P_MOPUP_PROXIMITY] = mopup_proximity_weight;
+    buf[P_KING_CENTRALIZATION] = king_centralization_weight;
+    buf[P_KING_FAR_PAWN] = king_far_pawn_penalty;
+    buf[P_DEFENDED_BY_PAWN] = defended_by_pawn_penalty;
+    buf[P_PAWN_ADVANCEMENT] = pawn_advancement_scaler;
+    buf[P_PAWN_STORM] = pawn_storm_penalty;
+    buf[P_KING_ZONE_ATTACK] = king_zone_attack_weight;
+    buf[P_KING_DEFENDER] = king_defender_bonus;
+    buf[P_RULE_OF_SQUARE] = rule_of_square_bonus;
+    buf[P_TRAPPED_PIECE] = trapped_piece_penalty;
 }
 
 /// Load parameters from a flat buffer back into the eval globals.
@@ -1537,6 +1763,18 @@ pub fn importParams(buf: []const i32) void {
     space_per_square = buf[P_SPACE_PER_SQ];
     center_control_bonus = buf[P_CENTER_CTRL];
     extended_center_bonus = buf[P_EXTENDED_CENTER];
+    exchange_avoidance_weight = buf[P_EXCHANGE_AVOIDANCE];
+    mopup_edge_weight = buf[P_MOPUP_EDGE];
+    mopup_proximity_weight = buf[P_MOPUP_PROXIMITY];
+    king_centralization_weight = buf[P_KING_CENTRALIZATION];
+    king_far_pawn_penalty = buf[P_KING_FAR_PAWN];
+    defended_by_pawn_penalty = buf[P_DEFENDED_BY_PAWN];
+    pawn_advancement_scaler = buf[P_PAWN_ADVANCEMENT];
+    pawn_storm_penalty = buf[P_PAWN_STORM];
+    king_zone_attack_weight = buf[P_KING_ZONE_ATTACK];
+    king_defender_bonus = buf[P_KING_DEFENDER];
+    rule_of_square_bonus = buf[P_RULE_OF_SQUARE];
+    trapped_piece_penalty = buf[P_TRAPPED_PIECE];
 }
 
 pub fn evalTuner(board: *brd.Board, move_gen: *mvs.MoveGen) i32 {
@@ -1588,6 +1826,31 @@ pub fn computeCoefficients(board: *brd.Board, move_gen: *mvs.MoveGen) [NUM_PARAM
 
     coeffsSpace(board, .White, cache, &mg_c, &eg_c, 1.0);
     coeffsSpace(board, .Black, cache, &mg_c, &eg_c, -1.0);
+
+    // Exchange avoidance coefficients
+    coeffsExchangeAvoidance(board, &mg_c, &eg_c);
+
+    // Pawn storm coefficients (mg only)
+    coeffsPawnStorm(board, .White, &mg_c, 1.0);
+    coeffsPawnStorm(board, .Black, &mg_c, -1.0);
+
+    // King zone control coefficients (mg only)
+    coeffsKingZoneControl(board, .White, move_gen, cache, &mg_c, 1.0);
+    coeffsKingZoneControl(board, .Black, move_gen, cache, &mg_c, -1.0);
+
+    // King defender coefficients (mg only)
+    coeffsKingDefenders(board, .White, move_gen, cache, &mg_c, 1.0);
+    coeffsKingDefenders(board, .Black, move_gen, cache, &mg_c, -1.0);
+
+    // Rule of square coefficients (eg only)
+    if (current_phase < @divTrunc(total_phase, 2)) {
+        coeffsRuleOfSquare(board, .White, &eg_c, 1.0);
+        coeffsRuleOfSquare(board, .Black, &eg_c, -1.0);
+    }
+
+    // Trapped pieces coefficients (both mg and eg)
+    coeffsTrappedPieces(board, .White, move_gen, cache, &mg_c, &eg_c, 1.0);
+    coeffsTrappedPieces(board, .Black, move_gen, cache, &mg_c, &eg_c, -1.0);
 
     var coeffs: [NUM_PARAMS]f64 = undefined;
     const ph: f64 = @floatFromInt(current_phase);
@@ -2044,6 +2307,14 @@ fn coeffsPawnStructure(
 
             const eg_scale: f64 = if (phase < 12) 1.5 else 1.0;
             eg_c[P_EG_PASSED + relative_rank] += sign * eg_scale;
+
+            // Pawn advancement scaler coefficient (eg only, for relative_rank >= 5)
+            if (relative_rank >= 5) {
+                const tp: f64 = @floatFromInt(total_phase);
+                const ph: f64 = @floatFromInt(phase);
+                const rr: f64 = @floatFromInt(relative_rank);
+                eg_c[P_PAWN_ADVANCEMENT] += sign * (tp - ph) * rr / tp;
+            }
         }
 
         const is_protected = blk: {
@@ -2094,6 +2365,29 @@ fn coeffsEndgame(board: *brd.Board, eg_c: []f64) void {
     // evalKingActivity king_pawn_proximity for white (+1) and black (-1)
     coeffsKingActivity(board, .White, eg_c, 1.0);
     coeffsKingActivity(board, .Black, eg_c, -1.0);
+
+    // Mop-up coefficients
+    const white_material = countMaterial(board, brd.Color.White);
+    const black_material = countMaterial(board, brd.Color.Black);
+    const material_diff = white_material - black_material;
+    if (@abs(material_diff) > 200) {
+        const winning_side = if (material_diff > 0) brd.Color.White else brd.Color.Black;
+        const losing_side = if (material_diff > 0) brd.Color.Black else brd.Color.White;
+
+        const winner_idx = @intFromEnum(winning_side);
+        const loser_idx = @intFromEnum(losing_side);
+        const winner_king_bb = board.piece_bb[winner_idx][@intFromEnum(brd.Pieces.King)];
+        const loser_king_bb = board.piece_bb[loser_idx][@intFromEnum(brd.Pieces.King)];
+
+        if (winner_king_bb != 0 and loser_king_bb != 0) {
+            const winner_king_sq = brd.getLSB(winner_king_bb);
+            const loser_king_sq = brd.getLSB(loser_king_bb);
+
+            const sign: f64 = if (material_diff > 0) 1.0 else -1.0;
+            eg_c[P_MOPUP_EDGE] += sign * @as(f64, @floatFromInt(centerDistance(loser_king_sq)));
+            eg_c[P_MOPUP_PROXIMITY] += sign * @as(f64, @floatFromInt(14 - manhattanDistance(winner_king_sq, loser_king_sq)));
+        }
+    }
 }
 
 fn coeffsRookEndgame(board: *brd.Board, color: brd.Color, eg_c: []f64, sign: f64) void {
@@ -2135,6 +2429,10 @@ fn coeffsKingActivity(board: *brd.Board, color: brd.Color, eg_c: []f64, sign: f6
     if (king_bb == 0) return;
     const king_sq = brd.getLSB(king_bb);
 
+    // King centralization coefficient
+    const centralization = 7 - centerDistance(king_sq);
+    eg_c[P_KING_CENTRALIZATION] += sign * @as(f64, @floatFromInt(centralization));
+
     var pawn_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
     while (pawn_bb != 0) {
         const pawn_sq = brd.getLSB(pawn_bb);
@@ -2142,6 +2440,20 @@ fn coeffsKingActivity(board: *brd.Board, color: brd.Color, eg_c: []f64, sign: f6
             const dist = manhattanDistance(king_sq, pawn_sq);
             if (dist <= 3) {
                 eg_c[P_KING_PAWN_PROXIMITY] += sign * @as(f64, @floatFromInt(6 - dist));
+            }
+        }
+        brd.popBit(&pawn_bb, pawn_sq);
+    }
+
+    // King far from opponent's passed pawns
+    pawn_bb = board.piece_bb[1 - c_idx][@intFromEnum(brd.Pieces.Pawn)];
+    while (pawn_bb != 0) {
+        const pawn_sq = brd.getLSB(pawn_bb);
+        const opp_color = if (color == brd.Color.White) brd.Color.Black else brd.Color.White;
+        if (checkPassedPawn(board, pawn_sq, opp_color)) {
+            const dist = manhattanDistance(king_sq, pawn_sq);
+            if (dist > 4) {
+                eg_c[P_KING_FAR_PAWN] -= sign;
             }
         }
         brd.popBit(&pawn_bb, pawn_sq);
@@ -2195,9 +2507,9 @@ fn coeffsThreats(
                     mg_c[P_ATK_BY_PAWN] -= sign;
                     eg_c[P_ATK_BY_PAWN] -= sign;
                 } else {
-                    // score -= @divTrunc(attacked_by_pawn_penalty, 2)
-                    mg_c[P_ATK_BY_PAWN] -= sign * 0.5;
-                    eg_c[P_ATK_BY_PAWN] -= sign * 0.5;
+                    // score -= defended_by_pawn_penalty
+                    mg_c[P_DEFENDED_BY_PAWN] -= sign;
+                    eg_c[P_DEFENDED_BY_PAWN] -= sign;
                 }
             }
 
@@ -2252,4 +2564,176 @@ fn coeffsSpace(
     const ext_ctrl: f64 = @floatFromInt(@popCount(our_attacks & extended_center));
     mg_c[P_EXTENDED_CENTER] += sign * ext_ctrl;
     eg_c[P_EXTENDED_CENTER] += sign * ext_ctrl;
+}
+
+fn coeffsExchangeAvoidance(board: *brd.Board, mg_c: []f64, eg_c: []f64) void {
+    const white_mat = countMaterial(board, brd.Color.White);
+    const black_mat = countMaterial(board, brd.Color.Black);
+    const diff = white_mat - black_mat;
+    if (@abs(diff) < 100) return;
+
+    const white_pieces = @popCount(board.color_bb[@intFromEnum(brd.Color.White)]);
+    const black_pieces = @popCount(board.color_bb[@intFromEnum(brd.Color.Black)]);
+    const total_pieces: f64 = @floatFromInt(white_pieces + black_pieces);
+
+    const sign: f64 = if (diff > 0) 1.0 else -1.0;
+    mg_c[P_EXCHANGE_AVOIDANCE] += sign * total_pieces;
+    eg_c[P_EXCHANGE_AVOIDANCE] += sign * total_pieces;
+}
+
+fn coeffsPawnStorm(board: *brd.Board, color: brd.Color, mg_c: []f64, sign: f64) void {
+    const c_idx = @intFromEnum(color);
+    const opp_idx = 1 - c_idx;
+    const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
+    if (king_bb == 0) return;
+
+    const king_sq = brd.getLSB(king_bb);
+    const king_file: i32 = @intCast(@mod(king_sq, 8));
+
+    if (king_file > 2 and king_file < 5) return;
+
+    const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
+    const files = [3]i32{ king_file - 1, king_file, king_file + 1 };
+    for (files) |file| {
+        if (file < 0 or file > 7) continue;
+        const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
+        var pawns = opp_pawns & file_mask;
+        while (pawns != 0) {
+            const sq = brd.getLSB(pawns);
+            const pawn_rank: i32 = @intCast(@divTrunc(sq, 8));
+            const advance = if (color == brd.Color.White) 7 - pawn_rank else pawn_rank;
+            if (advance >= 4) {
+                const storm_val: f64 = @floatFromInt(advance - 3);
+                mg_c[P_PAWN_STORM] -= sign * storm_val;
+            }
+            brd.popBit(&pawns, sq);
+        }
+    }
+}
+
+fn coeffsKingZoneControl(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen, cache: AttackCache, mg_c: []f64, sign: f64) void {
+    const c_idx = @intFromEnum(color);
+    const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
+    if (king_bb == 0) return;
+
+    const king_sq = brd.getLSB(king_bb);
+    const king_zone = getKingZone(king_sq, color, move_gen);
+
+    var opp_attacks: u64 = 0;
+    if (color == .White) {
+        opp_attacks = cache.opp_pawn_attacks | cache.opp_knight_attacks | cache.opp_bishop_attacks | cache.opp_rook_attacks | cache.opp_queen_attacks;
+    } else {
+        opp_attacks = cache.our_pawn_attacks | cache.our_knight_attacks | cache.our_bishop_attacks | cache.our_rook_attacks | cache.our_queen_attacks;
+    }
+
+    const attacked: f64 = @floatFromInt(@popCount(opp_attacks & king_zone));
+    mg_c[P_KING_ZONE_ATTACK] -= sign * attacked;
+}
+
+fn coeffsKingDefenders(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen, cache: AttackCache, mg_c: []f64, sign: f64) void {
+    const c_idx = @intFromEnum(color);
+    const king_bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.King)];
+    if (king_bb == 0) return;
+
+    const king_sq = brd.getLSB(king_bb);
+    const king_zone = getKingZone(king_sq, color, move_gen);
+
+    var our_attacks: u64 = 0;
+    if (color == .White) {
+        our_attacks = cache.our_pawn_attacks | cache.our_knight_attacks | cache.our_bishop_attacks | cache.our_rook_attacks | cache.our_queen_attacks;
+    } else {
+        our_attacks = cache.opp_pawn_attacks | cache.opp_knight_attacks | cache.opp_bishop_attacks | cache.opp_rook_attacks | cache.opp_queen_attacks;
+    }
+
+    const defended: f64 = @floatFromInt(@popCount(our_attacks & king_zone));
+    mg_c[P_KING_DEFENDER] += sign * defended;
+}
+
+fn coeffsRuleOfSquare(board: *brd.Board, color: brd.Color, eg_c: []f64, sign: f64) void {
+    const c_idx = @intFromEnum(color);
+    const opp_idx = 1 - c_idx;
+
+    const our_pawns = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Pawn)];
+    const opp_king_bb = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.King)];
+    if (opp_king_bb == 0) return;
+    const opp_king_sq = brd.getLSB(opp_king_bb);
+
+    const opp_knights = @popCount(board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Knight)]);
+    const opp_bishops = @popCount(board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Bishop)]);
+    const opp_rooks = @popCount(board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Rook)]);
+    const opp_queens = @popCount(board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Queen)]);
+    if (opp_knights + opp_bishops + opp_rooks + opp_queens > 0) return;
+
+    var pawn_bb = our_pawns;
+    while (pawn_bb != 0) {
+        const sq = brd.getLSB(pawn_bb);
+        if (checkPassedPawn(board, sq, color)) {
+            const rank: i32 = @intCast(@divTrunc(sq, 8));
+            const file: i32 = @intCast(@mod(sq, 8));
+            const promo_rank: i32 = if (color == brd.Color.White) 7 else 0;
+            const pawn_dist = @abs(promo_rank - rank);
+            const tempo_adjust: i32 = if (board.toMove() != color) 1 else 0;
+
+            const king_rank: i32 = @intCast(@divTrunc(opp_king_sq, 8));
+            const king_file: i32 = @intCast(@mod(opp_king_sq, 8));
+            const king_dist = @as(i32, @intCast(@max(@abs(king_rank - promo_rank), @abs(king_file - file))));
+
+            if (pawn_dist < king_dist - tempo_adjust) {
+                eg_c[P_RULE_OF_SQUARE] += sign;
+            }
+        }
+        brd.popBit(&pawn_bb, sq);
+    }
+}
+
+fn coeffsTrappedPieces(board: *brd.Board, color: brd.Color, move_gen: *mvs.MoveGen, cache: AttackCache, mg_c: []f64, eg_c: []f64, sign: f64) void {
+    const c_idx = @intFromEnum(color);
+    const our_pieces = board.color_bb[c_idx];
+    const occupancy = cache.occupancy;
+
+    var opp_pawn_attacks: u64 = 0;
+    if (color == .White) {
+        opp_pawn_attacks = cache.opp_pawn_attacks;
+    } else {
+        opp_pawn_attacks = cache.our_pawn_attacks;
+    }
+
+    // Knights
+    var bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Knight)];
+    while (bb != 0) {
+        const sq = brd.getLSB(bb);
+        const attacks = move_gen.knights[sq];
+        const safe = attacks & ~our_pieces & ~opp_pawn_attacks;
+        if (@popCount(safe) == 0) {
+            mg_c[P_TRAPPED_PIECE] -= sign;
+            eg_c[P_TRAPPED_PIECE] -= sign;
+        }
+        brd.popBit(&bb, sq);
+    }
+
+    // Bishops
+    bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Bishop)];
+    while (bb != 0) {
+        const sq = brd.getLSB(bb);
+        const attacks = move_gen.getBishopAttacks(sq, occupancy);
+        const safe = attacks & ~our_pieces & ~opp_pawn_attacks;
+        if (@popCount(safe) == 0) {
+            mg_c[P_TRAPPED_PIECE] -= sign;
+            eg_c[P_TRAPPED_PIECE] -= sign;
+        }
+        brd.popBit(&bb, sq);
+    }
+
+    // Rooks
+    bb = board.piece_bb[c_idx][@intFromEnum(brd.Pieces.Rook)];
+    while (bb != 0) {
+        const sq = brd.getLSB(bb);
+        const attacks = move_gen.getRookAttacks(sq, occupancy);
+        const safe = attacks & ~our_pieces & ~opp_pawn_attacks;
+        if (@popCount(safe) <= 1) {
+            mg_c[P_TRAPPED_PIECE] -= sign;
+            eg_c[P_TRAPPED_PIECE] -= sign;
+        }
+        brd.popBit(&bb, sq);
+    }
 }

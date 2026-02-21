@@ -90,8 +90,8 @@ pub const UciProtocol = struct {
     debug_mode: bool = false,
     should_quit: bool = false,
     is_searching: bool = false,
-    hash_size_mb: u32 = 2048,
-    threads: usize = 4,
+    hash_size_mb: u32 = 64,
+    threads: usize = 1,
     searcher: *srch.Searcher,
 
     search_thread: ?std.Thread = null,

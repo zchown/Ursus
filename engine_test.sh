@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Paths to engines
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus2.23"
+ENGINE_BASE="./engines/Ursus2.24"
 # ENGINE_BASE="./engines/UrsusPRETUNE"
 # ENGINE_BASE="./engines/Ursus2.17.3"
 # ENGINE_BASE="./engines/Ursus2.15.1"
@@ -23,7 +23,7 @@ OPENINGS="8moves_v3.pgn"
 
 # Match settings
 GAMES=4098
-CONCURRENCY=5
+CONCURRENCY=10
 TC="100/30"
 
 # Output
@@ -48,7 +48,7 @@ echo
 $CUTECHESS \
   -engine name=New cmd="$ENGINE_NEW" proto=uci \
   -engine name=Base cmd="$ENGINE_BASE" proto=uci \
-  -each tc=2+0.5 timemargin=50 ponder \
+  -each tc=2+0.1 timemargin=50 \
   -openings file="$OPENINGS" format=pgn order=random \
   -repeat \
   -games $GAMES \
