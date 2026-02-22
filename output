@@ -1,0 +1,414 @@
+Loading checkpoint from 'checkpoints/checkpoint_5.bin'...
+Checkpoint loaded.
+Starting Adam tuning: 1011 params, CHUNK_SIZE=500000, lr=0.01
+  Epoch 1 chunk 1: 500000 positions (500000 total)
+  Epoch 1 chunk 2: 500000 positions (1000000 total)
+  Epoch 1 chunk 3: 500000 positions (1500000 total)
+  Epoch 1 chunk 4: 500000 positions (2000000 total)
+  Epoch 1 chunk 5: 500000 positions (2500000 total)
+  Epoch 1 chunk 6: 500000 positions (3000000 total)
+  Epoch 1 chunk 7: 500000 positions (3500000 total)
+  Epoch 1 chunk 8: 500000 positions (4000000 total)
+  Epoch 1 chunk 9: 500000 positions (4500000 total)
+  Epoch 1 chunk 10: 500000 positions (5000000 total)
+  Epoch 1 chunk 11: 500000 positions (5500000 total)
+  Epoch 1 chunk 12: 500000 positions (6000000 total)
+  Epoch 1 chunk 13: 500000 positions (6500000 total)
+  Epoch 1 chunk 14: 500000 positions (7000000 total)
+  Epoch 1 chunk 15: 153653 positions (7153653 total)
+Epoch 1: MSE = 0.075554 (7153653 positions, 0 skipped)
+  Shuffling input file in place...
+  Shuffle complete.
+  Epoch 2 chunk 1: 500000 positions (500000 total)
+  Epoch 2 chunk 2: 500000 positions (1000000 total)
+  Epoch 2 chunk 3: 500000 positions (1500000 total)
+  Epoch 2 chunk 4: 500000 positions (2000000 total)
+  Epoch 2 chunk 5: 500000 positions (2500000 total)
+  Epoch 2 chunk 6: 500000 positions (3000000 total)
+  Epoch 2 chunk 7: 500000 positions (3500000 total)
+  Epoch 2 chunk 8: 500000 positions (4000000 total)
+  Epoch 2 chunk 9: 500000 positions (4500000 total)
+  Epoch 2 chunk 10: 500000 positions (5000000 total)
+  Epoch 2 chunk 11: 500000 positions (5500000 total)
+  Epoch 2 chunk 12: 500000 positions (6000000 total)
+  Epoch 2 chunk 13: 500000 positions (6500000 total)
+  Epoch 2 chunk 14: 500000 positions (7000000 total)
+  Epoch 2 chunk 15: 153653 positions (7153653 total)
+Epoch 2: MSE = 0.075547 (7153653 positions, 0 skipped)
+  Shuffling input file in place...
+  Shuffle complete.
+  Epoch 3 chunk 1: 500000 positions (500000 total)
+  Epoch 3 chunk 2: 500000 positions (1000000 total)
+  Epoch 3 chunk 3: 500000 positions (1500000 total)
+  Epoch 3 chunk 4: 500000 positions (2000000 total)
+  Epoch 3 chunk 5: 500000 positions (2500000 total)
+  Epoch 3 chunk 6: 500000 positions (3000000 total)
+  Epoch 3 chunk 7: 500000 positions (3500000 total)
+  Epoch 3 chunk 8: 500000 positions (4000000 total)
+  Epoch 3 chunk 9: 500000 positions (4500000 total)
+  Epoch 3 chunk 10: 500000 positions (5000000 total)
+  Epoch 3 chunk 11: 500000 positions (5500000 total)
+  Epoch 3 chunk 12: 500000 positions (6000000 total)
+  Epoch 3 chunk 13: 500000 positions (6500000 total)
+  Epoch 3 chunk 14: 500000 positions (7000000 total)
+  Epoch 3 chunk 15: 153653 positions (7153653 total)
+Epoch 3: MSE = 0.075547 (7153653 positions, 0 skipped)
+  Shuffling input file in place...
+  Shuffle complete.
+  Epoch 4 chunk 1: 500000 positions (500000 total)
+  Epoch 4 chunk 2: 500000 positions (1000000 total)
+  Epoch 4 chunk 3: 500000 positions (1500000 total)
+  Epoch 4 chunk 4: 500000 positions (2000000 total)
+  Epoch 4 chunk 5: 500000 positions (2500000 total)
+  Epoch 4 chunk 6: 500000 positions (3000000 total)
+  Epoch 4 chunk 7: 500000 positions (3500000 total)
+  Epoch 4 chunk 8: 500000 positions (4000000 total)
+  Epoch 4 chunk 9: 500000 positions (4500000 total)
+  Epoch 4 chunk 10: 500000 positions (5000000 total)
+  Epoch 4 chunk 11: 500000 positions (5500000 total)
+  Epoch 4 chunk 12: 500000 positions (6000000 total)
+  Epoch 4 chunk 13: 500000 positions (6500000 total)
+  Epoch 4 chunk 14: 500000 positions (7000000 total)
+  Epoch 4 chunk 15: 153653 positions (7153653 total)
+Epoch 4: MSE = 0.075543 (7153653 positions, 0 skipped)
+  Shuffling input file in place...
+  Shuffle complete.
+  Epoch 5 chunk 1: 500000 positions (500000 total)
+  Epoch 5 chunk 2: 500000 positions (1000000 total)
+  Epoch 5 chunk 3: 500000 positions (1500000 total)
+  Epoch 5 chunk 4: 500000 positions (2000000 total)
+  Epoch 5 chunk 5: 500000 positions (2500000 total)
+  Epoch 5 chunk 6: 500000 positions (3000000 total)
+  Epoch 5 chunk 7: 500000 positions (3500000 total)
+  Epoch 5 chunk 8: 500000 positions (4000000 total)
+  Epoch 5 chunk 9: 500000 positions (4500000 total)
+  Epoch 5 chunk 10: 500000 positions (5000000 total)
+  Epoch 5 chunk 11: 500000 positions (5500000 total)
+  Epoch 5 chunk 12: 500000 positions (6000000 total)
+  Epoch 5 chunk 13: 500000 positions (6500000 total)
+  Epoch 5 chunk 14: 500000 positions (7000000 total)
+  Epoch 5 chunk 15: 153653 positions (7153653 total)
+Epoch 5: MSE = 0.075540 (7153653 positions, 0 skipped)
+  Saved checkpoint: checkpoints/checkpoint_5.bin
+  Shuffling input file in place...
+  Shuffle complete.
+  Epoch 6 chunk 1: 500000 positions (500000 total)
+  Epoch 6 chunk 2: 500000 positions (1000000 total)
+  Epoch 6 chunk 3: 500000 positions (1500000 total)
+  Epoch 6 chunk 4: 500000 positions (2000000 total)
+  Epoch 6 chunk 5: 500000 positions (2500000 total)
+  Epoch 6 chunk 6: 500000 positions (3000000 total)
+  Epoch 6 chunk 7: 500000 positions (3500000 total)
+  Epoch 6 chunk 8: 500000 positions (4000000 total)
+  Epoch 6 chunk 9: 500000 positions (4500000 total)
+  Epoch 6 chunk 10: 500000 positions (5000000 total)
+  Epoch 6 chunk 11: 500000 positions (5500000 total)
+  Epoch 6 chunk 12: 500000 positions (6000000 total)
+  Epoch 6 chunk 13: 500000 positions (6500000 total)
+  Epoch 6 chunk 14: 500000 positions (7000000 total)
+  Epoch 6 chunk 15: 153653 positions (7153653 total)
+Epoch 6: MSE = 0.075541 (7153653 positions, 0 skipped)
+  Shuffling input file in place...
+  Shuffle complete.
+  Epoch 7 chunk 1: 500000 positions (500000 total)
+  Epoch 7 chunk 2: 500000 positions (1000000 total)
+  Epoch 7 chunk 3: 500000 positions (1500000 total)
+  Epoch 7 chunk 4: 500000 positions (2000000 total)
+  Epoch 7 chunk 5: 500000 positions (2500000 total)
+  Epoch 7 chunk 6: 500000 positions (3000000 total)
+  Epoch 7 chunk 7: 500000 positions (3500000 total)
+  Epoch 7 chunk 8: 500000 positions (4000000 total)
+  Epoch 7 chunk 9: 500000 positions (4500000 total)
+  Epoch 7 chunk 10: 500000 positions (5000000 total)
+  Epoch 7 chunk 11: 500000 positions (5500000 total)
+  Epoch 7 chunk 12: 500000 positions (6000000 total)
+  Epoch 7 chunk 13: 500000 positions (6500000 total)
+  Epoch 7 chunk 14: 500000 positions (7000000 total)
+  Epoch 7 chunk 15: 153653 positions (7153653 total)
+Epoch 7: MSE = 0.075533 (7153653 positions, 0 skipped)
+  Shuffling input file in place...
+  Shuffle complete.
+  Epoch 8 chunk 1: 500000 positions (500000 total)
+  Epoch 8 chunk 2: 500000 positions (1000000 total)
+  Epoch 8 chunk 3: 500000 positions (1500000 total)
+  Epoch 8 chunk 4: 500000 positions (2000000 total)
+  Epoch 8 chunk 5: 500000 positions (2500000 total)
+  Epoch 8 chunk 6: 500000 positions (3000000 total)
+  Epoch 8 chunk 7: 500000 positions (3500000 total)
+  Epoch 8 chunk 8: 500000 positions (4000000 total)
+  Epoch 8 chunk 9: 500000 positions (4500000 total)
+  Epoch 8 chunk 10: 500000 positions (5000000 total)
+  Epoch 8 chunk 11: 500000 positions (5500000 total)
+  Epoch 8 chunk 12: 500000 positions (6000000 total)
+  Epoch 8 chunk 13: 500000 positions (6500000 total)
+  Epoch 8 chunk 14: 500000 positions (7000000 total)
+  Epoch 8 chunk 15: 153653 positions (7153653 total)
+Epoch 8: MSE = 0.075540 (7153653 positions, 0 skipped)
+  Shuffling input file in place...
+  Shuffle complete.
+  Epoch 9 chunk 1: 500000 positions (500000 total)
+  Epoch 9 chunk 2: 500000 positions (1000000 total)
+  Epoch 9 chunk 3: 500000 positions (1500000 total)
+  Epoch 9 chunk 4: 500000 positions (2000000 total)
+  Epoch 9 chunk 5: 500000 positions (2500000 total)
+  Epoch 9 chunk 6: 500000 positions (3000000 total)
+  Epoch 9 chunk 7: 500000 positions (3500000 total)
+  Epoch 9 chunk 8: 500000 positions (4000000 total)
+  Epoch 9 chunk 9: 500000 positions (4500000 total)
+  Epoch 9 chunk 10: 500000 positions (5000000 total)
+  Epoch 9 chunk 11: 500000 positions (5500000 total)
+  Epoch 9 chunk 12: 500000 positions (6000000 total)
+  Epoch 9 chunk 13: 500000 positions (6500000 total)
+  Epoch 9 chunk 14: 500000 positions (7000000 total)
+  Epoch 9 chunk 15: 153653 positions (7153653 total)
+Epoch 9: MSE = 0.075541 (7153653 positions, 0 skipped)
+  Shuffling input file in place...
+  Shuffle complete.
+  Epoch 10 chunk 1: 500000 positions (500000 total)
+  Epoch 10 chunk 2: 500000 positions (1000000 total)
+  Epoch 10 chunk 3: 500000 positions (1500000 total)
+  Epoch 10 chunk 4: 500000 positions (2000000 total)
+  Epoch 10 chunk 5: 500000 positions (2500000 total)
+  Epoch 10 chunk 6: 500000 positions (3000000 total)
+  Epoch 10 chunk 7: 500000 positions (3500000 total)
+  Epoch 10 chunk 8: 500000 positions (4000000 total)
+  Epoch 10 chunk 9: 500000 positions (4500000 total)
+  Epoch 10 chunk 10: 500000 positions (5000000 total)
+  Epoch 10 chunk 11: 500000 positions (5500000 total)
+  Epoch 10 chunk 12: 500000 positions (6000000 total)
+  Epoch 10 chunk 13: 500000 positions (6500000 total)
+  Epoch 10 chunk 14: 500000 positions (7000000 total)
+  Epoch 10 chunk 15: 153653 positions (7153653 total)
+Epoch 10: MSE = 0.075539 (7153653 positions, 0 skipped)
+  Saved checkpoint: checkpoints/checkpoint_10.bin
+  Shuffling input file in place...
+  Shuffle complete.
+
+Tuning complete. Printing Zig declarations to stdout...
+
+// ===== Tuned parameters — paste into eval.zig =====
+pub var mg_pawn: i32 = 86;
+pub var eg_pawn: i32 = 110;
+pub var mg_knight: i32 = 359;
+pub var eg_knight: i32 = 374;
+pub var mg_bishop: i32 = 381;
+pub var eg_bishop: i32 = 378;
+pub var mg_rook: i32 = 491;
+pub var eg_rook: i32 = 724;
+pub var mg_queen: i32 = 1089;
+pub var eg_queen: i32 = 1269;
+pub var mg_king: i32 = 0;
+pub var eg_king: i32 = 0;
+pub var mg_pawn_table = [64]i32{
+       +0,   +0,   +0,   +0,   +0,   +0,   +0,   +0,
+      -18,   -9,   -5,   -7,   +7,  +21,  +37,  -15,
+      -29,  -18,  -10,   -9,   +7,   -9,  +10,  -20,
+      -19,  -11,   +1,  +16,  +18,  +12,   +4,  -16,
+      -16,   +3,   +4,   +5,  +32,  +32,  +22,   +6,
+      +10,  +18,  +45,  +40,  +46,  +98,  +70,  +13,
+     +103, +116,  +85, +115,  +83,  +50,  -52,  -61,
+       +0,   +0,   +0,   +0,   +0,   +0,   +0,   +0,
+};
+pub var eg_pawn_table = [64]i32{
+       +0,   +0,   +0,   +0,   +0,   +0,   +0,   +0,
+      +28,  +25,  +17,  +17,  +27,  +16,   +2,   +2,
+      +20,  +16,   +6,   +8,   +8,   +8,   +0,   +0,
+      +26,  +24,   +2,   -8,   -9,   -1,   +8,   +3,
+      +50,  +36,  +15,  -10,  -10,   -1,  +20,  +18,
+      +76,  +80,  +31,   -9,  -15,   +3,  +49,  +57,
+     +190, +174, +186, +127, +124, +144, +199, +208,
+       +0,   +0,   +0,   +0,   +0,   +0,   +0,   +0,
+};
+pub var mg_knight_table = [64]i32{
+      -81,  -28,  -33,  -11,   -1,   +5,  -22,  -42,
+      -38,  -28,  -11,  +13,  +13,   +9,   -2,   +1,
+      -34,   -7,   +2,  +14,  +33,  +14,  +18,   -2,
+       -3,   -2,  +16,  +23,  +33,  +23,  +30,  +14,
+      +16,  +12,  +28,  +63,  +27,  +59,  +12,  +54,
+       +0,  +30,  +49,  +54,  +91,  +89,  +48,  +22,
+       -6,   +5,  +22,  +50,  +20,  +76,   -7,  +28,
+     -185, -149,  -92,  -33,  +18, -116, -114, -133,
+};
+pub var eg_knight_table = [64]i32{
+      -17,  -29,   -8,   -1,   -2,  -17,  -18,  -14,
+      -15,   -3,   -3,   -6,   -5,   -9,  -13,   -1,
+      -15,   -5,   +3,  +28,  +24,   -4,  -11,   -4,
+       +5,   +2,  +28,  +27,  +37,  +16,   -3,   +4,
+       +8,  +10,  +28,  +32,  +37,  +28,  +19,   +1,
+       -6,   -6,  +17,  +21,   +5,   -7,  -16,  -21,
+      -15,   -2,   -9,   -7,  -19,  -29,   -3,  -37,
+      -79,  -15,   +6,  -15,  -17,  -14,  -13,  -99,
+};
+pub var mg_bishop_table = [64]i32{
+       -3,  +27,   -1,   -6,   +5,   -6,  +13,  +21,
+       +6,  +12,  +25,   +5,  +18,  +29,  +37,  +22,
+       -9,  +14,  +16,  +11,  +18,  +20,  +21,  +21,
+       +2,  -13,   +0,  +36,  +27,   +5,   +0,  +26,
+       +0,   +8,  +15,  +34,  +26,  +22,   +6,   -1,
+       +4,  +17,  +24,  +25,  +18,  +54,  +32,  +11,
+       -7,   +8,   -5,  -27,   -7,   -2,  -38,  -30,
+      -46,  -64,  -96, -121, -105, -127,  -30,  -74,
+};
+pub var eg_bishop_table = [64]i32{
+      -17,  +10,   -3,   +2,   +3,  +14,  -10,  -33,
+       +5,  -13,  -11,   +7,   +4,   -3,   -6,  -20,
+       +1,  +16,  +17,  +21,  +27,  +14,   +5,   -9,
+       +1,  +19,  +26,  +28,  +26,  +15,  +13,  -15,
+       +8,  +18,  +16,  +36,  +23,  +20,  +11,   +9,
+      +14,   +8,   +8,   +1,   +5,  +13,   +6,  +13,
+       -7,   -4,   +2,  +10,   +0,   -1,  +11,   -2,
+      +12,  +15,  +18,  +22,  +18,  +13,   +2,   -4,
+};
+pub var mg_rook_table = [64]i32{
+      -13,  -10,  -10,   +0,  +11,  +10,   +7,   -8,
+      -34,  -26,  -15,  -11,   -4,   +7,  +21,  -17,
+      -33,  -35,  -29,  -23,  -11,   -9,  +22,   +6,
+      -29,  -37,  -29,  -18,  -18,  -24,   +3,   -8,
+      -11,   -5,   -8,   +3,   +3,  +22,  +30,  +21,
+      -14,  +14,   +2,  +10,  +43,  +61, +105,  +49,
+       +6,   -4,  +14,  +36,  +23,  +66,  +53,  +77,
+      +21,  +18,  -11,   +2,  +10,  +49,  +70,  +72,
+};
+pub var eg_rook_table = [64]i32{
+       +4,   +4,  +14,   +0,   -9,   -2,   -2,   -9,
+       +4,   +7,   +8,   +3,   -6,   -9,  -14,  -11,
+      +16,  +17,  +13,   +9,   +4,   +4,   -9,  -13,
+      +25,  +28,  +27,  +20,  +18,  +23,  +15,   +9,
+      +35,  +31,  +37,  +26,  +14,  +13,  +18,  +13,
+      +42,  +38,  +41,  +26,  +17,  +16,  +12,  +14,
+      +34,  +50,  +52,  +34,  +33,  +25,  +23,  +12,
+      +35,  +40,  +58,  +43,  +38,  +36,  +30,  +27,
+};
+pub var mg_queen_table = [64]i32{
+       -8,   -5,   -2,   +3,  +11,   -6,   +4,   -8,
+       +0,   -2,   +5,  +11,   +9,  +28,  +26,  +30,
+       -5,   -8,   -7,   -9,   -3,   +4,  +11,  +17,
+       -1,  -18,  -18,  -12,  -10,   -4,   +0,  +17,
+       -6,  -15,  -14,  -20,  -18,   -1,   +3,  +15,
+       -1,   -6,  -10,   -6,   +0,  +46,  +51,  +42,
+       -3,  -32,  -26,  -47,  -48,  +15,   -3,  +64,
+      -44,  -40,  -31,  -10,  -11,  +11,  +36,   +3,
+};
+pub var eg_queen_table = [64]i32{
+      -27,  -26,  -14,   -2,  -24,  -29,  -46,  -35,
+      -24,  -19,  -17,   -4,   +2,  -43,  -66,  -66,
+       -9,  +18,  +32,  +27,  +38,  +27,  +16,   -5,
+      +10,  +45,  +46,  +68,  +64,  +54,  +49,  +36,
+      +32,  +61,  +62,  +85,  +98,  +87,  +93,  +60,
+      +37,  +44,  +80,  +86, +100,  +86,  +56,  +67,
+      +25,  +61,  +88, +120, +145,  +87,  +90,  +54,
+      +28,  +42,  +73,  +68,  +72,  +71,  +29,  +31,
+};
+pub var mg_king_table = [64]i32{
+      +10,  +48,  +16,  -68,  -10,  -43,  +11,  +24,
+      +36,   -1,   -9,  -41,  -42,  -30,  +18,  +24,
+      -43,   +7,  -27,  -41,  -30,  -45,  -19,  -61,
+      -53,   -5,   -5,  -71,  -54,  -24,  -26, -120,
+      -48,  +23,   -5,  -64,  -51,   -3,   +4,  -83,
+      -60,  +96,  +60,   -6,  +35, +100,  +62,  -40,
+      -93,  +45,  +30, +109,  +46,  +65,  +57,  -53,
+     +129, +159, +131,  +43,  +24,  +52, +132, +177,
+};
+pub var eg_king_table = [64]i32{
+      -42,  -31,  -14,   -3,  -25,   +1,  -26,  -60,
+      -13,   +8,   +9,   +5,   +7,  +10,   +1,  -14,
+      -17,   -2,   +3,   +2,   +0,   +6,   +3,   -1,
+      -32,  -10,   -4,   +5,   +0,   +1,   +0,   +2,
+      -13,   +7,  +14,  +10,  +12,  +23,  +29,  +13,
+      +17,  +31,  +25,  +28,  +32,  +47,  +63,  +37,
+      +25,  +45,  +35,   +5,  +29,  +58,  +72,  +52,
+     -111,  -50,  -30,   -6,  -16,   +2,   +2, -113,
+};
+pub var mg_knight_mobility = [9]i32{ -6, 4, 17, 23, 30, 37, 47, 55, 63, };
+pub var mg_bishop_mobility = [14]i32{ -3, -6, 6, 14, 22, 26, 29, 30, 31, 34, 39, 34, 48, 83, };
+pub var mg_rook_mobility = [15]i32{ 16, 29, 6, 12, 8, 13, 14, 15, 18, 20, 23, 21, 28, 36, 47, };
+pub var mg_queen_mobility = [28]i32{ 11, 13, 3, 6, 7, 12, 14, 15, 19, 21, 22, 24, 25, 25, 27, 27, 27, 28, 37, 42, 59, 75, 68, 94, 109, 141, 107, 61, };
+pub var eg_knight_mobility = [9]i32{ -48, -44, -12, 3, 13, 26, 25, 21, 8, };
+pub var eg_bishop_mobility = [14]i32{ -36, -57, -33, -17, -2, 11, 16, 22, 24, 21, 14, 19, 18, -13, };
+pub var eg_rook_mobility = [15]i32{ -13, 14, -19, -11, -1, 7, 16, 21, 25, 30, 32, 38, 38, 27, 18, };
+pub var eg_queen_mobility = [28]i32{ -195, -171, -109, -81, -53, -41, -24, -3, 1, 7, 16, 24, 29, 35, 39, 45, 54, 56, 54, 51, 44, 38, 39, 18, 21, -17, 5, 14, };
+pub var mg_passed_bonus = [8]i32{ 0, 9, 2, 1, 32, 40, 34, 0, };
+pub var passed_pawn_bonus = [8]i32{ 0, -31, -21, 7, 34, 105, 74, 0, };
+pub var safety_quadratic_a: i32 = 24;
+pub var safety_quadratic_b: i32 = -25;
+pub var mg_knight_king_atk: i32 = -18;
+pub var eg_knight_king_atk: i32 = -15;
+pub var mg_bishop_king_atk: i32 = -8;
+pub var eg_bishop_king_atk: i32 = -6;
+pub var mg_rook_king_atk: i32 = -14;
+pub var eg_rook_king_atk: i32 = -25;
+pub var mg_queen_king_atk: i32 = -27;
+pub var eg_queen_king_atk: i32 = 25;
+pub var castled_bonus: i32 = 11;
+pub var pawn_shield_bonus: i32 = 14;
+pub var open_file_penalty: i32 = -57;
+pub var semi_open_penalty: i32 = -18;
+pub var mg_protected_pawn: i32 = 13;
+pub var eg_protected_pawn: i32 = 12;
+pub var mg_doubled_pawn: i32 = -2;
+pub var eg_doubled_pawn: i32 = -12;
+pub var mg_isolated_pawn: i32 = -13;
+pub var eg_isolated_pawn: i32 = -12;
+pub var mg_rook_open_file: i32 = 45;
+pub var eg_rook_open_file: i32 = 12;
+pub var mg_rook_semi_open: i32 = 16;
+pub var eg_rook_semi_open: i32 = 23;
+pub var mg_minor_threat: i32 = 37;
+pub var eg_minor_threat: i32 = 20;
+pub var mg_rook_threat: i32 = 14;
+pub var eg_rook_threat: i32 = -2;
+pub var mg_queen_threat: i32 = 11;
+pub var eg_queen_threat: i32 = -5;
+pub var mg_rook_on_queen: i32 = 17;
+pub var eg_rook_on_queen: i32 = -8;
+pub var mg_rook_on_king: i32 = 20;
+pub var eg_rook_on_king: i32 = -27;
+pub var mg_queen_on_king: i32 = 8;
+pub var eg_queen_on_king: i32 = -10;
+pub var mg_bad_bishop: i32 = 3;
+pub var eg_bad_bishop: i32 = 12;
+pub var mg_bishop_on_queen: i32 = 63;
+pub var eg_bishop_on_queen: i32 = 47;
+pub var mg_bishop_on_king: i32 = -31;
+pub var eg_bishop_on_king: i32 = 13;
+pub var mg_hanging_piece: i32 = 9;
+pub var eg_hanging_piece: i32 = -1;
+pub var mg_atk_by_pawn: i32 = 0;
+pub var eg_atk_by_pawn: i32 = -10;
+pub var mg_atk_by_minor: i32 = 64;
+pub var eg_atk_by_minor: i32 = 19;
+pub var mg_atk_by_rook: i32 = 91;
+pub var eg_atk_by_rook: i32 = 1;
+pub var mg_defended_by_pawn: i32 = 25;
+pub var eg_defended_by_pawn: i32 = 10;
+pub var mg_knight_outpost: i32 = 5;
+pub var eg_knight_outpost: i32 = 28;
+pub var mg_bishop_pair: i32 = 31;
+pub var eg_bishop_pair: i32 = 90;
+pub var mg_space_per_sq: i32 = 3;
+pub var eg_space_per_sq: i32 = -1;
+pub var mg_center_ctrl: i32 = -1;
+pub var eg_center_ctrl: i32 = 3;
+pub var mg_extended_center: i32 = 4;
+pub var eg_extended_center: i32 = -1;
+pub var mg_exchange_avoidance: i32 = 0;
+pub var eg_exchange_avoidance: i32 = 8;
+pub var mg_trapped_knight: i32 = 10;
+pub var eg_trapped_knight: i32 = 42;
+pub var mg_trapped_bishop: i32 = 16;
+pub var eg_trapped_bishop: i32 = 39;
+pub var mg_trapped_rook: i32 = 27;
+pub var eg_trapped_rook: i32 = 39;
+pub var rook_on_7th_bonus: i32 = 9;
+pub var rook_behind_passer_bonus: i32 = 14;
+pub var king_pawn_proximity: i32 = 7;
+pub var king_far_pawn_penalty: i32 = 39;
+pub var king_centralization_weight: i32 = 16;
+pub var mopup_edge_weight: i32 = 6;
+pub var mopup_proximity_weight: i32 = 0;
+pub var pawn_advancement_scaler: i32 = -7;
+pub var rule_of_square_bonus: i32 = 238;
+pub var pawn_storm_penalty: i32 = -6;
+pub var king_zone_attack_weight: i32 = 18;
+pub var king_defender_bonus: i32 = 4;
+pub var tempo_bonus: i32 = 32;

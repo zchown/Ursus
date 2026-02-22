@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Paths to engines
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus2.24"
+ENGINE_BASE="./engines/Ursus2.25.4"
 # ENGINE_BASE="./engines/UrsusPRETUNE"
 # ENGINE_BASE="./engines/Ursus2.17.3"
 # ENGINE_BASE="./engines/Ursus2.15.1"
@@ -54,13 +54,13 @@ $CUTECHESS \
   -games $GAMES \
   -tb "../Ursus/Syzygy/3-4-5" \
   -concurrency $CONCURRENCY \
+  -draw movenumber=40 movecount=8 score=10 \
+  -resign movecount=5 score=800 \
   -recover \
   -ratinginterval 10 \
   -pgnout "$PGN" \
   | tee "$LOG"
 
-# -draw movenumber=40 movecount=8 score=15 \
-# 	-resign movecount=5 score=600 \
 
 echo
 echo "Match finished"

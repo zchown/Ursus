@@ -8,7 +8,7 @@ pub const num_squares = 64;
 pub const num_files = 8;
 pub const num_ranks = 8;
 pub const max_pieces = 32;
-pub const max_game_moves = 2048;
+pub const max_game_moves = 1021;
 
 pub const CastleRights = enum(u4) {
     NoCastling = 0,
@@ -214,14 +214,13 @@ pub const Board = struct {
     }
 
     pub inline fn setEnPassantSquare(self: *Board, square: ?u8) void {
+        self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
         self.game_state.en_passant_square = square;
         self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
     }
 
     pub inline fn clearEnPassantSquare(self: *Board) void {
-        self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
         self.setEnPassantSquare(null);
-        self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
     }
 
     pub inline fn flipSideToMove(self: *Board) void {

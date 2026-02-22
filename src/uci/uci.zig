@@ -100,7 +100,7 @@ pub const UciProtocol = struct {
     ponder_side: brd.Color = .White,
 
     pub fn init(a: std.mem.Allocator) !UciProtocol {
-        std.debug.print("Initializing UCI protocol...\n", .{});
+        // std.debug.print("Initializing UCI protocol...\n", .{});
 
         const searcher_ptr = try a.create(srch.Searcher);
         errdefer a.destroy(searcher_ptr);
@@ -299,28 +299,28 @@ pub const UciProtocol = struct {
         try respond("option name Hash type spin default 64 min 1 max 2048");
         try respond("option name Threads type spin default 1 min 1 max 8");
 
-        try respond("option name aspiration_window type spin default 39 min 10 max 200");
-        try respond("option name rfp_depth type spin default 7 min 1 max 12");
-        try respond("option name rfp_mul type spin default 102 min 25 max 150");
-        try respond("option name rfp_improvement type spin default 24 min 10 max 150");
-        try respond("option name nmp_improvement type spin default 23 min 10 max 150");
+        try respond("option name aspiration_window type spin default 33 min 10 max 200");
+        try respond("option name rfp_depth type spin default 6 min 1 max 12");
+        try respond("option name rfp_mul type spin default 101 min 25 max 150");
+        try respond("option name rfp_improvement type spin default 34 min 10 max 150");
+        try respond("option name nmp_improvement type spin default 22 min 10 max 150");
         try respond("option name nmp_base type spin default 3 min 1 max 8");
-        try respond("option name nmp_depth_div type spin default 5 min 1 max 8");
-        try respond("option name nmp_beta_div type spin default 155 min 50 max 300");
-        try respond("option name razoring_base type spin default 294 min 100 max 600");
-        try respond("option name razoring_mul type spin default 88 min 10 max 200");
-        try respond("option name lazy_margin type spin default 810 min 50 max 2000");
-        try respond("option name q_see_margin type spin default -35 min -200 max 0");
-        try respond("option name q_delta_margin type spin default 184 min 0 max 400");
+        try respond("option name nmp_depth_div type spin default 4 min 1 max 8");
+        try respond("option name nmp_beta_div type spin default 154 min 50 max 300");
+        try respond("option name razoring_base type spin default 293 min 100 max 600");
+        try respond("option name razoring_mul type spin default 80 min 10 max 200");
+        try respond("option name lazy_margin type spin default 400 min 50 max 2000");
+        try respond("option name q_see_margin type spin default -42 min -200 max 0");
+        try respond("option name q_delta_margin type spin default 168 min 0 max 400");
         try respond("option name lmr_base type spin default 64 min 25 max 125");
-        try respond("option name lmr_mul type spin default 36 min 10 max 100");
+        try respond("option name lmr_mul type spin default 31 min 10 max 100");
         try respond("option name lmr_pv_min type spin default 7 min 1 max 10");
         try respond("option name lmr_non_pv_min type spin default 4 min 1 max 10");
-        try respond("option name futility_mul type spin default 165 min 25 max 400");
+        try respond("option name futility_mul type spin default 210 min 25 max 400");
         try respond("option name iid_depth type spin default 1 min 1 max 4");
         try respond("option name se_reduction type spin default 4 min 0 max 10");
-        try respond("option name history_div type spin default 9319 min 1000 max 12000");
-        try respond("option name lmp_base type spin default 5 min 0 max 10");
+        try respond("option name history_div type spin default 8148 min 1000 max 12000");
+        try respond("option name lmp_base type spin default 4 min 0 max 10");
         try respond("option name lmp_mul type spin default 2 min 0 max 10");
 
         try respond("uciok");

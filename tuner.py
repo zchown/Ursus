@@ -35,10 +35,10 @@ from collections import deque
 
 ENGINE     = "./zig-out/bin/Ursus"
 CUTECHESS  = "cutechess-cli"
-TC         = "2+0.1"
+TC         = "0.5+0.05"
 OUTPUT_DIR = "tuning_results"
 
-GAMES_PER_ITER = 16
+GAMES_PER_ITER = 20
 
 
 C_INIT       = 2.5    # Perturbation size at iteration 1 (and during warmup)
@@ -62,35 +62,35 @@ ADAM_ENABLED = True
 
 ALL_PARAMS = {
     # Search window / independent
-    "aspiration_window": {"value": 39,   "min": 10,   "max": 200,   "step": 5 },
-    "lazy_margin":       {"value": 810,  "min": 50,   "max": 1250,  "step": 5 },
-    "futility_mul":      {"value": 165,   "min": 25,   "max": 250,   "step": 5 },
+    "aspiration_window": {"value": 33,   "min": 10,   "max": 200,   "step": 5 },
+    "lazy_margin":       {"value": 400,  "min": 50,   "max": 1250,  "step": 5 },
+    "futility_mul":      {"value": 210,   "min": 25,   "max": 250,   "step": 5 },
     "iid_depth":         {"value": 1,    "min": 1,    "max": 4,     "step": 1 },
-    "razoring_base":     {"value": 294,  "min": 50,   "max": 500,   "step": 5 },
-    "razoring_mul":      {"value": 88,  "min": 10,   "max": 300,   "step": 5 },
+    "razoring_base":     {"value": 293,  "min": 50,   "max": 500,   "step": 5 },
+    "razoring_mul":      {"value": 80,  "min": 10,   "max": 300,   "step": 5 },
     # LMR + singular extensions (coupled — tune together)
     "lmr_base":          {"value": 64,   "min": 25,   "max": 125,   "step": 5 },
-    "lmr_mul":           {"value": 36,   "min": 10,   "max": 100,   "step": 5 },
+    "lmr_mul":           {"value": 31,   "min": 10,   "max": 100,   "step": 5 },
     "lmr_pv_min":        {"value": 7,    "min": 1,    "max": 10,    "step": 1 },
     "lmr_non_pv_min":    {"value": 4,    "min": 1,    "max": 10,    "step": 1 },
     "se_reduction":      {"value": 4,    "min": 0,    "max": 10,    "step": 1 },
     # NMP
-    "nmp_improvement":   {"value": 23,   "min": 10,   "max": 100,   "step": 5 },
+    "nmp_improvement":   {"value": 22,   "min": 10,   "max": 100,   "step": 5 },
     "nmp_base":          {"value": 3,    "min": 1,    "max": 8,     "step": 1 },
-    "nmp_depth_div":     {"value": 5,    "min": 1,    "max": 8,     "step": 1 },
-    "nmp_beta_div":      {"value": 155,  "min": 50,   "max": 300,   "step": 5 },
+    "nmp_depth_div":     {"value": 4,    "min": 1,    "max": 8,     "step": 1 },
+    "nmp_beta_div":      {"value": 154,  "min": 50,   "max": 300,   "step": 5 },
     # Quiescent search
-    "q_see_margin":      {"value": -35,  "min": -200, "max": 0,     "step": 5 },
-    "q_delta_margin":    {"value": 184,  "min": 0,    "max": 400,   "step": 5 },
+    "q_see_margin":      {"value": -42,  "min": -200, "max": 0,     "step": 5 },
+    "q_delta_margin":    {"value": 168,  "min": 0,    "max": 400,   "step": 5 },
     # RFP
-    "rfp_depth":         {"value": 7,    "min": 1,    "max": 12,    "step": 1 },
-    "rfp_mul":           {"value": 102,   "min": 10,   "max": 150,   "step": 5 },
-    "rfp_improvement":   {"value": 24,   "min": 10,   "max": 150,   "step": 5 },
+    "rfp_depth":         {"value": 6,    "min": 1,    "max": 12,    "step": 1 },
+    "rfp_mul":           {"value": 101,   "min": 10,   "max": 150,   "step": 5 },
+    "rfp_improvement":   {"value": 34,   "min": 10,   "max": 150,   "step": 5 },
     # LMP
-    "lmp_base":          {"value": 5,    "min": 1,    "max": 10,    "step": 1 },
+    "lmp_base":          {"value": 4,    "min": 1,    "max": 10,    "step": 1 },
     "lmp_mul":           {"value": 2,    "min": 1,    "max": 15,    "step": 1 },
 
-    "history_div":       {"value": 9319, "min": 1000,    "max": 12000, "step": 100},
+    "history_div":       {"value": 8148, "min": 1000,    "max": 12000, "step": 100},
 }
 
 STAGE_ORDER = [
@@ -110,7 +110,7 @@ STAGES = {
             "lmr_base", "lmr_mul", "lmr_pv_min", "lmr_non_pv_min",
             "se_reduction",
         ],
-        "target_iters": 150,
+        "target_iters": 250,
         "description": (
             "Most pervasive heuristic — shapes effective depth across the whole tree. "
             "se_reduction is directly coupled: singular extensions re-expand exactly "
@@ -251,8 +251,9 @@ def run_match(params_a: dict, params_b: dict, games: int = GAMES_PER_ITER) -> fl
         "-draw",   "movenumber=40", "movecount=6", "score=15",
         "-resign", "movecount=4",   "score=800",
         "-rounds", str(games // 2),
+        "-games", "2",
         "-repeat",
-        "-concurrency", "8",
+        "-concurrency", "10",
         "-openings", "file=../Ursus/8moves_v3.pgn", "order=random",
         "-recover",
     ]

@@ -1,0 +1,145 @@
+{
+    "resign": {
+        "move_count": 5,
+        "score": 400,
+        "twosided": false,
+        "enabled": true
+    },
+    "draw": {
+        "move_number": 40,
+        "move_count": 8,
+        "score": 15,
+        "enabled": true
+    },
+    "maxmoves": {
+        "move_count": 1,
+        "enabled": false
+    },
+    "tb_adjudication": {
+        "syzygy_dirs": "../Ursus/Syzygy/3-4-5",
+        "max_pieces": 0,
+        "ignore_50_move_rule": false,
+        "enabled": true
+    },
+    "opening": {
+        "file": "8moves_v3.pgn",
+        "format": 1,
+        "order": 0,
+        "plies": -1,
+        "start": 1
+    },
+    "pgn": {
+        "additional_lines_rgx": [],
+        "event_name": "Fastchess Tournament",
+        "site": "?",
+        "file": "matches/20260222_145500/games.pgn",
+        "notation": 0,
+        "append_file": true,
+        "track_nodes": false,
+        "track_seldepth": false,
+        "track_nps": false,
+        "track_hashfull": false,
+        "track_tbhits": false,
+        "track_timeleft": false,
+        "track_latency": false,
+        "track_pv": false,
+        "min": false,
+        "crc": false
+    },
+    "epd": {
+        "file": "",
+        "append_file": true
+    },
+    "sprt": {
+        "alpha": 0.05,
+        "beta": 0.05,
+        "elo0": 0.0,
+        "elo1": 5.0,
+        "model": "normalized",
+        "enabled": true
+    },
+    "config_name": "config.json",
+    "output": 0,
+    "seed": 10164849263420793977,
+    "variant": 0,
+    "type": 0,
+    "gauntlet_seeds": 1,
+    "ratinginterval": 10,
+    "scoreinterval": 1,
+    "wait": 0,
+    "autosaveinterval": 20,
+    "games": 2,
+    "rounds": 10000,
+    "concurrency": 10,
+    "force_concurrency": false,
+    "recover": true,
+    "noswap": false,
+    "reverse": false,
+    "report_penta": true,
+    "affinity": false,
+    "check_mate_pvs": false,
+    "show_latency": false,
+    "log": {
+        "file": "",
+        "level": 2,
+        "append_file": true,
+        "compress": false,
+        "realtime": true,
+        "engine_coms": false
+    },
+    "engines": [
+        {
+            "name": "New",
+            "dir": "",
+            "cmd": "./zig-out/bin/Ursus",
+            "args": "",
+            "restart": false,
+            "options": [],
+            "limit": {
+                "tc": {
+                    "increment": 50,
+                    "fixed_time": 0,
+                    "time": 1000,
+                    "moves": 0,
+                    "timemargin": 50
+                },
+                "nodes": 0,
+                "plies": 0
+            },
+            "variant": 0
+        },
+        {
+            "name": "Base",
+            "dir": "",
+            "cmd": "./engines/Ursus2.25.5",
+            "args": "",
+            "restart": false,
+            "options": [],
+            "limit": {
+                "tc": {
+                    "increment": 50,
+                    "fixed_time": 0,
+                    "time": 1000,
+                    "moves": 0,
+                    "timemargin": 50
+                },
+                "nodes": 0,
+                "plies": 0
+            },
+            "variant": 0
+        }
+    ],
+    "stats": {
+        "New vs Base": {
+            "wins": 174,
+            "losses": 162,
+            "draws": 156,
+            "penta_WW": 28,
+            "penta_WD": 57,
+            "penta_WL": 61,
+            "penta_DD": 22,
+            "penta_LD": 55,
+            "penta_LL": 23
+        }
+    }
+}

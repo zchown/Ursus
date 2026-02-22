@@ -124,10 +124,10 @@ pub const TranspositionTable = struct {
         };
         global_tt_initialized = true;
 
-        std.debug.print("TT initialized: {} entries ({} MB)\n", .{
-            num_entries,
-        (num_entries * @sizeOf(u128)) / mb,
-        });
+        // std.debug.print("TT initialized: {} entries ({} MB)\n", .{
+            // num_entries,
+        // (num_entries * @sizeOf(u128)) / mb,
+        // });
     }
 
     pub fn deinitGlobal() void {

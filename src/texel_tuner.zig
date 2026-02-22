@@ -4,17 +4,18 @@ const mvs = @import("moves");
 const fen_mod = @import("fen");
 const eval = @import("eval");
 
-const K: f64 = 1.0976; // Scaling constant. Calibrate first with findK().
+// Already calibrated do not overwrite
+const K: f64 = 1.0819; // Scaling constant. Calibrate first with findK().
 const NUM_THREADS: usize = 0; // 0 = auto-detect CPU count
-const CHUNK_SIZE: usize = 500_000; // Positions loaded into memory at once
-const BATCH_SIZE: usize = 32768; // Positions per mini-batch (power of 2)
-const LEARNING_RATE: f64 = 0.2; // Adam lr — good starting point for integer params
+const CHUNK_SIZE: usize = 500_000;
+const BATCH_SIZE: usize = 32768; 
+const LEARNING_RATE: f64 = 0.01; // Adam lr 
 const BETA1: f64 = 0.9;
 const BETA2: f64 = 0.999;
 const EPSILON: f64 = 1e-8;
-const MAX_EPOCHS: usize = 2;
-const PRINT_EVERY: usize = 1; // Print MSE every N epochs
-const CHECKPOINT_EVERY: usize = 5; // Save params every N epochs
+const MAX_EPOCHS: usize = 10;
+const PRINT_EVERY: usize = 1; 
+const CHECKPOINT_EVERY: usize = 5;
 
 const Position = struct {
     board: brd.Board,
@@ -225,7 +226,6 @@ fn computeGradientBatch(
 
     const actual_threads = @min(n_threads, positions.len);
 
-    // Allocate per-thread partial gradient arrays
     const partial_grads = try allocator.alloc([]f64, actual_threads);
     defer allocator.free(partial_grads);
     for (partial_grads) |*pg| {
@@ -233,7 +233,7 @@ fn computeGradientBatch(
     }
     defer for (partial_grads) |pg| allocator.free(pg);
 
-    // Build work items — split positions evenly
+    // Build work items
     const work_items = try allocator.alloc(GradientWork, actual_threads);
     defer allocator.free(work_items);
 
@@ -250,7 +250,7 @@ fn computeGradientBatch(
         };
     }
 
-    // Spawn threads (calling thread handles the last slice)
+    // Spawn threads 
     const threads = try allocator.alloc(std.Thread, actual_threads - 1);
     defer allocator.free(threads);
 
@@ -303,9 +303,11 @@ const Adam = struct {
     }
 };
 
+
 fn printParams(int_params: []const i32, writer: anytype) !void {
     try writer.print("\n// ===== Tuned parameters — paste into eval.zig =====\n", .{});
 
+    // Piece values
     try writer.print("pub var mg_pawn: i32 = {};\n", .{int_params[eval.P_MG_PAWN]});
     try writer.print("pub var eg_pawn: i32 = {};\n", .{int_params[eval.P_EG_PAWN]});
     try writer.print("pub var mg_knight: i32 = {};\n", .{int_params[eval.P_MG_KNIGHT]});
@@ -319,6 +321,7 @@ fn printParams(int_params: []const i32, writer: anytype) !void {
     try writer.print("pub var mg_king: i32 = {};\n", .{int_params[eval.P_MG_KING]});
     try writer.print("pub var eg_king: i32 = {};\n", .{int_params[eval.P_EG_KING]});
 
+    // PST tables
     const pst_names = [12][]const u8{
         "mg_pawn_table",   "eg_pawn_table",
         "mg_knight_table", "eg_knight_table",
@@ -347,22 +350,23 @@ fn printParams(int_params: []const i32, writer: anytype) !void {
         try writer.print("}};\n", .{});
     }
 
-    try writer.print("pub var knight_mobility_bonus = [9]i32{{", .{});
-    for (0..9) |i| try writer.print(" {},", .{int_params[eval.P_KNIGHT_MOB + i]});
-    try writer.print(" }};\n", .{});
+    // Mobility tables — mg/eg split
+    const mob_names = [_][]const u8{
+        "mg_knight_mobility", "mg_bishop_mobility", "mg_rook_mobility", "mg_queen_mobility",
+        "eg_knight_mobility", "eg_bishop_mobility", "eg_rook_mobility", "eg_queen_mobility",
+    };
+    const mob_offsets = [_]usize{
+        eval.P_MG_KNIGHT_MOB, eval.P_MG_BISHOP_MOB, eval.P_MG_ROOK_MOB, eval.P_MG_QUEEN_MOB,
+        eval.P_EG_KNIGHT_MOB, eval.P_EG_BISHOP_MOB, eval.P_EG_ROOK_MOB, eval.P_EG_QUEEN_MOB,
+    };
+    const mob_sizes = [_]usize{ 9, 14, 15, 28, 9, 14, 15, 28 };
+    for (mob_names, mob_offsets, mob_sizes) |name, off, sz| {
+        try writer.print("pub var {s} = [{}]i32{{", .{ name, sz });
+        for (0..sz) |i| try writer.print(" {},", .{int_params[off + i]});
+        try writer.print(" }};\n", .{});
+    }
 
-    try writer.print("pub var bishop_mobility_bonus = [14]i32{{", .{});
-    for (0..14) |i| try writer.print(" {},", .{int_params[eval.P_BISHOP_MOB + i]});
-    try writer.print(" }};\n", .{});
-
-    try writer.print("pub var rook_mobility_bonus = [15]i32{{", .{});
-    for (0..15) |i| try writer.print(" {},", .{int_params[eval.P_ROOK_MOB + i]});
-    try writer.print(" }};\n", .{});
-
-    try writer.print("pub var queen_mobility_bonus = [28]i32{{", .{});
-    for (0..28) |i| try writer.print(" {},", .{int_params[eval.P_QUEEN_MOB + i]});
-    try writer.print(" }};\n", .{});
-
+    // Passed pawn tables
     try writer.print("pub var mg_passed_bonus = [8]i32{{", .{});
     for (0..8) |i| try writer.print(" {},", .{int_params[eval.P_MG_PASSED + i]});
     try writer.print(" }};\n", .{});
@@ -371,47 +375,131 @@ fn printParams(int_params: []const i32, writer: anytype) !void {
     for (0..8) |i| try writer.print(" {},", .{int_params[eval.P_EG_PASSED + i]});
     try writer.print(" }};\n", .{});
 
-    try writer.print("pub var safety_table = [16]i32{{", .{});
-    for (0..16) |i| try writer.print(" {},", .{int_params[eval.P_SAFETY_TABLE + i]});
-    try writer.print(" }};\n", .{});
+    // King safety — quadratic model
+    try writer.print("pub var safety_quadratic_a: i32 = {};\n", .{int_params[eval.P_SAFETY_QUAD_A]});
+    try writer.print("pub var safety_quadratic_b: i32 = {};\n", .{int_params[eval.P_SAFETY_QUAD_B]});
 
-    const scalar_names = [_][]const u8{
-        "castled_bonus",            "pawn_shield_bonus",        "open_file_penalty",        "semi_open_penalty",
-        "knight_attack_bonus",      "bishop_attack_bonus",      "rook_attack_bonus",        "queen_attack_bonus",
-        "rook_on_7th_bonus",        "rook_behind_passer_bonus", "king_pawn_proximity",      "protected_pawn_bonus",
-        "doubled_pawn_penalty",     "isolated_pawn_penalty",    "rook_on_open_file_bonus",  "rook_on_semi_open_file_bonus",
-        "minor_threat_penalty",     "rook_threat_penalty",      "queen_threat_penalty",     "rook_on_queen_bonus",
-        "rook_on_king_bonus",       "queen_on_king_bonus",      "bad_bishop_penalty",       "bishop_on_queen_bonus",
-        "bishop_on_king_bonus",     "hanging_piece_penalty",    "attacked_by_pawn_penalty", "attacked_by_minor_penalty",
-        "attacked_by_rook_penalty", "tempo_bonus",              "bishop_pair_bonus",        "knight_outpost_bonus",
-        "space_per_square",         "center_control_bonus",     "extended_center_bonus",
-        "exchange_avoidance_weight", "mopup_edge_weight",       "mopup_proximity_weight",
-        "king_centralization_weight", "king_far_pawn_penalty",  "defended_by_pawn_penalty",
-        "pawn_advancement_scaler",  "pawn_storm_penalty",       "king_zone_attack_weight",
-        "king_defender_bonus",      "rule_of_square_bonus",     "trapped_piece_penalty",
+    // Per-piece king zone attack weights (mg/eg)
+    const king_atk_names = [_][]const u8{
+        "mg_knight_king_atk", "eg_knight_king_atk",
+        "mg_bishop_king_atk", "eg_bishop_king_atk",
+        "mg_rook_king_atk",   "eg_rook_king_atk",
+        "mg_queen_king_atk",  "eg_queen_king_atk",
     };
-    const scalar_offsets = [_]usize{
-        eval.P_CASTLED_BONUS,     eval.P_PAWN_SHIELD_BONUS,   eval.P_OPEN_FILE_PENALTY,
-        eval.P_SEMI_OPEN_PENALTY, eval.P_KNIGHT_ATTACK_BONUS, eval.P_BISHOP_ATTACK_BONUS,
-        eval.P_ROOK_ATTACK_BONUS, eval.P_QUEEN_ATTACK_BONUS,  eval.P_ROOK_7TH_BONUS,
-        eval.P_ROOK_PASSER_BONUS, eval.P_KING_PAWN_PROXIMITY, eval.P_PROTECTED_PAWN,
-        eval.P_DOUBLED_PAWN,      eval.P_ISOLATED_PAWN,       eval.P_ROOK_OPEN_FILE,
-        eval.P_ROOK_SEMI_OPEN,    eval.P_MINOR_THREAT,        eval.P_ROOK_THREAT,
-        eval.P_QUEEN_THREAT,      eval.P_ROOK_ON_QUEEN,       eval.P_ROOK_ON_KING,
-        eval.P_QUEEN_ON_KING,     eval.P_BAD_BISHOP,          eval.P_BISHOP_ON_QUEEN,
-        eval.P_BISHOP_ON_KING,    eval.P_HANGING_PIECE,       eval.P_ATK_BY_PAWN,
-        eval.P_ATK_BY_MINOR,      eval.P_ATK_BY_ROOK,         eval.P_TEMPO_BONUS,
-        eval.P_BISHOP_PAIR,       eval.P_KNIGHT_OUTPOST,      eval.P_SPACE_PER_SQ,
-        eval.P_CENTER_CTRL,       eval.P_EXTENDED_CENTER,
-        eval.P_EXCHANGE_AVOIDANCE, eval.P_MOPUP_EDGE,         eval.P_MOPUP_PROXIMITY,
-        eval.P_KING_CENTRALIZATION, eval.P_KING_FAR_PAWN,     eval.P_DEFENDED_BY_PAWN,
-        eval.P_PAWN_ADVANCEMENT,  eval.P_PAWN_STORM,           eval.P_KING_ZONE_ATTACK,
-        eval.P_KING_DEFENDER,     eval.P_RULE_OF_SQUARE,       eval.P_TRAPPED_PIECE,
+    const king_atk_offsets = [_]usize{
+        eval.P_MG_KNIGHT_KING_ATK, eval.P_EG_KNIGHT_KING_ATK,
+        eval.P_MG_BISHOP_KING_ATK, eval.P_EG_BISHOP_KING_ATK,
+        eval.P_MG_ROOK_KING_ATK,   eval.P_EG_ROOK_KING_ATK,
+        eval.P_MG_QUEEN_KING_ATK,  eval.P_EG_QUEEN_KING_ATK,
     };
-    for (scalar_names, scalar_offsets) |name, off| {
+    for (king_atk_names, king_atk_offsets) |name, off| {
+        try writer.print("pub var {s}: i32 = {};\n", .{ name, int_params[off] });
+    }
+
+    // King safety scalars (mg-only)
+    try writer.print("pub var castled_bonus: i32 = {};\n", .{int_params[eval.P_CASTLED_BONUS]});
+    try writer.print("pub var pawn_shield_bonus: i32 = {};\n", .{int_params[eval.P_PAWN_SHIELD_BONUS]});
+    try writer.print("pub var open_file_penalty: i32 = {};\n", .{int_params[eval.P_OPEN_FILE_PENALTY]});
+    try writer.print("pub var semi_open_penalty: i32 = {};\n", .{int_params[eval.P_SEMI_OPEN_PENALTY]});
+
+    // Split scalar bonuses — mg/eg pairs
+    const split_names = [_][]const u8{
+        "mg_protected_pawn",      "eg_protected_pawn",
+        "mg_doubled_pawn",        "eg_doubled_pawn",
+        "mg_isolated_pawn",       "eg_isolated_pawn",
+        "mg_rook_open_file",      "eg_rook_open_file",
+        "mg_rook_semi_open",      "eg_rook_semi_open",
+        "mg_minor_threat",        "eg_minor_threat",
+        "mg_rook_threat",         "eg_rook_threat",
+        "mg_queen_threat",        "eg_queen_threat",
+        "mg_rook_on_queen",       "eg_rook_on_queen",
+        "mg_rook_on_king",        "eg_rook_on_king",
+        "mg_queen_on_king",       "eg_queen_on_king",
+        "mg_bad_bishop",          "eg_bad_bishop",
+        "mg_bishop_on_queen",     "eg_bishop_on_queen",
+        "mg_bishop_on_king",      "eg_bishop_on_king",
+        "mg_hanging_piece",       "eg_hanging_piece",
+        "mg_atk_by_pawn",         "eg_atk_by_pawn",
+        "mg_atk_by_minor",        "eg_atk_by_minor",
+        "mg_atk_by_rook",         "eg_atk_by_rook",
+        "mg_defended_by_pawn",    "eg_defended_by_pawn",
+        "mg_knight_outpost",      "eg_knight_outpost",
+        "mg_bishop_pair",         "eg_bishop_pair",
+        "mg_space_per_sq",        "eg_space_per_sq",
+        "mg_center_ctrl",         "eg_center_ctrl",
+        "mg_extended_center",     "eg_extended_center",
+        "mg_exchange_avoidance",  "eg_exchange_avoidance",
+    };
+    const split_offsets = [_]usize{
+        eval.P_MG_PROTECTED_PAWN,     eval.P_EG_PROTECTED_PAWN,
+        eval.P_MG_DOUBLED_PAWN,       eval.P_EG_DOUBLED_PAWN,
+        eval.P_MG_ISOLATED_PAWN,      eval.P_EG_ISOLATED_PAWN,
+        eval.P_MG_ROOK_OPEN_FILE,     eval.P_EG_ROOK_OPEN_FILE,
+        eval.P_MG_ROOK_SEMI_OPEN,     eval.P_EG_ROOK_SEMI_OPEN,
+        eval.P_MG_MINOR_THREAT,       eval.P_EG_MINOR_THREAT,
+        eval.P_MG_ROOK_THREAT,        eval.P_EG_ROOK_THREAT,
+        eval.P_MG_QUEEN_THREAT,       eval.P_EG_QUEEN_THREAT,
+        eval.P_MG_ROOK_ON_QUEEN,      eval.P_EG_ROOK_ON_QUEEN,
+        eval.P_MG_ROOK_ON_KING,       eval.P_EG_ROOK_ON_KING,
+        eval.P_MG_QUEEN_ON_KING,      eval.P_EG_QUEEN_ON_KING,
+        eval.P_MG_BAD_BISHOP,         eval.P_EG_BAD_BISHOP,
+        eval.P_MG_BISHOP_ON_QUEEN,    eval.P_EG_BISHOP_ON_QUEEN,
+        eval.P_MG_BISHOP_ON_KING,     eval.P_EG_BISHOP_ON_KING,
+        eval.P_MG_HANGING_PIECE,      eval.P_EG_HANGING_PIECE,
+        eval.P_MG_ATK_BY_PAWN,        eval.P_EG_ATK_BY_PAWN,
+        eval.P_MG_ATK_BY_MINOR,       eval.P_EG_ATK_BY_MINOR,
+        eval.P_MG_ATK_BY_ROOK,        eval.P_EG_ATK_BY_ROOK,
+        eval.P_MG_DEFENDED_BY_PAWN,   eval.P_EG_DEFENDED_BY_PAWN,
+        eval.P_MG_KNIGHT_OUTPOST,     eval.P_EG_KNIGHT_OUTPOST,
+        eval.P_MG_BISHOP_PAIR,        eval.P_EG_BISHOP_PAIR,
+        eval.P_MG_SPACE_PER_SQ,       eval.P_EG_SPACE_PER_SQ,
+        eval.P_MG_CENTER_CTRL,        eval.P_EG_CENTER_CTRL,
+        eval.P_MG_EXTENDED_CENTER,    eval.P_EG_EXTENDED_CENTER,
+        eval.P_MG_EXCHANGE_AVOIDANCE, eval.P_EG_EXCHANGE_AVOIDANCE,
+    };
+    for (split_names, split_offsets) |name, off| {
+        try writer.print("pub var {s}: i32 = {};\n", .{ name, int_params[off] });
+    }
+
+    // Per-piece-type trapped piece penalties (mg/eg)
+    const trapped_names = [_][]const u8{
+        "mg_trapped_knight", "eg_trapped_knight",
+        "mg_trapped_bishop", "eg_trapped_bishop",
+        "mg_trapped_rook",   "eg_trapped_rook",
+    };
+    const trapped_offsets = [_]usize{
+        eval.P_MG_TRAPPED_KNIGHT, eval.P_EG_TRAPPED_KNIGHT,
+        eval.P_MG_TRAPPED_BISHOP, eval.P_EG_TRAPPED_BISHOP,
+        eval.P_MG_TRAPPED_ROOK,   eval.P_EG_TRAPPED_ROOK,
+    };
+    for (trapped_names, trapped_offsets) |name, off| {
+        try writer.print("pub var {s}: i32 = {};\n", .{ name, int_params[off] });
+    }
+
+    // Remaining single-phase params
+    const remaining_names = [_][]const u8{
+        "rook_on_7th_bonus",          "rook_behind_passer_bonus",
+        "king_pawn_proximity",        "king_far_pawn_penalty",
+        "king_centralization_weight", "mopup_edge_weight",
+        "mopup_proximity_weight",     "pawn_advancement_scaler",
+        "rule_of_square_bonus",       "pawn_storm_penalty",
+        "king_zone_attack_weight",    "king_defender_bonus",
+        "tempo_bonus",
+    };
+    const remaining_offsets = [_]usize{
+        eval.P_ROOK_7TH_BONUS,    eval.P_ROOK_PASSER_BONUS,
+        eval.P_KING_PAWN_PROXIMITY, eval.P_KING_FAR_PAWN,
+        eval.P_KING_CENTRALIZATION, eval.P_MOPUP_EDGE,
+        eval.P_MOPUP_PROXIMITY,    eval.P_PAWN_ADVANCEMENT,
+        eval.P_RULE_OF_SQUARE,     eval.P_PAWN_STORM,
+        eval.P_KING_ZONE_ATTACK,   eval.P_KING_DEFENDER,
+        eval.P_TEMPO_BONUS,
+    };
+    for (remaining_names, remaining_offsets) |name, off| {
         try writer.print("pub var {s}: i32 = {};\n", .{ name, int_params[off] });
     }
 }
+
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -606,7 +694,6 @@ pub fn main() !void {
             .argv = shuf_args,
         });
 
-        // Child.run allocates slices for stdout and stderr, so we must free them
         allocator.free(shuf_result.stdout);
         allocator.free(shuf_result.stderr);
 
