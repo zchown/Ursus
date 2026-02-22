@@ -297,6 +297,7 @@ pub const UciProtocol = struct {
 
         try respond("option name Ponder type check default false");
         try respond("option name Hash type spin default 64 min 1 max 2048");
+
         try respond("option name Threads type spin default 1 min 1 max 8");
 
         try respond("option name aspiration_window type spin default 33 min 10 max 200");
