@@ -13,7 +13,7 @@ const LEARNING_RATE: f64 = 0.01; // Adam lr
 const BETA1: f64 = 0.9;
 const BETA2: f64 = 0.999;
 const EPSILON: f64 = 1e-8;
-const MAX_EPOCHS: usize = 10;
+const MAX_EPOCHS: usize = 75;
 const PRINT_EVERY: usize = 1; 
 const CHECKPOINT_EVERY: usize = 5;
 

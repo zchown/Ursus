@@ -10,8 +10,10 @@ CUTECHESS="cutechess-cli"
 # Engines (edit paths + names)
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
-  "Ursus2.24=./engines/Ursus2.22"
   "Ursus2.15.3=./engines/Ursus2.15.3"
+  "Ursus2.22=./engines/Ursus2.22"
+  "Ursus2.21=./engines/Ursus2.21"
+  "Ursus2.23=./engines/Ursus2.23"
   "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 )
 

@@ -6,7 +6,7 @@ const pawn_tt = @import("pawn_tt");
 
 pub const mate_score: i32 = 888888;
 
-pub var lazy_margin: i32 = 810;
+pub var lazy_margin: i32 = 800;
 
 const total_phase: i32 = 24;
 const pawn_phase: i32 = 0;
@@ -15,186 +15,186 @@ const bishop_phase: i32 = 1;
 const rook_phase: i32 = 2;
 const queen_phase: i32 = 4;
 
-pub var mg_pawn: i32 = 86;
-pub var eg_pawn: i32 = 110;
-pub var mg_knight: i32 = 359;
-pub var eg_knight: i32 = 374;
-pub var mg_bishop: i32 = 381;
-pub var eg_bishop: i32 = 378;
-pub var mg_rook: i32 = 491;
-pub var eg_rook: i32 = 724;
-pub var mg_queen: i32 = 1089;
-pub var eg_queen: i32 = 1269;
+pub var mg_pawn: i32 = 87;
+pub var eg_pawn: i32 = 112;
+pub var mg_knight: i32 = 364;
+pub var eg_knight: i32 = 382;
+pub var mg_bishop: i32 = 386;
+pub var eg_bishop: i32 = 388;
+pub var mg_rook: i32 = 498;
+pub var eg_rook: i32 = 740;
+pub var mg_queen: i32 = 1101;
+pub var eg_queen: i32 = 1308;
 pub var mg_king: i32 = 0;
 pub var eg_king: i32 = 0;
 pub var mg_pawn_table = [64]i32{
        0,   0,   0,   0,   0,   0,   0,   0,
-      -18,   -9,   -5,   -7,   7,  21,  37,  -15,
-      -29,  -18,  -10,   -9,   7,   -9,  10,  -20,
-      -19,  -11,   1,  16,  18,  12,   4,  -16,
-      -16,   3,   4,   5,  32,  32,  22,   6,
-      10,  18,  45,  40,  46,  98,  70,  13,
-     103, 116,  85, 115,  83,  50,  -52,  -61,
+      -19,   -9,   -5,   -6,   8,  21,  38,  -15,
+      -30,  -18,  -10,  -10,   7,   -9,  10,  -21,
+      -21,  -11,   1,  16,  19,  13,   3,  -17,
+      -17,   3,   4,   5,  32,  32,  22,   5,
+      12,  19,  49,  46,  52, 100,  71,  14,
+     100, 118,  82, 120,  84,  51,  -48,  -65,
        0,   0,   0,   0,   0,   0,   0,   0,
 };
 pub var eg_pawn_table = [64]i32{
        0,   0,   0,   0,   0,   0,   0,   0,
-      28,  25,  17,  17,  27,  16,   2,   2,
-      20,  16,   6,   8,   8,   8,   0,   0,
-      26,  24,   2,   -8,   -9,   -1,   8,   3,
-      50,  36,  15,  -10,  -10,   -1,  20,  18,
-      76,  80,  31,   -9,  -15,   3,  49,  57,
-     190, 174, 186, 127, 124, 144, 199, 208,
+      28,  25,  18,  16,  27,  16,   3,   3,
+      21,  16,   6,   9,   8,   9,   0,   1,
+      27,  25,   2,   -8,   -9,   -1,   8,   4,
+      51,  36,  15,   -9,  -10,   -1,  20,  18,
+      75,  80,  29,  -12,  -18,   3,  48,  57,
+     191, 174, 187, 124, 122, 143, 196, 210,
        0,   0,   0,   0,   0,   0,   0,   0,
 };
 pub var mg_knight_table = [64]i32{
-      -81,  -28,  -33,  -11,   -1,   5,  -22,  -42,
-      -38,  -28,  -11,  13,  13,   9,   -2,   1,
-      -34,   -7,   2,  14,  33,  14,  18,   -2,
-       -3,   -2,  16,  23,  33,  23,  30,  14,
-      16,  12,  28,  63,  27,  59,  12,  54,
-       0,  30,  49,  54,  91,  89,  48,  22,
-       -6,   5,  22,  50,  20,  76,   -7,  28,
-     -185, -149,  -92,  -33,  18, -116, -114, -133,
+      -82,  -28,  -32,  -10,   -1,   6,  -23,  -39,
+      -38,  -27,  -10,  14,  14,   9,   -1,   1,
+      -34,   -7,   3,  15,  34,  14,  19,   -3,
+       -2,   -4,  17,  23,  34,  24,  30,  15,
+      15,  13,  28,  64,  28,  60,  13,  55,
+       3,  32,  50,  55,  93,  92,  48,  21,
+       -6,   6,  20,  50,  16,  75,   -5,  29,
+     -184, -152,  -91,  -39,  12, -112, -123, -132,
 };
 pub var eg_knight_table = [64]i32{
-      -17,  -29,   -8,   -1,   -2,  -17,  -18,  -14,
-      -15,   -3,   -3,   -6,   -5,   -9,  -13,   -1,
-      -15,   -5,   3,  28,  24,   -4,  -11,   -4,
-       5,   2,  28,  27,  37,  16,   -3,   4,
-       8,  10,  28,  32,  37,  28,  19,   1,
-       -6,   -6,  17,  21,   5,   -7,  -16,  -21,
-      -15,   -2,   -9,   -7,  -19,  -29,   -3,  -37,
-      -79,  -15,   6,  -15,  -17,  -14,  -13,  -99,
+      -10,  -26,   -7,   0,   -1,  -17,  -15,   -7,
+      -12,   -2,   -2,   -6,   -4,   -8,  -13,   0,
+      -11,   -4,   4,  29,  24,   -3,  -11,   -1,
+       7,   3,  28,  28,  37,  16,   -2,   6,
+      11,  12,  28,  32,  36,  29,  20,   2,
+       -5,   -6,  16,  21,   4,   -8,  -16,  -19,
+      -12,   -1,   -7,   -7,  -17,  -28,   -2,  -35,
+      -82,  -17,   4,  -15,  -17,  -24,  -17, -101,
 };
 pub var mg_bishop_table = [64]i32{
-       -3,  27,   -1,   -6,   5,   -6,  13,  21,
-       6,  12,  25,   5,  18,  29,  37,  22,
-       -9,  14,  16,  11,  18,  20,  21,  21,
-       2,  -13,   0,  36,  27,   5,   0,  26,
-       0,   8,  15,  34,  26,  22,   6,   -1,
-       4,  17,  24,  25,  18,  54,  32,  11,
-       -7,   8,   -5,  -27,   -7,   -2,  -38,  -30,
-      -46,  -64,  -96, -121, -105, -127,  -30,  -74,
+       -3,  27,   -1,   -5,   7,   -5,  17,  23,
+       7,  13,  26,   6,  19,  31,  37,  23,
+       -9,  14,  17,  12,  18,  20,  21,  22,
+       3,  -14,   0,  36,  27,   5,   -1,  27,
+       1,   8,  16,  33,  26,  21,   7,   -1,
+       5,  19,  22,  25,  15,  55,  31,  13,
+       -1,  10,   -4,  -26,   -5,   -2,  -38,  -30,
+      -44,  -67,  -89, -126, -110, -125,  -38,  -80,
 };
 pub var eg_bishop_table = [64]i32{
-      -17,  10,   -3,   2,   3,  14,  -10,  -33,
-       5,  -13,  -11,   7,   4,   -3,   -6,  -20,
-       1,  16,  17,  21,  27,  14,   5,   -9,
-       1,  19,  26,  28,  26,  15,  13,  -15,
-       8,  18,  16,  36,  23,  20,  11,   9,
-      14,   8,   8,   1,   5,  13,   6,  13,
-       -7,   -4,   2,  10,   0,   -1,  11,   -2,
-      12,  15,  18,  22,  18,  13,   2,   -4,
+      -14,  12,   -3,   3,   3,  14,  -12,  -35,
+       7,  -12,  -10,   8,   5,   -3,   -5,  -19,
+       2,  18,  18,  22,  28,  14,   6,   -9,
+       2,  22,  27,  28,  27,  17,  15,  -17,
+       9,  19,  17,  38,  25,  23,  12,  10,
+      15,   9,  11,   3,   9,  14,   8,  14,
+      -10,   -5,   2,  11,   -1,   0,  12,   -2,
+      10,  16,  17,  24,  19,  11,   5,   -4,
 };
 pub var mg_rook_table = [64]i32{
-      -13,  -10,  -10,   0,  11,  10,   7,   -8,
-      -34,  -26,  -15,  -11,   -4,   7,  21,  -17,
-      -33,  -35,  -29,  -23,  -11,   -9,  22,   6,
-      -29,  -37,  -29,  -18,  -18,  -24,   3,   -8,
-      -11,   -5,   -8,   3,   3,  22,  30,  21,
-      -14,  14,   2,  10,  43,  61, 105,  49,
-       6,   -4,  14,  36,  23,  66,  53,  77,
-      21,  18,  -11,   2,  10,  49,  70,  72,
+      -13,   -9,   -9,   1,  13,  11,   8,   -8,
+      -33,  -26,  -14,  -11,   -3,   8,  23,  -16,
+      -34,  -35,  -28,  -23,   -9,   -8,  25,   7,
+      -30,  -37,  -28,  -17,  -16,  -23,   4,   -8,
+      -13,   -6,  -10,   0,   2,  21,  28,  20,
+      -15,  11,   1,   5,  41,  59, 105,  52,
+       6,   -5,  13,  38,  21,  65,  54,  79,
+      15,   9,  -10,   -3,   9,  50,  62,  67,
 };
 pub var eg_rook_table = [64]i32{
-       4,   4,  14,   0,   -9,   -2,   -2,   -9,
-       4,   7,   8,   3,   -6,   -9,  -14,  -11,
-      16,  17,  13,   9,   4,   4,   -9,  -13,
-      25,  28,  27,  20,  18,  23,  15,   9,
-      35,  31,  37,  26,  14,  13,  18,  13,
-      42,  38,  41,  26,  17,  16,  12,  14,
-      34,  50,  52,  34,  33,  25,  23,  12,
-      35,  40,  58,  43,  38,  36,  30,  27,
+       5,   4,  14,   0,   -9,   -3,   -2,   -9,
+       4,   8,   9,   4,   -5,   -9,  -15,  -12,
+      17,  17,  14,  10,   4,   4,  -11,  -13,
+      27,  29,  27,  21,  19,  23,  15,  10,
+      37,  32,  40,  29,  16,  15,  21,  14,
+      43,  41,  43,  30,  20,  18,  12,  13,
+      34,  50,  53,  34,  35,  26,  22,  11,
+      38,  44,  59,  46,  39,  37,  33,  29,
 };
 pub var mg_queen_table = [64]i32{
-       -8,   -5,   -2,   3,  11,   -6,   4,   -8,
-       0,   -2,   5,  11,   9,  28,  26,  30,
-       -5,   -8,   -7,   -9,   -3,   4,  11,  17,
-       -1,  -18,  -18,  -12,  -10,   -4,   0,  17,
-       -6,  -15,  -14,  -20,  -18,   -1,   3,  15,
-       -1,   -6,  -10,   -6,   0,  46,  51,  42,
-       -3,  -32,  -26,  -47,  -48,  15,   -3,  64,
-      -44,  -40,  -31,  -10,  -11,  11,  36,   3,
+       -8,   -6,   -3,   3,  11,   -7,   4,   -6,
+       0,   -2,   4,  12,   8,  27,  24,  33,
+       -4,   -9,   -9,  -10,   -4,   4,  10,  16,
+       -1,  -19,  -18,  -12,  -10,   -4,   0,  18,
+       -8,  -15,  -13,  -20,  -17,   3,   4,  18,
+       2,   -7,  -11,   -6,   0,  50,  55,  50,
+       2,  -29,  -28,  -46,  -47,  16,   4,  68,
+      -46,  -45,  -33,   -8,   -9,   8,  37,   -2,
 };
 pub var eg_queen_table = [64]i32{
-      -27,  -26,  -14,   -2,  -24,  -29,  -46,  -35,
-      -24,  -19,  -17,   -4,   2,  -43,  -66,  -66,
-       -9,  18,  32,  27,  38,  27,  16,   -5,
-      10,  45,  46,  68,  64,  54,  49,  36,
-      32,  61,  62,  85,  98,  87,  93,  60,
-      37,  44,  80,  86, 100,  86,  56,  67,
-      25,  61,  88, 120, 145,  87,  90,  54,
-      28,  42,  73,  68,  72,  71,  29,  31,
+      -23,  -19,   -8,   2,  -21,  -26,  -43,  -37,
+      -20,  -15,  -12,   -1,   6,  -37,  -62,  -71,
+       -7,  25,  38,  32,  42,  29,  20,   0,
+      13,  51,  50,  70,  65,  56,  53,  38,
+      37,  61,  63,  85,  98,  82,  91,  57,
+      35,  46,  82,  86, 103,  83,  52,  56,
+      20,  55,  92, 119, 145,  87,  80,  50,
+      29,  43,  75,  67,  69,  68,  20,  31,
 };
 pub var mg_king_table = [64]i32{
-      10,  48,  16,  -68,  -10,  -43,  11,  24,
-      36,   -1,   -9,  -41,  -42,  -30,  18,  24,
-      -43,   7,  -27,  -41,  -30,  -45,  -19,  -61,
-      -53,   -5,   -5,  -71,  -54,  -24,  -26, -120,
-      -48,  23,   -5,  -64,  -51,   -3,   4,  -83,
-      -60,  96,  60,   -6,  35, 100,  62,  -40,
-      -93,  45,  30, 109,  46,  65,  57,  -53,
-     129, 159, 131,  43,  24,  52, 132, 177,
+      18,  55,  19,  -62,   -3,  -36,  13,  30,
+      47,   4,   -3,  -36,  -37,  -25,  23,  29,
+      -43,   7,  -35,  -48,  -36,  -52,  -21,  -67,
+      -62,  -24,  -33,  -95,  -86,  -51,  -61, -146,
+      -58,   2,  -31,  -93,  -84,  -36,  -27, -108,
+      -74,  80,  36,  -25,  17,  87,  45,  -43,
+      -93,  38,  20, 104,  40,  51,  48,  -50,
+     134, 160, 130,  39,  23,  50, 130, 184,
 };
 pub var eg_king_table = [64]i32{
-      -42,  -31,  -14,   -3,  -25,   1,  -26,  -60,
-      -13,   8,   9,   5,   7,  10,   1,  -14,
-      -17,   -2,   3,   2,   0,   6,   3,   -1,
-      -32,  -10,   -4,   5,   0,   1,   0,   2,
-      -13,   7,  14,  10,  12,  23,  29,  13,
-      17,  31,  25,  28,  32,  47,  63,  37,
-      25,  45,  35,   5,  29,  58,  72,  52,
-     -111,  -50,  -30,   -6,  -16,   2,   2, -113,
+      -40,  -32,  -15,   -6,  -29,   -1,  -25,  -57,
+      -16,   8,   7,   0,   3,   8,   0,  -13,
+      -16,   -4,   1,   -1,   -3,   4,   3,   3,
+      -31,   -9,   -4,   2,   -1,   1,   4,   7,
+      -13,   7,  13,   8,  10,  24,  31,  17,
+      22,  33,  27,  27,  31,  47,  66,  40,
+      31,  50,  38,   5,  29,  63,  78,  62,
+      -98,  -42,  -25,   -4,  -12,   8,   9, -102,
 };
-pub var mg_knight_mobility = [9]i32{ -6, 4, 17, 23, 30, 37, 47, 55, 63, };
-pub var mg_bishop_mobility = [14]i32{ -3, -6, 6, 14, 22, 26, 29, 30, 31, 34, 39, 34, 48, 83, };
-pub var mg_rook_mobility = [15]i32{ 16, 29, 6, 12, 8, 13, 14, 15, 18, 20, 23, 21, 28, 36, 47, };
-pub var mg_queen_mobility = [28]i32{ 11, 13, 3, 6, 7, 12, 14, 15, 19, 21, 22, 24, 25, 25, 27, 27, 27, 28, 37, 42, 59, 75, 68, 94, 109, 141, 107, 61, };
-pub var eg_knight_mobility = [9]i32{ -48, -44, -12, 3, 13, 26, 25, 21, 8, };
-pub var eg_bishop_mobility = [14]i32{ -36, -57, -33, -17, -2, 11, 16, 22, 24, 21, 14, 19, 18, -13, };
-pub var eg_rook_mobility = [15]i32{ -13, 14, -19, -11, -1, 7, 16, 21, 25, 30, 32, 38, 38, 27, 18, };
-pub var eg_queen_mobility = [28]i32{ -195, -171, -109, -81, -53, -41, -24, -3, 1, 7, 16, 24, 29, 35, 39, 45, 54, 56, 54, 51, 44, 38, 39, 18, 21, -17, 5, 14, };
-pub var mg_passed_bonus = [8]i32{ 0, 9, 2, 1, 32, 40, 34, 0, };
-pub var passed_pawn_bonus = [8]i32{ 0, -31, -21, 7, 34, 105, 74, 0, };
-pub var safety_quadratic_a: i32 = 24;
-pub var safety_quadratic_b: i32 = -25;
-pub var mg_knight_king_atk: i32 = -18;
+pub var mg_knight_mobility = [9]i32{ -6, 6, 18, 24, 31, 38, 47, 56, 64, };
+pub var mg_bishop_mobility = [14]i32{ -3, -5, 7, 14, 23, 27, 30, 31, 32, 36, 42, 36, 47, 72, };
+pub var mg_rook_mobility = [15]i32{ 16, 29, 7, 12, 9, 14, 15, 15, 19, 21, 24, 21, 28, 35, 34, };
+pub var mg_queen_mobility = [28]i32{ 12, 11, 2, 5, 6, 12, 14, 15, 19, 21, 22, 24, 25, 25, 26, 27, 27, 27, 38, 44, 63, 85, 75, 102, 122, 148, 112, 61, };
+pub var eg_knight_mobility = [9]i32{ -47, -44, -11, 5, 15, 29, 28, 24, 11, };
+pub var eg_bishop_mobility = [14]i32{ -34, -55, -30, -15, 0, 13, 19, 24, 25, 23, 15, 20, 21, -8, };
+pub var eg_rook_mobility = [15]i32{ -14, 14, -18, -10, 0, 8, 17, 22, 26, 31, 33, 40, 40, 31, 25, };
+pub var eg_queen_mobility = [28]i32{ -199, -173, -102, -77, -49, -40, -21, 0, 3, 9, 19, 28, 32, 39, 43, 49, 58, 60, 57, 53, 44, 35, 38, 18, 25, -15, 8, 13, };
+pub var mg_passed_bonus = [8]i32{ 0, 9, 3, 1, 33, 37, 35, 0, };
+pub var passed_pawn_bonus = [8]i32{ 0, -32, -21, 6, 33, 105, 73, 0, };
+pub var safety_quadratic_a: i32 = 25;
+pub var safety_quadratic_b: i32 = -27;
+pub var mg_knight_king_atk: i32 = -17;
 pub var eg_knight_king_atk: i32 = -15;
-pub var mg_bishop_king_atk: i32 = -8;
-pub var eg_bishop_king_atk: i32 = -6;
-pub var mg_rook_king_atk: i32 = -14;
+pub var mg_bishop_king_atk: i32 = -6;
+pub var eg_bishop_king_atk: i32 = -5;
+pub var mg_rook_king_atk: i32 = -12;
 pub var eg_rook_king_atk: i32 = -25;
-pub var mg_queen_king_atk: i32 = -27;
+pub var mg_queen_king_atk: i32 = -26;
 pub var eg_queen_king_atk: i32 = 25;
-pub var castled_bonus: i32 = 11;
-pub var pawn_shield_bonus: i32 = 14;
-pub var open_file_penalty: i32 = -57;
-pub var semi_open_penalty: i32 = -18;
+pub var castled_bonus: i32 = 14;
+pub var pawn_shield_bonus: i32 = 15;
+pub var open_file_penalty: i32 = -56;
+pub var semi_open_penalty: i32 = -19;
 pub var mg_protected_pawn: i32 = 13;
 pub var eg_protected_pawn: i32 = 12;
 pub var mg_doubled_pawn: i32 = -2;
 pub var eg_doubled_pawn: i32 = -12;
 pub var mg_isolated_pawn: i32 = -13;
-pub var eg_isolated_pawn: i32 = -12;
-pub var mg_rook_open_file: i32 = 45;
-pub var eg_rook_open_file: i32 = 12;
-pub var mg_rook_semi_open: i32 = 16;
+pub var eg_isolated_pawn: i32 = -13;
+pub var mg_rook_open_file: i32 = 46;
+pub var eg_rook_open_file: i32 = 11;
+pub var mg_rook_semi_open: i32 = 17;
 pub var eg_rook_semi_open: i32 = 23;
 pub var mg_minor_threat: i32 = 37;
 pub var eg_minor_threat: i32 = 20;
 pub var mg_rook_threat: i32 = 14;
-pub var eg_rook_threat: i32 = -2;
-pub var mg_queen_threat: i32 = 11;
-pub var eg_queen_threat: i32 = -5;
-pub var mg_rook_on_queen: i32 = 17;
-pub var eg_rook_on_queen: i32 = -8;
+pub var eg_rook_threat: i32 = -1;
+pub var mg_queen_threat: i32 = 12;
+pub var eg_queen_threat: i32 = -7;
+pub var mg_rook_on_queen: i32 = 18;
+pub var eg_rook_on_queen: i32 = -11;
 pub var mg_rook_on_king: i32 = 20;
-pub var eg_rook_on_king: i32 = -27;
-pub var mg_queen_on_king: i32 = 8;
-pub var eg_queen_on_king: i32 = -10;
+pub var eg_rook_on_king: i32 = -26;
+pub var mg_queen_on_king: i32 = 9;
+pub var eg_queen_on_king: i32 = -11;
 pub var mg_bad_bishop: i32 = 3;
-pub var eg_bad_bishop: i32 = 12;
+pub var eg_bad_bishop: i32 = 13;
 pub var mg_bishop_on_queen: i32 = 63;
 pub var eg_bishop_on_queen: i32 = 47;
 pub var mg_bishop_on_king: i32 = -31;
@@ -203,12 +203,12 @@ pub var mg_hanging_piece: i32 = 9;
 pub var eg_hanging_piece: i32 = -1;
 pub var mg_atk_by_pawn: i32 = 0;
 pub var eg_atk_by_pawn: i32 = -10;
-pub var mg_atk_by_minor: i32 = 64;
-pub var eg_atk_by_minor: i32 = 19;
-pub var mg_atk_by_rook: i32 = 91;
-pub var eg_atk_by_rook: i32 = 1;
+pub var mg_atk_by_minor: i32 = 65;
+pub var eg_atk_by_minor: i32 = 17;
+pub var mg_atk_by_rook: i32 = 95;
+pub var eg_atk_by_rook: i32 = -6;
 pub var mg_defended_by_pawn: i32 = 25;
-pub var eg_defended_by_pawn: i32 = 10;
+pub var eg_defended_by_pawn: i32 = 9;
 pub var mg_knight_outpost: i32 = 5;
 pub var eg_knight_outpost: i32 = 28;
 pub var mg_bishop_pair: i32 = 31;
@@ -216,28 +216,28 @@ pub var eg_bishop_pair: i32 = 90;
 pub var mg_space_per_sq: i32 = 3;
 pub var eg_space_per_sq: i32 = -1;
 pub var mg_center_ctrl: i32 = -1;
-pub var eg_center_ctrl: i32 = 3;
+pub var eg_center_ctrl: i32 = 4;
 pub var mg_extended_center: i32 = 4;
 pub var eg_extended_center: i32 = -1;
-pub var mg_exchange_avoidance: i32 = 0;
-pub var eg_exchange_avoidance: i32 = 8;
+pub var mg_exchange_avoidance: i32 = -1;
+pub var eg_exchange_avoidance: i32 = 7;
 pub var mg_trapped_knight: i32 = 10;
-pub var eg_trapped_knight: i32 = 42;
+pub var eg_trapped_knight: i32 = 41;
 pub var mg_trapped_bishop: i32 = 16;
-pub var eg_trapped_bishop: i32 = 39;
+pub var eg_trapped_bishop: i32 = 37;
 pub var mg_trapped_rook: i32 = 27;
 pub var eg_trapped_rook: i32 = 39;
-pub var rook_on_7th_bonus: i32 = 9;
+pub var rook_on_7th_bonus: i32 = 10;
 pub var rook_behind_passer_bonus: i32 = 14;
-pub var king_pawn_proximity: i32 = 7;
+pub var king_pawn_proximity: i32 = 8;
 pub var king_far_pawn_penalty: i32 = 39;
-pub var king_centralization_weight: i32 = 16;
-pub var mopup_edge_weight: i32 = 6;
-pub var mopup_proximity_weight: i32 = 0;
+pub var king_centralization_weight: i32 = 17;
+pub var mopup_edge_weight: i32 = 5;
+pub var mopup_proximity_weight: i32 = -1;
 pub var pawn_advancement_scaler: i32 = -7;
-pub var rule_of_square_bonus: i32 = 238;
+pub var rule_of_square_bonus: i32 = 269;
 pub var pawn_storm_penalty: i32 = -6;
-pub var king_zone_attack_weight: i32 = 18;
+pub var king_zone_attack_weight: i32 = 17;
 pub var king_defender_bonus: i32 = 4;
 pub var tempo_bonus: i32 = 32;
 

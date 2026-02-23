@@ -12,27 +12,27 @@ inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Colo
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
 
-pub var aspiration_window: i32 = 31;
+pub var aspiration_window: i32 = 25;
 
-pub var rfp_depth: i32 = 6;
+pub var rfp_depth: i32 = 5;
 pub var rfp_mul: i32 = 101;
-pub var rfp_improve: i32 = 31;
+pub var rfp_improve: i32 = 17;
 
 pub var nmp_improve: i32 = 22;
-pub var nmp_base: usize = 3;
-pub var nmp_depth_div: usize = 4;
-pub var nmp_beta_div: usize = 154;
+pub var nmp_base: usize = 4;
+pub var nmp_depth_div: usize = 3;
+pub var nmp_beta_div: usize = 140;
 
-pub var razoring_base: i32 = 293;
-pub var razoring_mul: i32 = 80;
+pub var razoring_base: i32 = 284;
+pub var razoring_mul: i32 = 88;
 
 pub var iid_depth: usize = 1;
 
 pub var lmp_improve: usize = 2;
-pub var lmp_base: usize = 4;
+pub var lmp_base: usize = 3;
 pub var lmp_mul: usize = 2;
 
-pub var futility_mul: i32 = 210;
+pub var futility_mul: i32 = 214;
 
 const score_hash: i32 = 2_000_000_000;
 const score_winning_capture: i32 = 1_000_000;
@@ -43,17 +43,17 @@ const score_equal_capture: i32 = 700_000;
 const score_counter: i32 = 600_000;
 
 pub var q_see_min: i32 = -200;
-pub var q_see_margin: i32 = -42;
-pub var q_delta_margin: i32 = 168;
+pub var q_see_margin: i32 = -41;
+pub var q_delta_margin: i32 = 172;
 
 pub var lmr_base: i32 = 64;
-pub var lmr_mul: i32 = 31;
+pub var lmr_mul: i32 = 40;
 
-pub var lmr_pv_min: usize = 7;
+pub var lmr_pv_min: usize = 8;
 pub var lmr_non_pv_min: usize = 4;
 
 pub var se_reduction: usize = 4;
-pub var history_div: i32 = 8148;
+pub var history_div: i32 = 7672;
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 

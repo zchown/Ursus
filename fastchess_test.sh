@@ -2,14 +2,14 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus2.25.5"
+ENGINE_BASE="./engines/Ursus2.25.6"
 
 FASTCHESS="fastchess"
 
 OPENINGS="8moves_v3.pgn"
 
 CONCURRENCY=10
-TC="1+0.05"
+TC="2+0.1"
 ROUNDS=10000
 TIMEMARGIN=50
 

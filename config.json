@@ -1,15 +1,15 @@
 {
     "resign": {
-        "move_count": 5,
-        "score": 400,
+        "move_count": 1,
+        "score": 0,
         "twosided": false,
-        "enabled": true
+        "enabled": false
     },
     "draw": {
-        "move_number": 40,
-        "move_count": 8,
-        "score": 15,
-        "enabled": true
+        "move_number": 0,
+        "move_count": 1,
+        "score": 0,
+        "enabled": false
     },
     "maxmoves": {
         "move_count": 1,
@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260222_145500/games.pgn",
+        "file": "",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -51,26 +51,26 @@
         "append_file": true
     },
     "sprt": {
-        "alpha": 0.05,
-        "beta": 0.05,
+        "alpha": 0.0,
+        "beta": 0.0,
         "elo0": 0.0,
-        "elo1": 5.0,
+        "elo1": 0.0,
         "model": "normalized",
-        "enabled": true
+        "enabled": false
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 10164849263420793977,
+    "seed": 7261503138300926702,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
-    "ratinginterval": 10,
+    "ratinginterval": 5,
     "scoreinterval": 1,
     "wait": 0,
     "autosaveinterval": 20,
     "games": 2,
-    "rounds": 10000,
-    "concurrency": 10,
+    "rounds": 100,
+    "concurrency": 5,
     "force_concurrency": false,
     "recover": true,
     "noswap": false,
@@ -89,7 +89,7 @@
     },
     "engines": [
         {
-            "name": "New",
+            "name": "Ursus",
             "dir": "",
             "cmd": "./zig-out/bin/Ursus",
             "args": "",
@@ -97,11 +97,11 @@
             "options": [],
             "limit": {
                 "tc": {
-                    "increment": 50,
+                    "increment": 100,
                     "fixed_time": 0,
-                    "time": 1000,
+                    "time": 5000,
                     "moves": 0,
-                    "timemargin": 50
+                    "timemargin": 0
                 },
                 "nodes": 0,
                 "plies": 0
@@ -109,19 +109,99 @@
             "variant": 0
         },
         {
-            "name": "Base",
+            "name": "Ursus2.15.3",
             "dir": "",
-            "cmd": "./engines/Ursus2.25.5",
+            "cmd": "./engines/Ursus2.15.3",
             "args": "",
             "restart": false,
             "options": [],
             "limit": {
                 "tc": {
-                    "increment": 50,
+                    "increment": 100,
                     "fixed_time": 0,
-                    "time": 1000,
+                    "time": 5000,
                     "moves": 0,
-                    "timemargin": 50
+                    "timemargin": 0
+                },
+                "nodes": 0,
+                "plies": 0
+            },
+            "variant": 0
+        },
+        {
+            "name": "Ursus2.22",
+            "dir": "",
+            "cmd": "./engines/Ursus2.22",
+            "args": "",
+            "restart": false,
+            "options": [],
+            "limit": {
+                "tc": {
+                    "increment": 100,
+                    "fixed_time": 0,
+                    "time": 5000,
+                    "moves": 0,
+                    "timemargin": 0
+                },
+                "nodes": 0,
+                "plies": 0
+            },
+            "variant": 0
+        },
+        {
+            "name": "Ursus2.21",
+            "dir": "",
+            "cmd": "./engines/Ursus2.21",
+            "args": "",
+            "restart": false,
+            "options": [],
+            "limit": {
+                "tc": {
+                    "increment": 100,
+                    "fixed_time": 0,
+                    "time": 5000,
+                    "moves": 0,
+                    "timemargin": 0
+                },
+                "nodes": 0,
+                "plies": 0
+            },
+            "variant": 0
+        },
+        {
+            "name": "Ursus2.23",
+            "dir": "",
+            "cmd": "./engines/Ursus2.23",
+            "args": "",
+            "restart": false,
+            "options": [],
+            "limit": {
+                "tc": {
+                    "increment": 100,
+                    "fixed_time": 0,
+                    "time": 5000,
+                    "moves": 0,
+                    "timemargin": 0
+                },
+                "nodes": 0,
+                "plies": 0
+            },
+            "variant": 0
+        },
+        {
+            "name": "Chess-Coding-Adventure",
+            "dir": "",
+            "cmd": "./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure",
+            "args": "",
+            "restart": false,
+            "options": [],
+            "limit": {
+                "tc": {
+                    "increment": 100,
+                    "fixed_time": 0,
+                    "time": 5000,
+                    "moves": 0,
+                    "timemargin": 0
                 },
                 "nodes": 0,
                 "plies": 0
@@ -130,16 +210,170 @@
         }
     ],
     "stats": {
-        "New vs Base": {
-            "wins": 174,
-            "losses": 162,
-            "draws": 156,
-            "penta_WW": 28,
-            "penta_WD": 57,
-            "penta_WL": 61,
-            "penta_DD": 22,
-            "penta_LD": 55,
-            "penta_LL": 23
+        "Ursus2.23 vs Chess-Coding-Adventure": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus2.21 vs Chess-Coding-Adventure": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus2.22 vs Ursus2.21": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus vs Chess-Coding-Adventure": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus2.15.3 vs Ursus2.23": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus vs Ursus2.23": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus2.15.3 vs Ursus2.22": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus2.22 vs Chess-Coding-Adventure": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus2.22 vs Ursus2.23": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus2.21 vs Ursus2.23": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus vs Ursus2.22": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus2.15.3 vs Chess-Coding-Adventure": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus2.15.3 vs Ursus2.21": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus vs Ursus2.21": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
+        },
+        "Ursus vs Ursus2.15.3": {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "penta_WW": 0,
+            "penta_WD": 0,
+            "penta_WL": 0,
+            "penta_DD": 0,
+            "penta_LD": 0,
+            "penta_LL": 0
         }
     }
 }
