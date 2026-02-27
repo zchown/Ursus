@@ -647,13 +647,6 @@ pub fn parseCommand(args: [][]const u8) DatagenConfig {
         } else if (std.mem.eql(u8, args[i], "adjudication") and i + 1 < args.len) {
             config.adjudication_score = std.fmt.parseInt(i32, args[i + 1], 10) catch 3000;
             i += 1;
-        } else if (std.mem.eql(u8, args[i], "format") and i + 1 < args.len) {
-            if (std.mem.eql(u8, args[i + 1], "bullet") or std.mem.eql(u8, args[i + 1], "bin")) {
-                config.format = .bullet;
-            } else {
-                config.format = .text;
-            }
-            i += 1;
         }
     }
 

@@ -209,7 +209,7 @@ pub const MoveGen = struct {
     }
 
     // pseudo-legal move generation
-    pub fn generateMoves(self: *MoveGen, board: *Board, move_flag: bool) MoveList {
+    pub fn generateMoves(self: *MoveGen, board: *Board, comptime move_flag: bool) MoveList {
         var move_list = MoveList.init();
 
         const color = board.game_state.side_to_move;
@@ -260,7 +260,7 @@ pub const MoveGen = struct {
     }
 
 
-    pub fn generatePawnMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
+    pub fn generatePawnMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime move_flag: bool) void {
         var bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.Pawn)];
         var start_square: brd.Square = undefined;
         var end_square: isize = undefined;
@@ -343,7 +343,7 @@ pub const MoveGen = struct {
         }
     }
 
-    pub fn generateKingMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
+    pub fn generateKingMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime move_flag: bool) void {
         var bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.King)];
         var start_square: brd.Square = undefined;
         var end_square: brd.Square = undefined;
@@ -371,7 +371,7 @@ pub const MoveGen = struct {
         }
     }
 
-    pub fn generateSlideMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
+    pub fn generateSlideMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime move_flag: bool) void {
         var bb: Bitboard = undefined;
         var start_square: brd.Square = undefined;
         var end_square: brd.Square = undefined;
@@ -429,7 +429,7 @@ pub const MoveGen = struct {
         }
     }
 
-    pub fn generateKnightMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, move_flag: bool) void {
+    pub fn generateKnightMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime move_flag: bool) void {
         var bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.Knight)];
         var start_square: brd.Square = undefined;
         var end_square: brd.Square = undefined;
