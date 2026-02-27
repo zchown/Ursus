@@ -32,6 +32,7 @@ pub fn parseFEN(board: *Board, fen: []const u8) !void {
     board.game_state.fullmove_number = try std.fmt.parseInt(u16, fullmove_str, 10);
 
     board.reinitZobrist();
+    board.refreshNNUE();
 
     return;
 }

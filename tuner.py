@@ -31,17 +31,18 @@ import os
 import math
 import sys
 import argparse
+import re
 from collections import deque
 
 ENGINE     = "./zig-out/bin/Ursus"
-CUTECHESS  = "cutechess-cli"
+FASTCHESS  = "fastchess"
 TC         = "0.5+0.05"
 OUTPUT_DIR = "tuning_results"
 
-GAMES_PER_ITER = 20
+GAMES_PER_ITER = 10
 
 
-C_INIT       = 2.5    # Perturbation size at iteration 1 (and during warmup)
+C_INIT       = 1.0    # Perturbation size at iteration 1 (and during warmup)
 A            = 100    # Stability constant — delays learning-rate decay
 ALPHA        = 0.602  # Standard SPSA learning-rate decay exponent
 GAMMA        = 0.101  # Standard SPSA perturbation decay exponent
@@ -62,35 +63,34 @@ ADAM_ENABLED = True
 
 ALL_PARAMS = {
     # Search window / independent
-    "aspiration_window": {"value": 33,   "min": 10,   "max": 200,   "step": 5 },
-    "lazy_margin":       {"value": 400,  "min": 50,   "max": 1250,  "step": 5 },
-    "futility_mul":      {"value": 210,   "min": 25,   "max": 250,   "step": 5 },
+    "aspiration_window": {"value": 25,   "min": 10,   "max": 200,   "step": 5 },
+    "futility_mul":      {"value": 214,   "min": 25,   "max": 250,   "step": 5 },
     "iid_depth":         {"value": 1,    "min": 1,    "max": 4,     "step": 1 },
-    "razoring_base":     {"value": 293,  "min": 50,   "max": 500,   "step": 5 },
-    "razoring_mul":      {"value": 80,  "min": 10,   "max": 300,   "step": 5 },
+    "razoring_base":     {"value": 284,  "min": 50,   "max": 500,   "step": 5 },
+    "razoring_mul":      {"value": 88,  "min": 10,   "max": 300,   "step": 5 },
     # LMR + singular extensions (coupled — tune together)
     "lmr_base":          {"value": 64,   "min": 25,   "max": 125,   "step": 5 },
-    "lmr_mul":           {"value": 31,   "min": 10,   "max": 100,   "step": 5 },
-    "lmr_pv_min":        {"value": 7,    "min": 1,    "max": 10,    "step": 1 },
+    "lmr_mul":           {"value": 40,   "min": 10,   "max": 100,   "step": 5 },
+    "lmr_pv_min":        {"value": 8,    "min": 1,    "max": 10,    "step": 1 },
     "lmr_non_pv_min":    {"value": 4,    "min": 1,    "max": 10,    "step": 1 },
     "se_reduction":      {"value": 4,    "min": 0,    "max": 10,    "step": 1 },
     # NMP
     "nmp_improvement":   {"value": 22,   "min": 10,   "max": 100,   "step": 5 },
-    "nmp_base":          {"value": 3,    "min": 1,    "max": 8,     "step": 1 },
+    "nmp_base":          {"value": 4,    "min": 1,    "max": 8,     "step": 1 },
     "nmp_depth_div":     {"value": 4,    "min": 1,    "max": 8,     "step": 1 },
-    "nmp_beta_div":      {"value": 154,  "min": 50,   "max": 300,   "step": 5 },
+    "nmp_beta_div":      {"value": 140,  "min": 50,   "max": 300,   "step": 5 },
     # Quiescent search
-    "q_see_margin":      {"value": -42,  "min": -200, "max": 0,     "step": 5 },
-    "q_delta_margin":    {"value": 168,  "min": 0,    "max": 400,   "step": 5 },
+    "q_see_margin":      {"value": -41,  "min": -200, "max": 0,     "step": 5 },
+    "q_delta_margin":    {"value": 172,  "min": 0,    "max": 400,   "step": 5 },
     # RFP
-    "rfp_depth":         {"value": 6,    "min": 1,    "max": 12,    "step": 1 },
+    "rfp_depth":         {"value": 5,    "min": 1,    "max": 12,    "step": 1 },
     "rfp_mul":           {"value": 101,   "min": 10,   "max": 150,   "step": 5 },
-    "rfp_improvement":   {"value": 34,   "min": 10,   "max": 150,   "step": 5 },
+    "rfp_improvement":   {"value": 17,   "min": 10,   "max": 150,   "step": 5 },
     # LMP
     "lmp_base":          {"value": 4,    "min": 1,    "max": 10,    "step": 1 },
     "lmp_mul":           {"value": 2,    "min": 1,    "max": 15,    "step": 1 },
 
-    "history_div":       {"value": 8148, "min": 1000,    "max": 12000, "step": 100},
+    "history_div":       {"value": 7672, "min": 1000,    "max": 12000, "step": 100},
 }
 
 STAGE_ORDER = [
@@ -157,7 +157,7 @@ STAGES = {
     "stage7_independent": {
         "name": "Independent Parameters",
         "params": [
-            "aspiration_window", "lazy_margin", "futility_mul",
+            "aspiration_window", "futility_mul",
             "iid_depth", "razoring_base", "razoring_mul",
         ],
         "target_iters": 750,
@@ -229,11 +229,6 @@ _first_run = True
 
 
 def run_match(params_a: dict, params_b: dict, games: int = GAMES_PER_ITER) -> float:
-    """
-    Run a cutechess-cli match.  Returns score for engine A in [0, 1].
-    Returns 0.5 (neutral) on failure so the gradient is zero rather than
-    corrupting the parameter update.
-    """
     global _first_run
 
     def engine_args(name, params):
@@ -243,15 +238,14 @@ def run_match(params_a: dict, params_b: dict, games: int = GAMES_PER_ITER) -> fl
         return args
 
     cmd = [
-        CUTECHESS,
+        FASTCHESS,
         *engine_args("Hero",    params_a),
         *engine_args("Villain", params_b),
-        "-each", "proto=uci", f"tc={TC}", "timemargin=25",
-        "-tb", "../Ursus/Syzygy/3-4-5",
+        "-each", f"tc={TC}",
         "-draw",   "movenumber=40", "movecount=6", "score=15",
         "-resign", "movecount=4",   "score=800",
         "-rounds", str(games // 2),
-        "-games", "2",
+        "-tb", "../Ursus/Syzygy/3-4-5",
         "-repeat",
         "-concurrency", "10",
         "-openings", "file=../Ursus/8moves_v3.pgn", "order=random",
@@ -269,20 +263,29 @@ def run_match(params_a: dict, params_b: dict, games: int = GAMES_PER_ITER) -> fl
     if stderr:
         print(f"  STDERR: {stderr[:300]}")
     if proc.returncode != 0:
-        print(f"  WARNING: cutechess-cli exited {proc.returncode}")
+        print(f"  WARNING: fastchess exited {proc.returncode}")
 
-    for line in stdout.splitlines():
-        if line.startswith("Score of Hero vs Villain"):
-            parts = line.split(":")[-1].strip().split()
-            wins, losses, draws = int(parts[0]), int(parts[2]), int(parts[4])
-            total = wins + losses + draws
-            if total == 0:
-                print("  WARNING: zero games recorded.")
-                return 0.5
-            return (wins + 0.5 * draws) / total
+    # Strip ANSI color codes
+    clean_stdout = re.sub(r'\x1b\[[0-9;]*m', '', stdout)
 
-    print("  WARNING: no score line found in cutechess output.")
-    print(f"  stdout preview: {stdout[:400]}")
+    for line in clean_stdout.splitlines():
+        # Look for the specific Fastchess results line
+        if "Wins:" in line and "Losses:" in line and "Draws:" in line:
+            match = re.search(r'Wins:\s*(\d+),\s*Losses:\s*(\d+),\s*Draws:\s*(\d+)', line)
+            if match:
+                wins = int(match.group(1))
+                losses = int(match.group(2))
+                draws = int(match.group(3))
+                
+                total = wins + losses + draws
+                if total == 0:
+                    print("  WARNING: zero games recorded.")
+                    return 0.5
+                
+                return (wins + 0.5 * draws) / total
+
+    print("  WARNING: no score line found in fastchess output.")
+    print(f"  stdout end preview: {clean_stdout[-400:]}")
     return 0.5
 
 class AdamState:

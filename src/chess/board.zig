@@ -1,5 +1,6 @@
 const std = @import("std");
 const zob = @import("zobrist");
+const nnue = @import("nnue");
 const EncodedMove = @import("moves").EncodedMove;
 
 pub const num_colors = 2;
@@ -104,6 +105,7 @@ pub const Board = struct {
     color_bb: [num_colors]Bitboard,
     game_state: GameState,
     history: History,
+    nnue_stack: nnue.NNUEStack,
 
     pub fn init() Board {
         return .{
@@ -111,6 +113,7 @@ pub const Board = struct {
             .color_bb = std.mem.zeroes([num_colors]Bitboard),
             .game_state = GameState.init(),
             .history = History.init(),
+            .nnue_stack = nnue.NNUEStack.init(),
         };
     }
 
@@ -147,6 +150,7 @@ pub const Board = struct {
 
     pub fn makeNullMove(self: *Board) void {
         self.history.addToHistory(self.game_state);
+        self.nnue_stack.push();
         self.clearEnPassantSquare();
         self.flipSideToMove();
         self.game_state.halfmove_clock += 1;
@@ -156,6 +160,7 @@ pub const Board = struct {
     }
 
     pub fn unmakeNullMove(self: *Board) void {
+        self.nnue_stack.pop();
         if (self.history.history_count > 0) {
             self.history.history_count -= 1;
             self.game_state = self.history.history_list[self.history.history_count];
@@ -247,6 +252,7 @@ pub const Board = struct {
             .color_bb = self.color_bb,
             .game_state = self.game_state,
             .history = self.history,
+            .nnue_stack = self.nnue_stack,
         };
     }
 
@@ -255,6 +261,7 @@ pub const Board = struct {
         self.color_bb = other.color_bb;
         self.game_state = other.game_state;
         self.history = other.history;
+        self.nnue_stack = other.nnue_stack;
     }
 
     pub fn getPieceList(self: Board) [max_pieces]?Piece {
@@ -351,6 +358,16 @@ pub const Board = struct {
                            self.piece_bb[color_idx][@intFromEnum(Pieces.Rook)] |
                            self.piece_bb[color_idx][@intFromEnum(Pieces.Queen)];
         return non_pawn_bb != 0;
+    }
+
+    /// Recompute NNUE accumulators from scratch for the current position.
+    /// Call this after setting up a position from FEN or at the root.
+    pub fn refreshNNUE(self: *Board) void {
+        nnue.refreshAccumulator(self, self.nnue_stack.top());
+    }
+
+    pub fn evaluateNNUE(self: *Board) i32 {
+        return nnue.evaluate(&self.nnue_stack, self.game_state.side_to_move);
     }
 };
 
