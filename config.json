@@ -1,15 +1,15 @@
 {
     "resign": {
-        "move_count": 1,
-        "score": 0,
+        "move_count": 5,
+        "score": 400,
         "twosided": false,
-        "enabled": false
+        "enabled": true
     },
     "draw": {
-        "move_number": 0,
-        "move_count": 1,
-        "score": 0,
-        "enabled": false
+        "move_number": 40,
+        "move_count": 8,
+        "score": 15,
+        "enabled": true
     },
     "maxmoves": {
         "move_count": 1,
@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260226_154223/games.pgn",
+        "file": "matches/20260227_122546/games.pgn",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -60,7 +60,7 @@
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 7199784761939882694,
+    "seed": 32870597606800663,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -70,7 +70,7 @@
     "autosaveinterval": 20,
     "games": 2,
     "rounds": 10000,
-    "concurrency": 10,
+    "concurrency": 6,
     "force_concurrency": false,
     "recover": true,
     "noswap": false,
@@ -97,7 +97,7 @@
             "options": [],
             "limit": {
                 "tc": {
-                    "increment": 200,
+                    "increment": 100,
                     "fixed_time": 0,
                     "time": 2000,
                     "moves": 0,
@@ -111,13 +111,13 @@
         {
             "name": "Base",
             "dir": "",
-            "cmd": "./engines/Ursus2.26.1",
+            "cmd": "./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure",
             "args": "",
             "restart": false,
             "options": [],
             "limit": {
                 "tc": {
-                    "increment": 200,
+                    "increment": 100,
                     "fixed_time": 0,
                     "time": 2000,
                     "moves": 0,
@@ -131,15 +131,15 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 0,
-            "losses": 22,
-            "draws": 0,
-            "penta_WW": 0,
-            "penta_WD": 0,
-            "penta_WL": 0,
+            "wins": 79,
+            "losses": 8,
+            "draws": 11,
+            "penta_WW": 30,
+            "penta_WD": 11,
+            "penta_WL": 8,
             "penta_DD": 0,
             "penta_LD": 0,
-            "penta_LL": 11
+            "penta_LL": 0
         }
     }
 }

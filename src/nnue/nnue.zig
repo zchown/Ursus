@@ -23,7 +23,7 @@ pub const NetworkWeights = struct {
     out_bias: i32,
 };
 
-const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("nnue.bin").*;
+const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("nnuev1.bin").*;
 var net_weights: ?*const NetworkWeights = null;
 
 pub fn initWeights() void {

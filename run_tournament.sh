@@ -10,11 +10,11 @@ CUTECHESS="cutechess-cli"
 # Engines (edit paths + names)
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
-  "Ursus2.26.1=./engines/Ursus2.26.1"
-  # "Ursus2.22=./engines/Ursus2.22"
-  # "Ursus2.21=./engines/Ursus2.21"
-  # "Ursus2.23=./engines/Ursus2.23"
-  # "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
+  "Ursus3.1=./engines/Ursus3.1"
+  "Ursus2.26=./engines/Ursus2.26.1"
+  "Ursus2.23=./engines/Ursus2.24"
+  "Ursus2.15=./engines/Ursus2.15.3"
+  "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 )
 
 # Openings
@@ -22,11 +22,11 @@ OPENINGS="8moves_v3.pgn"
 # OPENINGS="Balsa/Balsa_v110221.pgn"
 
 # Tournament size
-ROUNDS=100
-CONCURRENCY=5
+ROUNDS=250
+CONCURRENCY=4
 
 # Time control
-TC="5/0.1"
+TC="5+0.1"
 
 # Output
 OUTDIR="tournaments/$(date +%Y%m%d_%H%M%S)"
@@ -60,7 +60,7 @@ done
 
 $CUTECHESS \
   "${ENGINE_ARGS[@]}" \
-  -each tc=$TC timemargin=50 ponder \
+  -each tc=$TC timemargin=50 \
   -openings file="$OPENINGS" format=pgn order=random policy=round \
   -repeat 2 \
   -games 2 \
@@ -68,6 +68,8 @@ $CUTECHESS \
   -rounds $ROUNDS \
   -concurrency $CONCURRENCY \
   -ratinginterval 5 \
+  -draw movenumber=40 movecount=8 score=15 \
+  -resign movecount=5 score=400 \
   -recover \
   -pgnout "$PGN" \
   | tee "$LOG"

@@ -57,7 +57,7 @@ pub var history_div: i32 = 7672;
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 
-pub var contempt: i32 = -50;
+pub var contempt: i32 = 50;
 
 pub fn initQuietLMR() [64][64]i32 {
     const base: f32 = @as(f32, @floatFromInt(lmr_base)) / 10;
@@ -600,6 +600,13 @@ pub const Searcher = struct {
             return 0;
         }
         else if (isThreefoldRepetition(board, self.ply)) {
+            // const score = board.evaluateNNUE() + @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))], 256);
+            // if (score > 25) {
+            //     return self.dynamicContempt(board, color);
+            // } 
+            // else if (score < -25) {
+            //     return -self.dynamicContempt(board, color);
+            // }
             return 0;
             // return self.dynamicContempt(board, color);
         }
@@ -870,6 +877,10 @@ pub const Searcher = struct {
                     }
                 } else if (singular_beta >= beta) {
                     return singular_beta;
+                } else if (tt_eval >= beta) {
+                    extension = -1;
+                } else if (cutnode) {
+                    extension = -1;
                 }
             }
 
