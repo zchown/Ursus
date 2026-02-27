@@ -96,46 +96,29 @@ pub const PackedEntry = extern struct {
 
 pub var stop_signal: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-pub var tt_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-pub var global_tt_initialized: bool = false;
-pub var global_tt: *TranspositionTable = undefined;
-
 pub const TranspositionTable = struct {
     items: []std.atomic.Value(u128),
     size: usize,
     age: std.atomic.Value(u8),
 
-    pub fn initGlobal(size_in_mb: usize) !void {
+    pub fn init(allocator: std.mem.Allocator, size_in_mb: usize) !TranspositionTable {
         const raw_num_entries = (size_in_mb * mb) / @sizeOf(u128);
         const num_entries: usize = std.math.floorPowerOfTwo(usize, raw_num_entries);
 
-        global_tt = try tt_arena.allocator().create(TranspositionTable);
-
-        const items = try tt_arena.allocator().alloc(std.atomic.Value(u128), num_entries);
-
+        const items = try allocator.alloc(std.atomic.Value(u128), num_entries);
         for (items) |*item| {
             item.* = std.atomic.Value(u128).init(0);
         }
 
-        global_tt.* = TranspositionTable{
+        return TranspositionTable{
             .items = items,
             .size = num_entries,
             .age = std.atomic.Value(u8).init(0),
         };
-        global_tt_initialized = true;
-
-        // std.debug.print("TT initialized: {} entries ({} MB)\n", .{
-            // num_entries,
-        // (num_entries * @sizeOf(u128)) / mb,
-        // });
     }
 
-    pub fn deinitGlobal() void {
-        if (global_tt_initialized) {
-            tt_arena.allocator().destroy(global_tt);
-            global_tt = undefined;
-            global_tt_initialized = false;
-        }
+    pub fn deinit(self: *TranspositionTable, allocator: std.mem.Allocator) void {
+        allocator.free(self.items);
     }
 
     pub inline fn clear(self: *TranspositionTable) void {

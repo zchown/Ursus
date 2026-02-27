@@ -761,6 +761,10 @@ pub const MoveGen = struct {
 };
 
 pub fn makeMove(board: *Board, move: EncodedMove) void {
+    // Push NNUE state BEFORE modifying the board — pushAndUpdate reads
+    // board.toMove() and applies feature deltas from the encoded move.
+    board.nnue_stack.pushAndUpdate(board, move);
+
     board.history.addToHistory(board.game_state);
 
     // Convert fields to appropriate types
@@ -891,6 +895,9 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
 }
 
 pub fn undoMove(board: *Board, move: EncodedMove) void {
+    // Pop NNUE state to restore the previous accumulator values.
+    board.nnue_stack.pop();
+
     // Restore the previous game state
 
     const from_square = move.start_square;

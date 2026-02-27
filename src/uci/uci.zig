@@ -6,6 +6,8 @@ const srch = @import("search");
 const tt = @import("transposition");
 const eval = @import("eval");
 const pawn_tt = @import("pawn_tt");
+const datagen = @import("datagen");
+const nnue = @import("nnue");
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
@@ -93,6 +95,7 @@ pub const UciProtocol = struct {
     hash_size_mb: u32 = 64,
     threads: usize = 1,
     searcher: *srch.Searcher,
+    tt_table: tt.TranspositionTable = undefined,
 
     search_thread: ?std.Thread = null,
     is_pondering: bool = false,
@@ -107,16 +110,24 @@ pub const UciProtocol = struct {
 
         searcher_ptr.initInPlace();
 
-        return UciProtocol{
+        nnue.initWeights();
+
+        var protocol = UciProtocol{
             .board = brd.Board.init(),
             .allocator = a,
             .searcher = searcher_ptr,
         };
+
+        protocol.tt_table = try tt.TranspositionTable.init(a, protocol.hash_size_mb);
+        searcher_ptr.tt_table = &protocol.tt_table;
+
+        return protocol;
     }
 
     pub fn deinit(self: *UciProtocol) void {
         self.stopSearch();
         self.searcher.deinit();
+        self.tt_table.deinit(self.allocator);
     }
 
     pub fn receiveCommand(self: *UciProtocol, command: []const u8) !void {
@@ -142,7 +153,6 @@ pub const UciProtocol = struct {
             } else if (args.len > 0 and std.mem.eql(u8, args[0], "off")) {
                 self.debug_mode = false;
             } else {
-                // Fallback: print board for convenience
                 try fen.debugPrintBoard(&self.board);
             }
         } else if (std.mem.eql(u8, commandName, "ucinewgame")) {
@@ -164,6 +174,14 @@ pub const UciProtocol = struct {
             try respond("registration checking");
         } else if (std.mem.eql(u8, commandName, "d")) {
             try self.printBoard();
+        } else if (std.mem.eql(u8, commandName, "datagen")) {
+            try self.handleDatagen(args);
+        } else if (std.mem.eql(u8, commandName, "eval")) {
+            const eval_score = self.board.evaluateNNUE();
+            try respond(try std.fmt.allocPrint(self.allocator, "Evaluation: {d}", .{eval_score}));
+        } else if (std.mem.eql(u8, commandName, "hce")) {
+            const hce_score = eval.evaluate(&self.board, &self.searcher.move_gen, -eval.mate_score, eval.mate_score, true);
+            try respond(try std.fmt.allocPrint(self.allocator, "HCE Evaluation: {d}", .{hce_score}));
         } else {
             if (self.debug_mode) {
                 try respond("Unknown command");
@@ -323,12 +341,15 @@ pub const UciProtocol = struct {
         try respond("option name history_div type spin default 8148 min 1000 max 12000");
         try respond("option name lmp_base type spin default 4 min 0 max 10");
         try respond("option name lmp_mul type spin default 2 min 0 max 10");
+        try respond("option name q_see_min type spin default -200 min -500 max 0");
+        try respond("option name lmp_improve type spin default 2 min 0 max 4");
+
+        try self.newGame();
 
         try respond("uciok");
 
         srch.quiet_lmr = srch.initQuietLMR();
 
-        try self.newGame();
     }
 
     fn handleSetOption(self: *UciProtocol, args: [][]const u8) !void {
@@ -360,16 +381,11 @@ pub const UciProtocol = struct {
             }
             self.hash_size_mb = new_size_mb;
 
-            if (tt.global_tt_initialized) {
-                tt.TranspositionTable.deinitGlobal();
-            }
-
-            try tt.TranspositionTable.initGlobal(self.hash_size_mb);
+            self.tt_table.deinit(self.allocator);
+            self.tt_table = try tt.TranspositionTable.init(self.allocator, self.hash_size_mb);
+            self.searcher.tt_table = &self.tt_table;
         } else if (std.mem.eql(u8, option_name, "Clear Hash")) {
-            if (tt.global_tt_initialized) {
-                tt.global_tt.reset();
-            }
-
+            self.tt_table.reset();
             if (pawn_tt.pawn_tt_initialized) {
                 pawn_tt.pawn_tt.reset();
             }
@@ -432,6 +448,10 @@ pub const UciProtocol = struct {
             srch.lmp_base = try std.fmt.parseInt(usize, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "lmp_mul")) {
             srch.lmp_mul = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "q_see_min")) {
+            srch.q_see_min = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "lmp_improve")) {
+            srch.lmp_improve = try std.fmt.parseInt(usize, args[name_end + 1], 10);
         } else {
             if (self.debug_mode) {
                 try respond("Unknown option");
@@ -448,16 +468,13 @@ pub const UciProtocol = struct {
     }
 
     fn newGame(self: *UciProtocol) !void {
-        if (!tt.global_tt_initialized or tt.global_tt.items.len == 0) {
-            try tt.TranspositionTable.initGlobal(self.hash_size_mb);
-        }
-        if (!pawn_tt.pawn_tt_initialized or pawn_tt.pawn_tt.items.items.len == 0) {
-            try pawn_tt.TranspositionTable.initGlobal(16);
-        }
+        self.tt_table.reset();
 
         self.board = brd.Board.init();
         fen.setupStartingPosition(&self.board);
+        self.board.refreshNNUE();
         self.is_searching = false;
+
     }
 
     fn handlePosition(self: *UciProtocol, args: [][]const u8) !void {
@@ -471,6 +488,7 @@ pub const UciProtocol = struct {
         if (std.mem.eql(u8, args[0], "startpos")) {
             self.board = brd.Board.init();
             fen.setupStartingPosition(&self.board);
+            self.board.refreshNNUE();
             var j: usize = 1;
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
                 j += 1;
@@ -497,6 +515,7 @@ pub const UciProtocol = struct {
             defer self.allocator.free(fen_str);
 
             try fen.parseFEN(&self.board, fen_str);
+            self.board.refreshNNUE();
 
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
                 j += 1;
@@ -519,6 +538,12 @@ pub const UciProtocol = struct {
 
     fn printBoard(self: *UciProtocol) !void {
         try fen.debugPrintBoard(&self.board);
+    }
+
+    fn handleDatagen(self: *UciProtocol, args: [][]const u8) !void {
+        _ = self;
+        const config = datagen.parseCommand(args);
+        try datagen.run(config);
     }
 
     pub fn sendInfo(self: *UciProtocol, comptime fmt: []const u8, args: anytype) !void {

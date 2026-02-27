@@ -93,6 +93,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const datagen_module = b.createModule(.{
+        .root_source_file = b.path("src/nnue/datagen.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const nnue_module = b.createModule(.{
+        .root_source_file = b.path("src/nnue/nnue.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "Ursus",
         .root_module = b.createModule(.{
@@ -105,6 +117,7 @@ pub fn build(b: *std.Build) void {
 
     board_module.addImport("zobrist", zobrist_module);
     board_module.addImport("moves", moves_module);
+    board_module.addImport("nnue", nnue_module);
 
     perft_module.addImport("board", board_module);
     perft_module.addImport("moves", moves_module);
@@ -116,6 +129,7 @@ pub fn build(b: *std.Build) void {
     moves_module.addImport("board", board_module);
     moves_module.addImport("magic", magic_module);
     moves_module.addImport("radagast", radagast_module);
+    moves_module.addImport("nnue", nnue_module);
 
     zobrist_module.addImport("board", board_module);
 
@@ -141,6 +155,8 @@ pub fn build(b: *std.Build) void {
     uci_module.addImport("moves", moves_module);
     uci_module.addImport("eval", eval_module);
     uci_module.addImport("pawn_tt", pawn_tt_module);
+    uci_module.addImport("datagen", datagen_module);
+    uci_module.addImport("nnue", nnue_module);
 
     eval_module.addImport("board", board_module);
     eval_module.addImport("moves", moves_module);
@@ -150,8 +166,20 @@ pub fn build(b: *std.Build) void {
     see_module.addImport("board", board_module);
     see_module.addImport("moves", moves_module);
 
+    datagen_module.addImport("board", board_module);
+    datagen_module.addImport("moves", moves_module);
+    datagen_module.addImport("fen", fen_module);
+    datagen_module.addImport("search", search_module);
+    datagen_module.addImport("eval", eval_module);
+    datagen_module.addImport("pawn_tt", pawn_tt_module);
+    datagen_module.addImport("transposition", transposition_module);
+
+    nnue_module.addImport("board", board_module);
+    nnue_module.addImport("moves", moves_module);
+
     exe.root_module.addImport("uci", uci_module);
     exe.root_module.addImport("perft", perft_module);
+    exe.root_module.addImport("datagen", datagen_module);
 
     b.installArtifact(exe);
 
