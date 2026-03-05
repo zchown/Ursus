@@ -2,18 +2,18 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-# ENGINE_BASE="./engines/Ursus3.1"
+ENGINE_BASE="./engines/Ursus3.2"
 # ENGINE_BASE="./engines/Ursus_with_nnue_overhead"
 # ENGINE_BASE="./engines/UrsusEQ"
 # ENGINE_BASE="./engines/Ursus2.15.1"
 # ENGINE_BASE="./engines/Ursus2.26.1"
-ENGINE_BASE="./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
+# ENGINE_BASE="./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 
 FASTCHESS="fastchess"
 
 OPENINGS="8moves_v3.pgn"
 
-CONCURRENCY=6
+CONCURRENCY=5
 TC="2+0.1"
 ROUNDS=10000
 TIMEMARGIN=50
@@ -46,19 +46,19 @@ $FASTCHESS \
   -engine cmd="$ENGINE_NEW" name=New \
   -engine cmd="$ENGINE_BASE" name=Base \
   -each tc=$TC timemargin=$TIMEMARGIN \
-  -draw movenumber=40 movecount=8 score=15 \
-  -resign movecount=5 score=400 \
   -openings file="$OPENINGS" format=pgn order=random \
   -repeat \
   -rounds $ROUNDS \
   -concurrency $CONCURRENCY \
   -tb "../Ursus/Syzygy/3-4-5" \
   -recover \
+  -resign movecount=5 score=300 \
   -ratinginterval 10 \
   -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
   -pgnout file="$PGN" \
   | tee "$LOG"
 
+	# -draw movenumber=40 movecount=8 score=15 \
 echo
 echo "SPRT test finished"
 echo "PGN: $PGN"

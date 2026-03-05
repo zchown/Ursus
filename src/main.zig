@@ -3,6 +3,7 @@ const uci = @import("uci");
 const perft = @import("perft");
 
 pub fn main() !void {
+    // std.debug.print("Running perft tests...\n", .{});
     // try perft.runPerftTest();
 
     // std.debug.print("Here we go!\n", .{});
@@ -27,11 +28,11 @@ pub fn main() !void {
             },
             else => return err,
         };
-
+    
         const trimmed = std.mem.trim(u8, maybe_line, " \r\n");
-
+    
         if (std.mem.eql(u8, trimmed, "quit")) break;
-
+    
         try engine.receiveCommand(trimmed);
     }
 }
