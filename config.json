@@ -1,15 +1,15 @@
 {
     "resign": {
         "move_count": 5,
-        "score": 400,
+        "score": 300,
         "twosided": false,
         "enabled": true
     },
     "draw": {
-        "move_number": 40,
-        "move_count": 8,
-        "score": 15,
-        "enabled": true
+        "move_number": 0,
+        "move_count": 1,
+        "score": 0,
+        "enabled": false
     },
     "maxmoves": {
         "move_count": 1,
@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260227_122546/games.pgn",
+        "file": "matches/20260304_180608/games.pgn",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -60,7 +60,7 @@
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 32870597606800663,
+    "seed": 17599586758379716768,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -70,7 +70,7 @@
     "autosaveinterval": 20,
     "games": 2,
     "rounds": 10000,
-    "concurrency": 6,
+    "concurrency": 10,
     "force_concurrency": false,
     "recover": true,
     "noswap": false,
@@ -111,7 +111,7 @@
         {
             "name": "Base",
             "dir": "",
-            "cmd": "./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure",
+            "cmd": "./engines/Ursus3.2",
             "args": "",
             "restart": false,
             "options": [],
@@ -131,14 +131,14 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 79,
-            "losses": 8,
-            "draws": 11,
-            "penta_WW": 30,
-            "penta_WD": 11,
-            "penta_WL": 8,
-            "penta_DD": 0,
-            "penta_LD": 0,
+            "wins": 15,
+            "losses": 23,
+            "draws": 60,
+            "penta_WW": 1,
+            "penta_WD": 9,
+            "penta_WL": 4,
+            "penta_DD": 16,
+            "penta_LD": 19,
             "penta_LL": 0
         }
     }

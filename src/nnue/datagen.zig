@@ -298,7 +298,7 @@ fn playSingleGame(
     if (srch.Searcher.isDraw(&board, 0)) return;
 
     {
-        const opening_eval = eval.evaluate(&board, &searcher.move_gen, -eval.mate_score, eval.mate_score, true);
+        const opening_eval = eval.evaluate(&board, searcher.move_gen, -eval.mate_score, eval.mate_score, true);
         const abs_eval = if (opening_eval < 0) -opening_eval else opening_eval;
         if (abs_eval > config.adjudication_score) return;
     }
@@ -385,7 +385,7 @@ fn playSingleGame(
         var q_flag = false;
 
         const q_score = searcher.quiescenceSearch(&board, board.game_state.side_to_move, -eval.mate_score, eval.mate_score);
-        const static_score = eval.evaluate(&board, &searcher.move_gen, -eval.mate_score, eval.mate_score, true);
+        const static_score = eval.evaluate(&board, searcher.move_gen, -eval.mate_score, eval.mate_score, true);
 
         // If quiescence score is very different from static eval, it's likely a tactical position that we don't want to include
         if (q_score < static_score - 300 or q_score > static_score + 300) {
@@ -432,10 +432,11 @@ fn workerThread(ctx: *ThreadContext) void {
 
     var searcher = srch.Searcher{
         .timer = std.time.Timer.start() catch return,
-        .move_gen = mvs.MoveGen.init(),
+        .move_gen = std.heap.c_allocator.create(mvs.MoveGen) catch return,
         .continuation = std.heap.c_allocator.create([12][64][64][64]i32) catch return,
         .tt_table = &thread_tt,
     };
+    searcher.move_gen.init();
     searcher.resetHeuristics(true);
     searcher.silent_output = true;
     searcher.thread_id = ctx.thread_id;

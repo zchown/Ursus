@@ -11,10 +11,10 @@ CUTECHESS="cutechess-cli"
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
   "Ursus3.1=./engines/Ursus3.1"
-  "Ursus2.26=./engines/Ursus2.26.1"
-  "Ursus2.23=./engines/Ursus2.24"
-  "Ursus2.15=./engines/Ursus2.15.3"
-  "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
+  # "Ursus2.26=./engines/Ursus2.26.1"
+  # "Ursus2.23=./engines/Ursus2.24"
+  # "Ursus2.15=./engines/Ursus2.15.3"
+  # "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 )
 
 # Openings
@@ -23,10 +23,10 @@ OPENINGS="8moves_v3.pgn"
 
 # Tournament size
 ROUNDS=250
-CONCURRENCY=4
+CONCURRENCY=5
 
 # Time control
-TC="5+0.1"
+TC="2+0.1"
 
 # Output
 OUTDIR="tournaments/$(date +%Y%m%d_%H%M%S)"
@@ -60,7 +60,7 @@ done
 
 $CUTECHESS \
   "${ENGINE_ARGS[@]}" \
-  -each tc=$TC timemargin=50 \
+  -each tc=$TC timemargin=50 ponder \
   -openings file="$OPENINGS" format=pgn order=random policy=round \
   -repeat 2 \
   -games 2 \

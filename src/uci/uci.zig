@@ -180,7 +180,7 @@ pub const UciProtocol = struct {
             const eval_score = self.board.evaluateNNUE();
             try respond(try std.fmt.allocPrint(self.allocator, "Evaluation: {d}", .{eval_score}));
         } else if (std.mem.eql(u8, commandName, "hce")) {
-            const hce_score = eval.evaluate(&self.board, &self.searcher.move_gen, -eval.mate_score, eval.mate_score, true);
+            const hce_score = eval.evaluate(&self.board, self.searcher.move_gen, -eval.mate_score, eval.mate_score, true);
             try respond(try std.fmt.allocPrint(self.allocator, "HCE Evaluation: {d}", .{hce_score}));
         } else {
             if (self.debug_mode) {

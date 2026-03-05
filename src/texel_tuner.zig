@@ -160,14 +160,19 @@ fn gradientWorker(work: *const GradientWork) void {
     eval.importParams(&local_buf);
 
     const ln10: f64 = @log(10.0);
-    var mg = mvs.MoveGen.init();
+
+    var allocator = std.heap.page_allocator;
+    const mg = allocator.create(mvs.MoveGen) catch unreachable;
+    mg.init();
+    defer allocator.destroy(mg);
+
 
     @memset(work.partial_gradient, 0.0);
 
     for (work.positions) |pos| {
         // 1. Evaluate to get the score for the sigmoid
         var board_copy = pos.board;
-        const score: f64 = @floatFromInt(eval.evalTuner(&board_copy, &mg));
+        const score: f64 = @floatFromInt(eval.evalTuner(&board_copy, mg));
         const sig = sigmoid(score);
         const err: f64 = pos.result - sig;
         const common: f64 = (-2.0 / work.n_total) * err * sig * (1.0 - sig) * K * ln10 / 400.0;
@@ -176,7 +181,7 @@ fn gradientWorker(work: *const GradientWork) void {
 
         // 2. Extract coefficient vector (analytical d(eval)/d(param[i]))
         board_copy = pos.board;
-        const coeffs = eval.computeCoefficients(&board_copy, &mg);
+        const coeffs = eval.computeCoefficients(&board_copy, mg);
 
         // 3. Accumulate gradient
         for (0..eval.NUM_PARAMS) |i| {
@@ -565,7 +570,10 @@ pub fn main() !void {
         return;
     }
 
-    var move_gen = mvs.MoveGen.init();
+    const move_gen = try allocator.create(mvs.MoveGen);
+    move_gen.init();
+    defer allocator.destroy(move_gen);
+
 
     var stderr_buf: [512]u8 = undefined;
     var stderr_writer = std.fs.File.stderr().writer(&stderr_buf);
@@ -693,7 +701,7 @@ pub fn main() !void {
                     int_params[i] = if (std.math.isFinite(v)) @intFromFloat(v) else 0;
                 }
                 eval.importParams(int_params);
-                epoch_mse_sum += computeMSE(chunk, &move_gen) * @as(f64, @floatFromInt(chunk.len));
+                epoch_mse_sum += computeMSE(chunk, move_gen) * @as(f64, @floatFromInt(chunk.len));
                 epoch_mse_count += chunk.len;
             }
 

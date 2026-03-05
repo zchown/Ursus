@@ -56,7 +56,6 @@ pub fn perft(
     }
 
     const moveList = mg.generateMoves(board, mvs.allMoves);
-    var fails: usize = 0;
 
     for (0..moveList.len) |m| {
         const move = moveList.items[m];
@@ -69,23 +68,6 @@ pub fn perft(
         mvs.makeMove(board, move);
 
         // King safety check
-        const current_side = board.game_state.side_to_move;
-        const opponent_side = brd.flipColor(current_side);
-        const king_square = brd.getLSB(board.piece_bb[@intFromEnum(opponent_side)][@intFromEnum(brd.Pieces.King)]);
-
-        if (mg.isAttacked(king_square, current_side, board)) {
-            fails += 1;
-            mvs.undoMove(board, move);
-
-            // Post-undo FEN check for illegal moves
-            // const illegal_fen = fen.toFEN(board, allocator) catch unreachable;
-            // defer allocator.free(illegal_fen);
-            // if (!std.mem.eql(u8, original_fen, illegal_fen)) {
-            //     @panic("FEN mismatch after illegal move undo");
-            // }
-            continue;
-        }
-
         // Recursive perft call
         const child_result = perft(mg, board, depth - 1, allocator);
         result.add(child_result);
@@ -198,7 +180,11 @@ pub fn runPerftTest() !void {
         
     };
 
-    var mg = mvs.MoveGen.init();
+    // var mg = mvs.MoveGen.init();
+    var allocator = std.heap.page_allocator;
+    const mg = try allocator.create(mvs.MoveGen);
+    mg.init();
+    defer allocator.destroy(mg);
     const sBoard = brd.Board.init();
 
     for (positions) |pos| {
@@ -208,7 +194,7 @@ pub fn runPerftTest() !void {
 
         var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-        const result = perft(&mg, &board, pos.depth, gpa.allocator());
+        const result = perft(mg, &board, pos.depth, gpa.allocator());
 
         var toReturn: usize = 0;
 
