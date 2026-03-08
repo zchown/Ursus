@@ -2,7 +2,9 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus3.2"
+# ENGINE_BASE="./engines/Ursus3.5"
+ENGINE_BASE="./releaseEngines/Ursus5.0"
+# ENGINE_BASE="./engines/Ursus3.2"
 # ENGINE_BASE="./engines/Ursus_with_nnue_overhead"
 # ENGINE_BASE="./engines/UrsusEQ"
 # ENGINE_BASE="./engines/Ursus2.15.1"
@@ -13,8 +15,8 @@ FASTCHESS="fastchess"
 
 OPENINGS="8moves_v3.pgn"
 
-CONCURRENCY=5
-TC="2+0.1"
+CONCURRENCY=1
+TC="8+0.08"
 ROUNDS=10000
 TIMEMARGIN=50
 
@@ -42,11 +44,12 @@ echo "  Output: $OUTDIR"
 echo
 # -each nodes=100000 \
 
-$FASTCHESS \
+cutechess-cli \
   -engine cmd="$ENGINE_NEW" name=New \
   -engine cmd="$ENGINE_BASE" name=Base \
-  -each tc=$TC timemargin=$TIMEMARGIN \
+  -each tc=$TC timemargin=$TIMEMARGIN proto=uci ponder \
   -openings file="$OPENINGS" format=pgn order=random \
+  -games 2 \
   -repeat \
   -rounds $ROUNDS \
   -concurrency $CONCURRENCY \
@@ -55,10 +58,26 @@ $FASTCHESS \
   -resign movecount=5 score=300 \
   -ratinginterval 10 \
   -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
-  -pgnout file="$PGN" \
+  -pgnout "$PGN" \
   | tee "$LOG"
 
-	# -draw movenumber=40 movecount=8 score=15 \
+# $FASTCHESS \
+#   -engine cmd="$ENGINE_NEW" name=New \
+#   -engine cmd="$ENGINE_BASE" name=Base \
+#   -each tc=$TC timemargin=$TIMEMARGIN \
+#   -openings file="$OPENINGS" format=pgn order=random \
+#   -repeat \
+#   -rounds $ROUNDS \
+#   -concurrency $CONCURRENCY \
+#   -tb "../Ursus/Syzygy/3-4-5" \
+#   -recover \
+#   -resign movecount=5 score=300 \
+#   -draw movenumber=40 movecount=8 score=15 \
+#   -ratinginterval 10 \
+#   -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
+#   -pgnout file="$PGN" \
+#   | tee "$LOG"
+
 echo
 echo "SPRT test finished"
 echo "PGN: $PGN"
