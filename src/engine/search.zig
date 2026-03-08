@@ -12,27 +12,27 @@ inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Colo
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
 
-pub var aspiration_window: i32 = 25;
+pub var aspiration_window: i32 = 19;
 
 pub var rfp_depth: i32 = 5;
-pub var rfp_mul: i32 = 101;
-pub var rfp_improve: i32 = 17;
+pub var rfp_mul: i32 = 95;
+pub var rfp_improve: i32 = 22;
 
-pub var nmp_improve: i32 = 22;
+pub var nmp_improve: i32 = 23;
 pub var nmp_base: usize = 4;
-pub var nmp_depth_div: usize = 3;
-pub var nmp_beta_div: usize = 140;
+pub var nmp_depth_div: usize = 2;
+pub var nmp_beta_div: usize = 151;
 
-pub var razoring_base: i32 = 284;
-pub var razoring_mul: i32 = 88;
+pub var razoring_base: i32 = 290;
+pub var razoring_mul: i32 = 87;
 
-pub var iid_depth: usize = 1;
+pub var iid_depth: usize = 2;
 
-pub var lmp_improve: usize = 2;
-pub var lmp_base: usize = 4;
+pub var lmp_improve: usize = 3;
+pub var lmp_base: usize = 3;
 pub var lmp_mul: usize = 2;
 
-pub var futility_mul: i32 = 214;
+pub var futility_mul: i32 = 216;
 
 const score_hash: i32 = 2_000_000_000;
 const score_winning_capture: i32 = 1_000_000;
@@ -42,33 +42,34 @@ const score_killer_2: i32 = 790_000;
 const score_equal_capture: i32 = 700_000;
 const score_counter: i32 = 600_000;
 
-pub var q_see_min: i32 = -200;
-pub var q_see_margin: i32 = -41;
-pub var q_delta_margin: i32 = 172;
+pub var q_see_min: i32 = -205;
+pub var q_see_margin: i32 = -44;
+pub var q_delta_margin: i32 = 162;
 
-pub var lmr_base: i32 = 64;
-pub var lmr_mul: i32 = 40;
+pub var lmr_base: i32 = 680;
+pub var lmr_div: i32 = 235;
 
-pub var lmr_pv_min: usize = 8;
-pub var lmr_non_pv_min: usize = 4;
+pub var lmr_pv_min: usize = 7;
+pub var lmr_non_pv_min: usize = 3;
 
-pub var se_reduction: usize = 4;
-pub var history_div: i32 = 7672;
+pub var se_reduction: usize = 6;
+pub var se_double_threshold: i32 = 50;
+
+pub var history_div: i32 = 7746;
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 
 pub var contempt: i32 = 50;
 
 pub fn initQuietLMR() [64][64]i32 {
-    const base: f32 = @as(f32, @floatFromInt(lmr_base)) / 10;
-    const mul: f32 = @as(f32, @floatFromInt(lmr_mul)) / 10;
-
+    const lmr_base_f: f32 = @as(f32, @floatFromInt(lmr_base)) / 100.0;
+    const lmr_div_f: f32 = @as(f32, @floatFromInt(lmr_div)) / 100.0;
     var table: [64][64]i32 = undefined;
     for (1..64) |d| {
         for (1..64) |m| {
-            const a = base + std.math.log(f32, std.math.e, @as(f32, @floatFromInt(d))) *
-                std.math.log(f32, std.math.e, @as(f32, @floatFromInt(m))) * mul;
-            table[d][m] = @as(i32, @intFromFloat(a));
+            const df: f32 = @floatFromInt(d);
+            const mf: f32 = @floatFromInt(m);
+            table[d][m] = @intFromFloat(lmr_base_f + @log(df) * @log(mf) / lmr_div_f);
         }
     }
     return table;
@@ -239,7 +240,7 @@ pub const Searcher = struct {
                     if (total) {
                         self.history[c][j][k] = 0;
                     } else {
-                        self.history[c][j][k] = @divTrunc(self.history[c][j][k], 8);
+                        self.history[c][j][k] = @divTrunc(self.history[c][j][k] * 3, 4);
                     }
                     self.counter_moves[c][j][k] = mvs.EncodedMove.fromU32(0);
                 }
@@ -253,7 +254,7 @@ pub const Searcher = struct {
                 for (0..64) |j| {
                     for (0..64) |k| {
                         for (0..64) |m| {
-                            self.continuation[l][j][k][m] = @divTrunc(self.continuation[l][j][k][m], 8);
+                            self.continuation[l][j][k][m] = @divTrunc(self.continuation[l][j][k][m] * 3, 4);
                         }
                     }
                 }
@@ -306,7 +307,9 @@ pub const Searcher = struct {
         // Create helper searchers (thread 0 is the main searcher)
         var i: usize = 1;
         while (i < num_threads) : (i += 1) {
-            var helper = Searcher.init();
+            // var helper = Searcher.init();
+            var helper = Searcher{};
+            helper.initInPlace();
             helper.thread_id = i;
             helper.silent_output = true; // not used but for future
             helper.tt_table = shared_tt;
@@ -448,7 +451,8 @@ pub const Searcher = struct {
 
         var stability: usize = 0;
 
-        var outer_depth: usize = 1;
+        var outer_depth: usize = self.thread_id + 1;
+
         const bound: usize = if (max_depth != null) @as(usize, max_depth.?) else max_ply;
 
         outer: while (outer_depth <= bound) : (outer_depth += 1) {
@@ -478,11 +482,11 @@ pub const Searcher = struct {
                 if (score <= alpha) {
                     beta = @divTrunc(alpha + beta, 2);
                     alpha = @max(alpha - delta, -eval.mate_score);
-                    delta += @divTrunc(delta, 2);
+                    delta = @min(delta * 8, eval.mate_score);
                     window_failed = false; // fail high is still good
                 } else if (score >= beta) {
                     beta = @min(beta + delta, eval.mate_score);
-                    delta += @divTrunc(delta, 2);
+                    delta = @min(delta * 4, eval.mate_score);
                     window_failed = true;
                 } else {
                     window_failed = false;
@@ -534,7 +538,8 @@ pub const Searcher = struct {
             self.prev_depth_ms = now_ms;
 
             const predicted_next_ms = this_depth_ms * 3;
-            if (now_ms +| predicted_next_ms > self.max_ms) {
+            const thinking = @atomicLoad(bool, &self.force_think, .acquire);
+            if (!thinking and now_ms +| predicted_next_ms > self.max_ms) {
                 break;
             }
 
@@ -614,13 +619,13 @@ pub const Searcher = struct {
         if (board.game_state.halfmove_clock >= 100 or isMaterialDraw(board)) {
             return 0;
         } else if (isThreefoldRepetition(board, self.ply)) {
-            // const score = board.evaluateNNUE() + @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))], 256);
-            // if (score > 25) {
-            //     return self.dynamicContempt(board, color);
-            // }
-            // else if (score < -25) {
-            //     return -self.dynamicContempt(board, color);
-            // }
+            const score = board.evaluateNNUE() + @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))], 256);
+            if (score > 25) {
+                return self.dynamicContempt(board, color);
+            }
+            else if (score < -25) {
+                return -self.dynamicContempt(board, color);
+            }
             return 0;
             // return self.dynamicContempt(board, color);
         }
@@ -836,8 +841,6 @@ pub const Searcher = struct {
                 other_count += 1;
             }
 
-            // const is_counter_move = self.counter_moves[@as(usize, @intFromEnum(color))][move.start_square][move.end_square].toU32() == move.toU32();
-
             const is_important = is_killer or (move.promoted_piece == @intFromEnum(brd.Pieces.Queen));
 
             if (skip_quiet and !is_capture and !is_important) {
@@ -848,15 +851,6 @@ pub const Searcher = struct {
             if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and static_eval + ((@as(i32, @intCast(depth)) + 1) * futility_mul) <= alpha) {
                 continue;
             }
-
-            // mvs.makeMove(board, move);
-            // if (kingInCheck(board, &self.move_gen, color)) {
-            //     mvs.undoMove(board, move);
-            //     continue;
-            // } else {
-            //     legals += 1;
-            //     mvs.undoMove(board, move);
-            // }
 
             var extension: i32 = 0;
 
@@ -869,27 +863,31 @@ pub const Searcher = struct {
                 tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and
                 hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3)
             {
-                const margin: i32 = @as(i32, @intCast(depth)) * 2;
+                // const margin: i32 = @as(i32, @intCast(depth)) * 2;
+                const margin: i32 = @divTrunc(@as(i32, @intCast(depth)) * 3, 2);
                 const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
 
                 self.excluded_moves[self.ply] = hash_move;
 
-                const singular_depth = if (depth > se_reduction) depth - se_reduction else 1;
-                const singular_score = self.negamax(board, color, singular_depth, singular_beta - 1, singular_beta, true, NodeType.NonPV, cutnode);
+                // const singular_depth = if (depth > se_reduction) depth - se_reduction else 1;
+                const r = @divTrunc(@as(i32, @intCast(depth)) - 1, 2);
+                const singular_depth = @max(r, 1);
+                const singular_score = self.negamax(board, color, singular_depth, singular_beta - 1, singular_beta, false, NodeType.NonPV, cutnode);
                 self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
 
                 if (singular_score < singular_beta) {
                     extension = 1;
 
                     // double extension
-                    if (!on_pv and singular_score < singular_beta - 20 and self.ply < depth * 2) {
+                    if (!on_pv and singular_score < singular_beta - se_double_threshold and self.ply < depth * 2) {
                         extension = 2;
                     }
 
                     // Triple extension for very singular moves
-                    if (!on_pv and singular_score < singular_beta - 40 and self.ply < depth * 2) {
-                        extension = 3;
-                    }
+                    // if (!on_pv and singular_score < singular_beta - 100 and self.ply < depth * 2) {
+                    //     extension = 3;
+                    // }
+
                 } else if (singular_beta >= beta) {
                     return singular_beta;
                 } else if (tt_eval >= beta) {
@@ -949,7 +947,7 @@ pub const Searcher = struct {
             if (on_pv and searched_moves == 1) {
                 score = -self.negamax(board, brd.flipColor(color), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
-                if (!in_check and depth >= 3 and i >= min_lmr_move and !is_capture) {
+                if (!in_check and depth >= 3 and i >= min_lmr_move and !is_capture and move.promoted_piece == 0) {
                     var reduction: i32 = quiet_lmr[@min(depth, 63)][@min(quiet_count, 63)];
 
                     if (improving) {
@@ -1158,8 +1156,6 @@ pub const Searcher = struct {
         }
 
         if (self.ply >= max_ply) {
-            // return eval.evaluate(board, &self.move_gen);
-            // return eval.evaluate(board, &self.move_gen, alpha, beta, true);
             return board.evaluateNNUE();
         }
 
@@ -1171,8 +1167,6 @@ pub const Searcher = struct {
         var static_eval: i32 = best_score;
 
         if (!in_check) {
-            // static_eval = eval.evaluate(board, &self.move_gen);
-            // static_eval = eval.evaluate(board, &self.move_gen, alpha, beta, false);
             static_eval = board.evaluateNNUE();
 
             best_score = static_eval;
@@ -1260,11 +1254,6 @@ pub const Searcher = struct {
             self.ply += 1;
             mvs.makeMove(board, move);
 
-            // if (kingInCheck(board, &self.move_gen, color)) {
-            //     self.ply -= 1;
-            //     mvs.undoMove(board, move);
-            //     continue;
-            // }
 
             self.tt_table.prefetch(board.game_state.zobrist);
             const score = -self.quiescenceSearch(board, brd.flipColor(color), -beta, -alpha);

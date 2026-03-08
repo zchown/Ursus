@@ -6,10 +6,10 @@
         "enabled": true
     },
     "draw": {
-        "move_number": 0,
-        "move_count": 1,
-        "score": 0,
-        "enabled": false
+        "move_number": 40,
+        "move_count": 8,
+        "score": 15,
+        "enabled": true
     },
     "maxmoves": {
         "move_count": 1,
@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260304_180608/games.pgn",
+        "file": "matches/20260307_233722/games.pgn",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -60,7 +60,7 @@
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 17599586758379716768,
+    "seed": 13914693342675480104,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -97,9 +97,9 @@
             "options": [],
             "limit": {
                 "tc": {
-                    "increment": 100,
+                    "increment": 80,
                     "fixed_time": 0,
-                    "time": 2000,
+                    "time": 8000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -117,9 +117,9 @@
             "options": [],
             "limit": {
                 "tc": {
-                    "increment": 100,
+                    "increment": 80,
                     "fixed_time": 0,
-                    "time": 2000,
+                    "time": 8000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -131,14 +131,14 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 15,
-            "losses": 23,
-            "draws": 60,
-            "penta_WW": 1,
-            "penta_WD": 9,
-            "penta_WL": 4,
-            "penta_DD": 16,
-            "penta_LD": 19,
+            "wins": 5,
+            "losses": 1,
+            "draws": 14,
+            "penta_WW": 0,
+            "penta_WD": 5,
+            "penta_WL": 0,
+            "penta_DD": 4,
+            "penta_LD": 1,
             "penta_LL": 0
         }
     }
