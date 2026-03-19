@@ -3,6 +3,13 @@ zig-cache/
 zig-out/
 .zig-cache/
 
+fathom/
+openings.png
+openings/
+*.png
+*.epd
+*.zip
+
 # Build outputs
 *.o
 *.so

@@ -217,25 +217,6 @@ pub const UciProtocol = struct {
         @atomicStore(bool, &self.is_pondering, false, .release);
     }
 
-    // fn handlePonderHit(self: *UciProtocol) void {
-    //     if (!@atomicLoad(bool, &self.is_pondering, .acquire)) return;
-    //
-    //     const elapsed_ms = self.searcher.timer.read() / std.time.ns_per_ms;
-    //     self.searcher.max_ms = @min(
-    //         self.searcher.max_ms,
-    //         elapsed_ms +| self.searcher.ideal_ms,
-    //     );
-    //
-    //     @atomicStore(bool, &self.searcher.force_think, false, .release);
-    //
-    //     for (srch.search_helpers.items) |*helper| {
-    //         helper.max_ms = self.searcher.max_ms;
-    //         @atomicStore(bool, &helper.force_think, false, .release);
-    //     }
-    //
-    //     @atomicStore(bool, &self.is_pondering, false, .release);
-    // }
-
     fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
         if (self.search_thread != null) {
             self.stopSearch();
@@ -354,8 +335,9 @@ pub const UciProtocol = struct {
         try respond("option name lmp_mul type spin default 2 min 0 max 10");
         try respond("option name q_see_min type spin default -200 min -500 max 0");
         try respond("option name lmp_improve type spin default 2 min 0 max 4");
-        // try respond("option name se_double_threshold type spin default 25 min 10 max 200");
-        // try respond("option name se_triple_threshold type spin default 50 min 25 max 400");
+        try respond("option name se_double_threshold type spin default 74 min 10 max 200");
+        try respond("option name se_triple_threshold type spin default 50 min 10 max 400");
+        try respond("option name pc_margin type spin default 200 min 50 max 400");
 
         try self.newGame();
 
@@ -465,12 +447,19 @@ pub const UciProtocol = struct {
             srch.lmp_improve = try std.fmt.parseInt(usize, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "se_double_threshold")) {
             srch.se_double_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "se_triple_threshold")) {
-        //     srch.se_triple_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "se_triple_threshold")) {
+            srch.se_triple_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "pc_margin")) {
+            srch.pc_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         } else {
             if (self.debug_mode) {
                 try respond("Unknown option");
             }
+        }
+
+        // setup pawn_tt
+        if (!pawn_tt.pawn_tt_initialized) {
+            try pawn_tt.TranspositionTable.initGlobal(self.hash_size_mb / 8);
         }
     }
 

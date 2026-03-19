@@ -35,7 +35,7 @@ pub const PackedEntry = extern struct {
     age: u8,
 ) PackedEntry {
         // Use lower 32 bits of hash as key
-        const hash_key: u32 = @truncate(hash);
+        const hash_key: u32 = @truncate(hash >> 32);
 
         // Clamp eval to i16 range
         const clamped_eval: i16 = @intCast(@max(-32768, @min(32767, eval)));
@@ -76,7 +76,7 @@ pub const PackedEntry = extern struct {
 
     pub inline fn verify(self: PackedEntry, full_hash: u64) bool {
         const stored_key: u32 = @truncate(self.data);
-        const hash_key: u32 = @truncate(full_hash);
+        const hash_key: u32 = @truncate(full_hash >> 32);
         return stored_key == hash_key;
     }
 

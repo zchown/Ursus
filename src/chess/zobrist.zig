@@ -25,39 +25,33 @@ pub const ZobristKeyStruct = struct {
             .en_passant = @splat(0),
             .eval_phase = @splat(0),
         };
-        var rng = 0xdeadbeefdeadbeef;
-        rng = splitMix64(rng);
+        var rng_state: u64 = 0xdeadbeefdeadbeef;
+        
         // white
-        keys.color[0] = rng;
-        rng = splitMix64(rng);
+        keys.color[0] = nextSplitMix64(&rng_state);
         // black
-        keys.color[1] = rng;
+        keys.color[1] = nextSplitMix64(&rng_state);
 
         @setEvalBranchQuota(1000000);
         inline for (std.meta.tags(brd.Pieces)) |piece| {
             for (0..brd.num_squares) |square| {
-                rng = splitMix64(rng);
                 // white
-                keys.piece[0][@intFromEnum(piece)][square] = rng;
-                rng = splitMix64(rng);
+                keys.piece[0][@intFromEnum(piece)][square] = nextSplitMix64(&rng_state);
                 // black
-                keys.piece[1][@intFromEnum(piece)][square] = rng;
+                keys.piece[1][@intFromEnum(piece)][square] = nextSplitMix64(&rng_state);
             }
         }
 
         inline for (0..16) |castle| {
-            rng = splitMix64(rng);
-            keys.castle[castle] = rng;
+            keys.castle[castle] = nextSplitMix64(&rng_state);
         }
 
         inline for (0..brd.num_squares + 1) |square| {
-            rng = splitMix64(rng);
-            keys.en_passant[square] = rng;
+            keys.en_passant[square] = nextSplitMix64(&rng_state);
         }
 
         inline for (0..24) |phase| {
-            rng = splitMix64(rng);
-            keys.eval_phase[phase] = rng;
+            keys.eval_phase[phase] = nextSplitMix64(&rng_state);
         }
 
         return keys;
@@ -80,8 +74,10 @@ pub const ZobristKeyStruct = struct {
     }
 };
 
-fn splitMix64(x: u64) ZobristKey {
-    var y = (x ^ (x >> 30)) *% 0xbf58476d1ce4e5b9;
-    y = (y ^ (y >> 27)) *% 0x94d049bb133111eb;
-    return y ^ (y >> 31);
+fn nextSplitMix64(state: *u64) ZobristKey {
+    state.* +%= 0x9e3779b97f4a7c15;
+    var z = state.*;
+    z = (z ^ (z >> 30)) *% 0xbf58476d1ce4e5b9;
+    z = (z ^ (z >> 27)) *% 0x94d049bb133111eb;
+    return z ^ (z >> 31);
 }

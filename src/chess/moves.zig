@@ -964,8 +964,25 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
     }
     else if (move.double_pawn_push == 1) {
         board.movePiece(moving_color, piece_type, from_square, to_square);
-        const ep_square = if (moving_color == brd.Color.White) to_square - 8 else to_square + 8;
-        board.setEnPassantSquare(@intCast(ep_square));
+
+        var enemy_adjacent = false;
+        const enemy_color = brd.flipColor(moving_color);
+        const enemy_pawns = board.piece_bb[@intFromEnum(enemy_color)][@intFromEnum(brd.Pieces.Pawn)];
+        const file = to_square % 8;
+
+        if (file > 0 and brd.getBit(enemy_pawns, to_square - 1)) {
+            enemy_adjacent = true;
+        }
+        if (file < 7 and brd.getBit(enemy_pawns, to_square + 1)) {
+            enemy_adjacent = true;
+        }
+
+        if (enemy_adjacent) {
+            const ep_square = if (moving_color == brd.Color.White) to_square - 8 else to_square + 8;
+            board.setEnPassantSquare(@intCast(ep_square));
+        } else {
+            board.clearEnPassantSquare();
+        }
     }
     else if (move.en_passant == 1) {
         board.movePiece(moving_color, brd.Pieces.Pawn, from_square, to_square);

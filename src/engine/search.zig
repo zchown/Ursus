@@ -5,57 +5,55 @@ const eval = @import("eval");
 const tt = @import("transposition");
 const see = @import("see");
 
-inline fn kingInCheck(board: *brd.Board, move_gen: *mvs.MoveGen, color: brd.Color) bool {
-    return move_gen.isInCheck(board, color);
-}
-
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
 
-pub var aspiration_window: i32 = 19;
+pub var aspiration_window: i32 = 15;
 
-pub var rfp_depth: i32 = 5;
-pub var rfp_mul: i32 = 95;
-pub var rfp_improve: i32 = 22;
+pub var rfp_depth: i32 = 6;
+pub var rfp_mul: i32 = 97;
+pub var rfp_improve: i32 = 27;
 
-pub var nmp_improve: i32 = 23;
+pub var nmp_improve: i32 = 24;
 pub var nmp_base: usize = 4;
-pub var nmp_depth_div: usize = 2;
-pub var nmp_beta_div: usize = 151;
+pub var nmp_depth_div: usize = 3;
+pub var nmp_beta_div: usize = 159;
 
-pub var razoring_base: i32 = 290;
-pub var razoring_mul: i32 = 87;
+pub var razoring_base: i32 = 283;
+pub var razoring_mul: i32 = 90;
 
-pub var iid_depth: usize = 2;
+pub var iid_depth: usize = 1;
 
-pub var lmp_improve: usize = 3;
-pub var lmp_base: usize = 3;
+pub var lmp_improve: usize = 2;
+pub var lmp_base: usize = 2;
 pub var lmp_mul: usize = 2;
 
-pub var futility_mul: i32 = 216;
+pub var futility_mul: i32 = 222;
 
 const score_hash: i32 = 2_000_000_000;
 const score_winning_capture: i32 = 1_000_000;
-const score_promotion: i32 = 900_000;
-const score_killer_1: i32 = 800_000;
-const score_killer_2: i32 = 790_000;
-const score_equal_capture: i32 = 700_000;
+const score_promotion: i32 = 950_000;
+const score_equal_capture: i32 = 900_000;
+const score_killer_1: i32 = 700_000;
+const score_killer_2: i32 = 690_000;
 const score_counter: i32 = 600_000;
 
 pub var q_see_min: i32 = -205;
-pub var q_see_margin: i32 = -44;
-pub var q_delta_margin: i32 = 162;
+pub var q_see_margin: i32 = -45;
+pub var q_delta_margin: i32 = 154;
 
-pub var lmr_base: i32 = 680;
-pub var lmr_div: i32 = 235;
+pub var lmr_base: i32 = 450;
+pub var lmr_div: i32 = 287;
 
-pub var lmr_pv_min: usize = 7;
-pub var lmr_non_pv_min: usize = 3;
+pub var lmr_pv_min: usize = 4;
+pub var lmr_non_pv_min: usize = 2;
 
-pub var se_reduction: usize = 6;
 pub var se_double_threshold: i32 = 50;
+pub var se_triple_threshold: i32 = 50;
 
-pub var history_div: i32 = 7746;
+pub var pc_margin: i32 = 182;
+
+pub var history_div: i32 = 8022;
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 
@@ -186,7 +184,7 @@ pub const Searcher = struct {
         self.timer = std.time.Timer.start() catch unreachable;
         self.move_gen = std.heap.c_allocator.create(mvs.MoveGen) catch unreachable;
         self.move_gen.init();
-        self.continuation = std.heap.page_allocator.create([12][64][64][64]i32) catch unreachable;
+        self.continuation = std.heap.c_allocator.create([12][64][64][64]i32) catch unreachable;
         self.resetHeuristics(true);
         // std.debug.print("Searcher initialized.\n", .{});
     }
@@ -451,7 +449,7 @@ pub const Searcher = struct {
 
         var stability: usize = 0;
 
-        var outer_depth: usize = self.thread_id + 1;
+        var outer_depth: usize = (self.thread_id % 2) + 1;
 
         const bound: usize = if (max_depth != null) @as(usize, max_depth.?) else max_ply;
 
@@ -482,12 +480,12 @@ pub const Searcher = struct {
                 if (score <= alpha) {
                     beta = @divTrunc(alpha + beta, 2);
                     alpha = @max(alpha - delta, -eval.mate_score);
-                    delta = @min(delta * 8, eval.mate_score);
-                    window_failed = false; // fail high is still good
+                    delta = @min(delta * 2, eval.mate_score);
+                    window_failed = true;
                 } else if (score >= beta) {
                     beta = @min(beta + delta, eval.mate_score);
-                    delta = @min(delta * 4, eval.mate_score);
-                    window_failed = true;
+                    delta = @min(delta * 2, eval.mate_score);
+                    window_failed = false;
                 } else {
                     window_failed = false;
                     break;
@@ -516,6 +514,7 @@ pub const Searcher = struct {
                 }
 
                 self.printInfo(total_nodes, score, best_pv[0..best_pv_length], std.heap.c_allocator);
+                // self.printInfo(total_nodes, score, best_pv[0..best_pv_length], std.heap.c_allocator);
             }
 
             var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
@@ -605,7 +604,7 @@ pub const Searcher = struct {
             return board.evaluateNNUE();
         }
 
-        const in_check: bool = kingInCheck(board, self.move_gen, color);
+        const in_check: bool = self.move_gen.isInCheck(board, color);
 
         // check extension
         if (in_check) {
@@ -619,13 +618,13 @@ pub const Searcher = struct {
         if (board.game_state.halfmove_clock >= 100 or isMaterialDraw(board)) {
             return 0;
         } else if (isThreefoldRepetition(board, self.ply)) {
-            const score = board.evaluateNNUE() + @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))], 256);
-            if (score > 25) {
-                return self.dynamicContempt(board, color);
-            }
-            else if (score < -25) {
-                return -self.dynamicContempt(board, color);
-            }
+            // const score = board.evaluateNNUE() + @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))], 256);
+            // if (score > 25) {
+            //     return self.dynamicContempt(board, color);
+            // }
+            // else if (score < -25) {
+            //     return -self.dynamicContempt(board, color);
+            // }
             return 0;
             // return self.dynamicContempt(board, color);
         }
@@ -797,13 +796,98 @@ pub const Searcher = struct {
 
         var eval_moves = self.scoreMoves(board, &move_list, hash_move, is_null);
 
+        var best_pc_score: i32 = -eval.mate_score;
+        var best_pc_move = mvs.EncodedMove.fromU32(0);
+
+        // ProbCut — only at higher depths, not in check, not at root, not near mate
+        if (!is_root and !on_pv and depth >= 8 and !in_check and
+        @abs(beta) < eval.mate_score - 256 and
+        self.excluded_moves[self.ply].toU32() == 0)
+    {
+            const probcut_beta = beta + pc_margin + 20 * @as(i32, @intCast(depth));
+            const probcut_depth = depth - 4;
+    
+            if (static_eval >= probcut_beta) {
+                for (0..move_list.len) |i| {
+                    const pc_move = getNextBest(&move_list, &eval_moves, i);
+    
+                    if (eval_moves[i] < 900_000) {
+                        break;
+                    }
+    
+                    const see_val = see.seeCapture(board, self.move_gen, pc_move);
+                    if (see_val < pc_margin) break;
+    
+                    self.ply += 1;
+                    mvs.makeMove(board, pc_move);
+    
+                    // TT probe: skip search if we already have a deep enough result
+                    const pc_entry = self.tt_table.get(board.game_state.zobrist);
+                    var pc_score: i32 = undefined;
+                    var skip_search = false;
+                    if (pc_entry) |e| {
+                        if (@as(usize, @intCast(e.depth)) >= probcut_depth) {
+                            switch (e.flag) {
+                                .Exact => { pc_score = -e.eval; skip_search = true; },
+                                .Under => { if (-e.eval >= probcut_beta) { pc_score = -e.eval; skip_search = true; } },
+                                .Over  => { if (-e.eval < probcut_beta)  { pc_score = -e.eval; skip_search = true; } },
+                                .None  => {},
+                            }
+                        }
+                    }
+    
+                    if (!skip_search) {
+                        pc_score = -self.negamax(
+                        board, brd.flipColor(color),
+                        probcut_depth, -probcut_beta, -probcut_beta + 1,
+                        false, NodeType.NonPV, !cutnode,
+                    );
+                    }
+    
+                    self.ply -= 1;
+                    mvs.undoMove(board, pc_move);
+    
+                    if (self.time_stop) return 0;
+    
+                    if (pc_score > best_pc_score) {
+                        best_pc_score = pc_score;
+                        best_pc_move = pc_move;
+                    }
+    
+                    if (pc_score >= probcut_beta) {
+                        self.tt_table.set(
+                        tt.Entry{
+                            .hash  = board.game_state.zobrist,
+                            .eval  = pc_score,
+                            .depth = @intCast(probcut_depth),
+                            .flag  = .Under,
+                            .move  = pc_move,
+                            .age = self.tt_table.getAge(),
+                        });
+                        return pc_score;
+                    }
+                }
+                if (best_pc_score > -eval.mate_score) {
+                    self.tt_table.set(
+                    tt.Entry{
+                        .hash  = board.game_state.zobrist,
+                        .eval  = best_pc_score,
+                        .depth = @intCast(probcut_depth),
+                        .flag  = .Over,
+                        .move  = best_pc_move,
+                        .age   = self.tt_table.getAge(),
+                    }
+                );
+                }
+            }
+        }
+
         var best_move = mvs.EncodedMove.fromU32(0);
         best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
 
         var skip_quiet: bool = false;
         var quiet_count: usize = 0;
         var other_count: usize = 0;
-        // var legals: usize = 0;
         var searched_moves: usize = 0;
 
         for (0..move_count) |i| {
@@ -817,13 +901,10 @@ pub const Searcher = struct {
 
             if (depth <= 5 and !is_root and i > 1 and !in_check and !on_pv) {
                 var lmp_threshold: usize = lmp_base + depth * lmp_mul;
-                // var lmp_threshold: usize = (3 + depth * depth);
 
-                if (self.thread_id % 2 == 1) {
-                    lmp_threshold += 4;
-                }
+                lmp_threshold += self.thread_id;
 
-                if (improving) {
+                if (improving and !on_pv) {
                     lmp_threshold += lmp_improve;
                 }
 
@@ -847,6 +928,16 @@ pub const Searcher = struct {
                 continue;
             }
 
+            if (!is_capture and !is_important and !in_check and !on_pv and
+            depth <= 4 and searched_moves >= 2)
+        {
+                const hist_score = self.history[@intFromEnum(color)][move.start_square][move.end_square];
+                const hist_threshold: i32 = -@as(i32, @intCast(depth)) * 1536;
+                if (hist_score < hist_threshold) {
+                    continue;
+                }
+            }
+
             // futility pruning
             if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and static_eval + ((@as(i32, @intCast(depth)) + 1) * futility_mul) <= alpha) {
                 continue;
@@ -863,13 +954,12 @@ pub const Searcher = struct {
                 tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and
                 hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3)
             {
-                // const margin: i32 = @as(i32, @intCast(depth)) * 2;
-                const margin: i32 = @divTrunc(@as(i32, @intCast(depth)) * 3, 2);
+                const margin: i32 = @as(i32, @intCast(depth)) * 2;
+                // const margin: i32 = @divTrunc(@as(i32, @intCast(depth)) * 3, 2);
                 const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
 
                 self.excluded_moves[self.ply] = hash_move;
 
-                // const singular_depth = if (depth > se_reduction) depth - se_reduction else 1;
                 const r = @divTrunc(@as(i32, @intCast(depth)) - 1, 2);
                 const singular_depth = @max(r, 1);
                 const singular_score = self.negamax(board, color, singular_depth, singular_beta - 1, singular_beta, false, NodeType.NonPV, cutnode);
@@ -879,14 +969,14 @@ pub const Searcher = struct {
                     extension = 1;
 
                     // double extension
-                    if (!on_pv and singular_score < singular_beta - se_double_threshold and self.ply < depth * 2) {
+                    if (on_pv and singular_score < singular_beta - se_double_threshold) {
                         extension = 2;
                     }
 
                     // Triple extension for very singular moves
-                    // if (!on_pv and singular_score < singular_beta - 100 and self.ply < depth * 2) {
-                    //     extension = 3;
-                    // }
+                    if (on_pv and singular_score < singular_beta - (se_double_threshold + se_triple_threshold)) {
+                        extension = 3;
+                    }
 
                 } else if (singular_beta >= beta) {
                     return singular_beta;
@@ -947,7 +1037,7 @@ pub const Searcher = struct {
             if (on_pv and searched_moves == 1) {
                 score = -self.negamax(board, brd.flipColor(color), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
-                if (!in_check and depth >= 3 and i >= min_lmr_move and !is_capture and move.promoted_piece == 0) {
+                if (!in_check and depth >= 3 and i >= min_lmr_move) {
                     var reduction: i32 = quiet_lmr[@min(depth, 63)][@min(quiet_count, 63)];
 
                     if (improving) {
@@ -1014,16 +1104,6 @@ pub const Searcher = struct {
             }
         }
 
-        // if (legals == 0) {
-        //     // checkmate
-        //     if (in_check) {
-        //         return -eval.mate_score + @as(i32, @intCast(self.ply));
-        //     } else {
-        //         // stalemate
-        //         return 0;
-        //     }
-        // }
-
         if (!in_check and !is_null and (best_score > -eval.mate_score and best_score < eval.mate_score)) {
             const err = best_score - static_eval;
             const current_entry = &self.correction[@intFromEnum(color)][corr_idx];
@@ -1083,11 +1163,9 @@ pub const Searcher = struct {
         }
 
         if (alpha >= beta and best_move.capture == 1) {
-            // Update capture history for the move that caused beta cutoff
             const captured_piece_idx = @as(usize, @intCast(best_move.captured_piece));
 
             if (captured_piece_idx < 6) {
-                // const bonus = @min(1536, @as(i32, @intCast(depth)) * 256);
                 const bonus = @as(i32, @intCast(@min(1024, depth * depth * 16)));
                 const max_cap_hist: i32 = 16384;
 
@@ -1161,7 +1239,7 @@ pub const Searcher = struct {
 
         self.nodes += 1;
 
-        const in_check: bool = kingInCheck(board, self.move_gen, color);
+        const in_check: bool = self.move_gen.isInCheck(board, color);
 
         var best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
         var static_eval: i32 = best_score;
@@ -1172,7 +1250,7 @@ pub const Searcher = struct {
             best_score = static_eval;
 
             if (best_score >= beta) {
-                return beta;
+                return best_score;
             }
             if (best_score > alpha) {
                 alpha = best_score;
@@ -1220,7 +1298,7 @@ pub const Searcher = struct {
 
         var eval_list = self.scoreMoves(board, &move_list, hash_move, false);
 
-        for (0..move_size) |i| {
+            for (0..move_size) |i| {
             const move = getNextBest(&move_list, &eval_list, i);
 
             const see_value = see.seeCapture(board, self.move_gen, move);
@@ -1367,8 +1445,8 @@ pub const Searcher = struct {
 
             if (past_state.zobrist == current_zobrist) {
                 count += 1;
-                if (i < ply) return true; // within search tree: twofold enough
-                if (count >= 1) return true; // game history: need actual threefold
+                if (i < ply) return true;   // within search tree: twofold is enough
+                if (count >= 2) return true; // game history: need actual threefold
             }
         }
 
@@ -1455,10 +1533,23 @@ pub const Searcher = struct {
 
     pub fn getNextBest(move_list: *mvs.MoveList, scores: *[218]i32, start_index: usize) mvs.EncodedMove {
         var j = start_index + 1;
-        while (j < move_list.len) : (j += 1) {
-            if (scores[start_index] < scores[j]) {
-                std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[j]);
-                std.mem.swap(i32, &scores[start_index], &scores[j]);
+        if (start_index == 0) {
+            while (j < move_list.len) : (j += 1) {
+                if (scores[start_index] < scores[j]) {
+                    std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[j]);
+                    std.mem.swap(i32, &scores[start_index], &scores[j]);
+                    if (scores[start_index] == score_hash) {
+                        break; // Don't move hash move from the front
+                    }
+                }
+            }
+        }
+        else {
+            while (j < move_list.len) : (j += 1) {
+                if (scores[start_index] < scores[j]) {
+                    std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[j]);
+                    std.mem.swap(i32, &scores[start_index], &scores[j]);
+                }
             }
         }
         return move_list.items[start_index];
