@@ -3,27 +3,30 @@ const brd = @import("board");
 const moves = @import("moves");
 
 pub const num_features = 2 * brd.num_pieces * brd.num_squares; // 2 * 6 * 64 = 768
-pub const hidden_size = 1024;
-pub const nnue_scale = 16 * 512; // 8192
+pub const hidden_size = 1536;
+
+const QA: i16 = 255;
+const QB: i16 = 64;
+const NUM_OUTPUT_BUCKETS: usize = 8;
+const EVAL_SCALE: i64 = 128;
 
 const vec_i16_len = 16;
-const num_acc_vecs = hidden_size / vec_i16_len; // 64
+const num_acc_vecs = hidden_size / vec_i16_len;
 const I16Vec = @Vector(vec_i16_len, i16);
 
 const nnue_piece_to_index = [2][6]u8{
-[_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
-[_]u8{ 6, 7, 8, 9, 10, 11 }, // Pawn, Knight, Bishop, Rook, Queen, King
+    [_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
+    [_]u8{ 6, 7, 8, 9, 10, 11 }, // Pawn, Knight, Bishop, Rook, Queen, King
 };
 
 pub const NetworkWeights = struct {
     ft_weights: [num_features][hidden_size]i16 align(@alignOf(I16Vec)),
     ft_biases: [hidden_size]i16 align(@alignOf(I16Vec)),
-    out_weights: [hidden_size]i16 align(@alignOf(I16Vec)),
-    out_weights2: [hidden_size]i16 align(@alignOf(I16Vec)),
-    out_bias: i32,
+    out_weights: [NUM_OUTPUT_BUCKETS][2 * hidden_size]i16 align(@alignOf(I16Vec)),
+    out_biases: [NUM_OUTPUT_BUCKETS]i16,
 };
 
-const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("nnuev1.bin").*;
+const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("nnuev2.bin").*;
 var net_weights: ?*const NetworkWeights = null;
 
 pub fn initWeights() void {
@@ -35,18 +38,30 @@ inline fn mirRank(sq: u8) u8 {
 }
 
 pub fn featureIndex(
-view: brd.Color,
-piece_color: brd.Color,
-piece_type: brd.Pieces,
-square: u8,
+    view: brd.Color,
+    piece_color: brd.Color,
+    piece_type: brd.Pieces,
+    square: u8,
 ) usize {
     const oriented_sq: usize = if (view == .White) square else mirRank(square);
-    const is_own: usize = if (view == piece_color) 1 else 0;
+    const is_own: usize = if (view == piece_color) 0 else 1;
 
     const piece_idx = @intFromEnum(piece_type);
 
     const piece_offset = nnue_piece_to_index[is_own][piece_idx];
     return oriented_sq + (@as(usize, piece_offset) * 64);
+}
+
+fn materialBucket(board: *const brd.Board) usize {
+    var occupied: u64 = 0;
+    inline for (0..brd.num_colors) |ci| {
+        for (std.meta.tags(brd.Pieces)) |piece| {
+            if (piece == .None) continue;
+            occupied |= board.piece_bb[ci][@intFromEnum(piece)];
+        }
+    }
+    const piece_count: usize = @popCount(occupied);
+    return @min((piece_count -| 2) / 4, NUM_OUTPUT_BUCKETS - 1);
 }
 
 pub const Accumulator = struct {
@@ -92,7 +107,7 @@ pub const Accumulator = struct {
         const old = weightVecs(old_idx);
         const nw = weightVecs(new_idx);
         inline for (0..num_acc_vecs) |i|
-        dst[i] = dst[i] -% old[i] +% nw[i];
+            dst[i] = dst[i] -% old[i] +% nw[i];
     }
 };
 
@@ -132,63 +147,63 @@ pub const NNUEStack = struct {
     }
 
     pub fn pushAndUpdate(
-    self: *NNUEStack,
-    board: *const brd.Board,
-    move: moves.EncodedMove,
-) void {
+        self: *NNUEStack,
+        board: *const brd.Board,
+        move_data: moves.EncodedMove,
+    ) void {
         self.push();
         const state = self.top();
 
         const moving_color = board.toMove();
         const opp_color = moving_color.opposite();
-        const from_sq: u8 = @intCast(move.start_square);
-        const to_sq: u8 = @intCast(move.end_square);
-        const piece_type: brd.Pieces = @enumFromInt(move.piece);
+        const from_sq: u8 = @intCast(move_data.start_square);
+        const to_sq: u8 = @intCast(move_data.end_square);
+        const piece_type: brd.Pieces = @enumFromInt(move_data.piece);
 
-        if (move.castling == 1) {
+        if (move_data.castling == 1) {
             const rook_from: u8 = if (to_sq > from_sq)
-            (if (moving_color == .White) @as(u8, 7) else @as(u8, 63))
-                else
-            (if (moving_color == .White) @as(u8, 0) else @as(u8, 56));
+                (if (moving_color == .White) @as(u8, 7) else @as(u8, 63))
+            else
+                (if (moving_color == .White) @as(u8, 0) else @as(u8, 56));
             const rook_to: u8 = if (to_sq > from_sq)
-            (if (moving_color == .White) @as(u8, 5) else @as(u8, 61))
-                else
-            (if (moving_color == .White) @as(u8, 3) else @as(u8, 59));
+                (if (moving_color == .White) @as(u8, 5) else @as(u8, 61))
+            else
+                (if (moving_color == .White) @as(u8, 3) else @as(u8, 59));
 
             inline for (0..brd.num_colors) |vi| {
                 const view: brd.Color = @enumFromInt(vi);
                 const acc = &state.accumulators[vi];
                 acc.moveFeature(
-                featureIndex(view, moving_color, .King, from_sq),
-                featureIndex(view, moving_color, .King, to_sq),
-            );
+                    featureIndex(view, moving_color, .King, from_sq),
+                    featureIndex(view, moving_color, .King, to_sq),
+                );
                 acc.moveFeature(
-                featureIndex(view, moving_color, .Rook, rook_from),
-                featureIndex(view, moving_color, .Rook, rook_to),
-            );
+                    featureIndex(view, moving_color, .Rook, rook_from),
+                    featureIndex(view, moving_color, .Rook, rook_to),
+                );
             }
-        } else if (move.en_passant == 1) {
+        } else if (move_data.en_passant == 1) {
             const ep_pawn_sq: u8 =
-            if (moving_color == .White) to_sq - 8 else to_sq + 8;
+                if (moving_color == .White) to_sq - 8 else to_sq + 8;
 
             inline for (0..brd.num_colors) |vi| {
                 const view: brd.Color = @enumFromInt(vi);
                 const acc = &state.accumulators[vi];
                 acc.moveFeature(
-                featureIndex(view, moving_color, .Pawn, from_sq),
-                featureIndex(view, moving_color, .Pawn, to_sq),
-            );
+                    featureIndex(view, moving_color, .Pawn, from_sq),
+                    featureIndex(view, moving_color, .Pawn, to_sq),
+                );
                 acc.deactivateFeature(featureIndex(view, opp_color, .Pawn, ep_pawn_sq));
             }
-        } else if (move.promoted_piece != 0) {
-            const promoted_type: brd.Pieces = @enumFromInt(move.promoted_piece);
+        } else if (move_data.promoted_piece != 0) {
+            const promoted_type: brd.Pieces = @enumFromInt(move_data.promoted_piece);
 
             inline for (0..brd.num_colors) |vi| {
                 const view: brd.Color = @enumFromInt(vi);
                 const acc = &state.accumulators[vi];
                 acc.deactivateFeature(featureIndex(view, moving_color, .Pawn, from_sq));
-                if (move.capture == 1) {
-                    const captured_type: brd.Pieces = @enumFromInt(move.captured_piece);
+                if (move_data.capture == 1) {
+                    const captured_type: brd.Pieces = @enumFromInt(move_data.captured_piece);
                     acc.deactivateFeature(featureIndex(view, opp_color, captured_type, to_sq));
                 }
                 acc.activateFeature(featureIndex(view, moving_color, promoted_type, to_sq));
@@ -197,14 +212,14 @@ pub const NNUEStack = struct {
             inline for (0..brd.num_colors) |vi| {
                 const view: brd.Color = @enumFromInt(vi);
                 const acc = &state.accumulators[vi];
-                if (move.capture == 1) {
-                    const captured_type: brd.Pieces = @enumFromInt(move.captured_piece);
+                if (move_data.capture == 1) {
+                    const captured_type: brd.Pieces = @enumFromInt(move_data.captured_piece);
                     acc.deactivateFeature(featureIndex(view, opp_color, captured_type, to_sq));
                 }
                 acc.moveFeature(
-                featureIndex(view, moving_color, piece_type, from_sq),
-                featureIndex(view, moving_color, piece_type, to_sq),
-            );
+                    featureIndex(view, moving_color, piece_type, from_sq),
+                    featureIndex(view, moving_color, piece_type, to_sq),
+                );
             }
         }
     }
@@ -230,36 +245,50 @@ pub fn refreshAccumulator(board: *const brd.Board, state: *NNUEState) void {
     }
 }
 
-inline fn relu(x: i16) i32 {
-    return @max(0, @as(i32, x));
-}
-
-pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color) i32 {
+pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Board) i32 {
     const w = net_weights orelse return 0;
     const state = stack.top();
 
+    const bucket = materialBucket(board);
     const stm = @intFromEnum(side_to_move);
     const nstm = 1 - stm;
 
     const I32Vec = @Vector(vec_i16_len, i32);
-    const zero_vec_i16 = @as(I16Vec, @splat(0));
-    var vec_sum = @as(I32Vec, @splat(0));
+    const zero_vec = @as(I16Vec, @splat(0));
+    const qa_vec = @as(I16Vec, @splat(QA));
 
     const stm_acc = state.accumulators[stm].vecs();
     const nstm_acc = state.accumulators[nstm].vecs();
 
-    const stm_weights: *const [num_acc_vecs]I16Vec = @ptrCast(&w.out_weights);
-    const nstm_weights: *const [num_acc_vecs]I16Vec = @ptrCast(&w.out_weights2);
+    const bucket_weights = &w.out_weights[bucket];
+    const stm_weights: *const [num_acc_vecs]I16Vec = @ptrCast(@alignCast(bucket_weights[0..hidden_size]));
+    const nstm_weights: *const [num_acc_vecs]I16Vec = @ptrCast(@alignCast(bucket_weights[hidden_size .. 2 * hidden_size]));
 
-    inline for (0..num_acc_vecs) |i| {
-        const v1 = @max(zero_vec_i16, stm_acc[i]);
-        const v2 = @max(zero_vec_i16, nstm_acc[i]);
-        vec_sum += @as(I32Vec, v1) * @as(I32Vec, stm_weights[i]);
-        vec_sum += @as(I32Vec, v2) * @as(I32Vec, nstm_weights[i]);
+    var sum_stm = @as(I32Vec, @splat(0));
+    var sum_nstm = @as(I32Vec, @splat(0));
+
+    for (0..num_acc_vecs) |i| {
+        const stm_c: I32Vec = @min(@max(stm_acc[i], zero_vec), qa_vec);
+        const sw: I32Vec = stm_weights[i];
+        sum_stm +%= stm_c * stm_c * sw;
+
+        const nstm_c: I32Vec = @min(@max(nstm_acc[i], zero_vec), qa_vec);
+        const nw: I32Vec = nstm_weights[i];
+        sum_nstm +%= nstm_c * nstm_c * nw;
     }
 
-    const s = @reduce(.Add, vec_sum) + w.out_bias;
+    const total_stm = @reduce(.Add, sum_stm);
+    const total_nstm = @reduce(.Add, sum_nstm);
 
-    return @divTrunc(s, nnue_scale);
+    const total = @as(i64, total_stm) + @as(i64, total_nstm);
+
+    const qa: i64 = @as(i64, QA);
+    const qa_qb: i64 = @as(i64, QA) * @as(i64, QB);
+
+    var output: i64 = @divTrunc(total, qa);
+    output += @as(i64, w.out_biases[bucket]);
+    output *= EVAL_SCALE;
+    output = @divTrunc(output, qa_qb);
+
+    return @intCast(output);
 }
-

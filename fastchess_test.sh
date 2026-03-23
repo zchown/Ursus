@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus3.10"
-# ENGINE_BASE="./releaseEngines/Ursus6.0"
+ENGINE_BASE="./engines/Ursus3.16"
+# # ENGINE_BASE="./releaseEngines/Ursus6.0"
 # ENGINE_BASE="./engines/Ursus3.2"
 # ENGINE_BASE="./engines/Ursus_with_nnue_overhead"
 # ENGINE_BASE="./engines/UrsusEQ"
@@ -13,12 +13,13 @@ ENGINE_BASE="./engines/Ursus3.10"
 
 FASTCHESS="fastchess"
 
-OPENINGS="8moves_v3.pgn"
+# OPENINGS="8moves_v3.pgn"
+OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 # OPENINGS="openings.pgn"
 
 CONCURRENCY=10
 TC="8+0.08"
-ROUNDS=10000
+ROUNDS=100000
 TIMEMARGIN=50
 
 # SPRT settings
@@ -66,16 +67,16 @@ $FASTCHESS \
   -engine cmd="$ENGINE_NEW" name=New \
   -engine cmd="$ENGINE_BASE" name=Base \
   -each tc=$TC timemargin=$TIMEMARGIN \
-  -openings file="$OPENINGS" format=pgn order=random \
+  -openings file="$OPENINGS" format=epd order=random \
   -repeat \
   -rounds $ROUNDS \
   -concurrency $CONCURRENCY \
   -tb "../Ursus/Syzygy/3-4-5" \
-  -resign movecount=5 score=200 \
+  -resign movecount=5 score=400 \
   -draw movenumber=40 movecount=8 score=15 \
   -recover \
-  -ratinginterval 10 \
   -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
+  -ratinginterval 10 \
   -pgnout file="$PGN" \
   | tee "$LOG"
 

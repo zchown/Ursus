@@ -384,7 +384,7 @@ fn playSingleGame(
 
         var q_flag = false;
 
-        const q_score = searcher.quiescenceSearch(&board, board.game_state.side_to_move, -eval.mate_score, eval.mate_score);
+        const q_score = searcher.qsearch(&board, board.game_state.side_to_move, -eval.mate_score, eval.mate_score);
         const static_score = eval.evaluate(&board, searcher.move_gen, -eval.mate_score, eval.mate_score, true);
 
         // If quiescence score is very different from static eval, it's likely a tactical position that we don't want to include

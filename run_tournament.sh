@@ -6,22 +6,27 @@ FASTCHESS="fastchess"
 
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
-  "Ursus3.0=./engines/Ursus3.0"
-  "Lynx=./../lynx/Lynx.Cli"
-  "Grail=./../grail-arm64"
-  "Simbelmyne=./../simbelmyne"
-  "Odonata=./../odonata/target/release/odonata"
-  "jpg"="./../tcheran/target/release/engine"
-  "Ursus2.26=./engines/Ursus2.26.1"
-  "Sykora=./../sykora/zig-out/bin/Sykora"
-  "Pawn=./../pawn/build/pawn"
-  "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
+  "Ursus3.17=./engines/Ursus3.17"
+  "Ursus3.16=./engines/Ursus3.16"
+  # "stash37=./../stash/stash-bot-v37.0/src/stash"
+  # "stash35=./../stash/stash-bot-v35.0/src/stash-bot" # 3350
+  # "Raphael=./../Raphael/uci" # 3612
+  # "Lynx=./../lynx/Lynx.Cli"
+  # "Grail=./../grail-arm64"
+  # "Simbelmyne=./../simbelmyne"
+  # "Odonata=./../odonata/target/release/odonata"
+  # "tcheran"="./../tcheran/target/release/engine"
+  # "Sirius"="./../sirius/Sirius-9.0/build/arm64/Sirius/sirius"
+  # "Sykora=./../sykora/zig-out/bin/Sykora"
+  # "Pawn=./../pawn/build/pawn"
+  # "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 )
 
-# OPENINGS="8moves_v3.pgn"
-OPENINGS="openings.pgn"
+OPENINGS="8moves_v3.pgn"
+# OPENINGS="openings.pgn"
+# OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 
-ROUNDS=1000
+ROUNDS=5000
 CONCURRENCY=10
 
 TC="8+0.08"
@@ -53,7 +58,8 @@ $CUTECHESS \
   -rounds $ROUNDS \
   -concurrency $CONCURRENCY \
   -resign movecount=5 score=400 \
-  -ratinginterval 5 \
+  -draw movenumber=40 movecount=6 score=15 \
+  -ratinginterval 25 \
   -recover \
   -pgnout "$PGN" \
   | tee "$LOG"

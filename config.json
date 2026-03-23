@@ -1,7 +1,7 @@
 {
     "resign": {
         "move_count": 5,
-        "score": 200,
+        "score": 400,
         "twosided": false,
         "enabled": true
     },
@@ -22,8 +22,8 @@
         "enabled": true
     },
     "opening": {
-        "file": "8moves_v3.pgn",
-        "format": 1,
+        "file": "openings/UHO_Lichess_4852_v1.epd",
+        "format": 0,
         "order": 0,
         "plies": -1,
         "start": 1
@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260319_160714/games.pgn",
+        "file": "matches/20260323_125106/games.pgn",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -60,7 +60,7 @@
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 7835554421161297536,
+    "seed": 10511539057622758554,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -69,7 +69,7 @@
     "wait": 0,
     "autosaveinterval": 20,
     "games": 2,
-    "rounds": 10000,
+    "rounds": 100000,
     "concurrency": 10,
     "force_concurrency": false,
     "recover": true,
@@ -111,7 +111,7 @@
         {
             "name": "Base",
             "dir": "",
-            "cmd": "./engines/Ursus3.10",
+            "cmd": "./engines/Ursus3.16",
             "args": "",
             "restart": false,
             "options": [],
@@ -131,15 +131,15 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 66,
-            "losses": 67,
-            "draws": 277,
-            "penta_WW": 6,
-            "penta_WD": 43,
-            "penta_WL": 11,
-            "penta_DD": 94,
-            "penta_LD": 46,
-            "penta_LL": 5
+            "wins": 107,
+            "losses": 100,
+            "draws": 153,
+            "penta_WW": 7,
+            "penta_WD": 54,
+            "penta_WL": 39,
+            "penta_DD": 29,
+            "penta_LD": 41,
+            "penta_LL": 10
         }
     }
 }
