@@ -548,6 +548,10 @@ pub const Searcher = struct {
                 break;
             }
 
+            if (self.soft_max_nodes) |soft_limit| {
+                if (self.nodes >= soft_limit) break;
+            }
+
             if (self.should_not_continue(factor)) {
                 break;
             }
