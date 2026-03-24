@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260324_102421/games.pgn",
+        "file": "matches/20260324_155043/games.pgn",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -53,14 +53,14 @@
     "sprt": {
         "alpha": 0.05,
         "beta": 0.05,
-        "elo0": 0.0,
-        "elo1": 5.0,
+        "elo0": -5.0,
+        "elo1": 0.0,
         "model": "normalized",
         "enabled": true
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 1907715043640588743,
+    "seed": 6723839092035000028,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -94,12 +94,21 @@
             "cmd": "./zig-out/bin/Ursus",
             "args": "",
             "restart": false,
-            "options": [],
+            "options": [
+                [
+                    "Threads",
+                    "1"
+                ],
+                [
+                    "Hash",
+                    "32"
+                ]
+            ],
             "limit": {
                 "tc": {
-                    "increment": 40,
+                    "increment": 20,
                     "fixed_time": 0,
-                    "time": 4000,
+                    "time": 2000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -111,15 +120,24 @@
         {
             "name": "Base",
             "dir": "",
-            "cmd": "./engines/Ursus3.22",
+            "cmd": "./engines/Ursus3.23",
             "args": "",
             "restart": false,
-            "options": [],
+            "options": [
+                [
+                    "Threads",
+                    "1"
+                ],
+                [
+                    "Hash",
+                    "32"
+                ]
+            ],
             "limit": {
                 "tc": {
-                    "increment": 40,
+                    "increment": 20,
                     "fixed_time": 0,
-                    "time": 4000,
+                    "time": 2000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -131,15 +149,15 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 561,
-            "losses": 479,
-            "draws": 1100,
-            "penta_WW": 45,
-            "penta_WD": 295,
-            "penta_WL": 176,
-            "penta_DD": 281,
-            "penta_LD": 243,
-            "penta_LL": 30
+            "wins": 330,
+            "losses": 311,
+            "draws": 541,
+            "penta_WW": 39,
+            "penta_WD": 138,
+            "penta_WL": 114,
+            "penta_DD": 131,
+            "penta_LD": 141,
+            "penta_LL": 28
         }
     }
 }

@@ -6,19 +6,19 @@ FASTCHESS="fastchess"
 
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
-  "Ursus3.10=./engines/Ursus3.10"
-  "Ursus3.6=./engines/Ursus3.6"
-  "stash37=./../stash/stash-bot-v37.0/src/stash"
+  # "Ursus3.10=./engines/Ursus3.10"
+  # "Ursus3.6=./engines/Ursus3.6"
+  "stash37=./../stash/stash-bot-v37.0/src/stash" # 3426
   "stash35=./../stash/stash-bot-v35.0/src/stash-bot" # 3350
   "Raphael=./../Raphael/uci" # 3612
-  # "Lynx=./../lynx/Lynx.Cli"
-  "Grail=./../grail-arm64"
-  "Simbelmyne=./../simbelmyne"
-  "Odonata=./../odonata/target/release/odonata"
-  "tcheran"="./../tcheran/target/release/engine"
-  # "Sirius"="./../sirius/Sirius-9.0/build/arm64/Sirius/sirius"
+  # "Lynx=./../lynx/Lynx.Cli" # 3373
+  # "Grail=./../grail-arm64" # 3336
+  # "Simbelmyne=./../simbelmyne" # 3244
+  # "Odonata=./../odonata/target/release/odonata" #3352
+  "tcheran"="./../tcheran/target/release/engine" #3634
+  # "Sirius"="./../sirius/Sirius-9.0/build/arm64/Sirius/sirius" # 3534 - On my machine its absolutely terrible for some reason
   # "Sykora=./../sykora/zig-out/bin/Sykora"
-  "Pawn=./../pawn/build/pawn"
+  "Pawn=./../pawn/build/pawn" # 3554
   # "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 )
 
@@ -29,7 +29,7 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 ROUNDS=250
 CONCURRENCY=10
 
-TC="8+0.08"
+TC="16+0.016"
 
 OUTDIR="tournaments/$(date +%Y%m%d_%H%M%S)"
 PGN="$OUTDIR/games.pgn"

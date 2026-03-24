@@ -3,6 +3,11 @@ zig-cache/
 zig-out/
 .zig-cache/
 
+fastchess_test.sh
+gauntlet.sh
+run_tournament.sh
+output
+config.json
 fathom/
 openings.png
 openings/

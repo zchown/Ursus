@@ -280,7 +280,7 @@ fn playSingleGame(
     }
 
     if (!random_ok) return false;
-    if (srch.Searcher.isDraw(&board, 0)) return false;
+    if (board.isDraw(0)) return false;
 
     // Verify opening eval isn't too extreme
     {
@@ -300,7 +300,7 @@ fn playSingleGame(
     while (result == .Ongoing and ply < config.max_game_plies) {
         if (stop_signal.load(.acquire)) break;
 
-        if (srch.Searcher.isDraw(&board, 0)) {
+        if (board.isDraw(0)) {
             result = .Draw;
             break;
         }

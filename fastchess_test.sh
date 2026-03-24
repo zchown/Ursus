@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus3.22"
+ENGINE_BASE="./engines/Ursus3.23"
+# ENGINE_BASE="./../stash/stash-bot-v37.0/src/stash"          # 3431
 # # ENGINE_BASE="./releaseEngines/Ursus6.0"
 # ENGINE_BASE="./engines/Ursus3.2"
 # ENGINE_BASE="./engines/Ursus_with_nnue_overhead"
@@ -25,8 +26,8 @@ TIMEMARGIN=50
 # SPRT settings
 # H0: 0 Elo (no improvement)
 # H1: +5 Elo improvement
-ELO0=0
-ELO1=5
+ELO0=-5
+ELO1=0
 ALPHA=0.05
 BETA=0.05
 
@@ -66,7 +67,7 @@ echo
 $FASTCHESS \
   -engine cmd="$ENGINE_NEW" name=New \
   -engine cmd="$ENGINE_BASE" name=Base \
-  -each tc=$TC timemargin=$TIMEMARGIN \
+  -each tc=$TC timemargin=$TIMEMARGIN option.Threads=1 option.Hash=32 \
   -openings file="$OPENINGS" format=epd order=random \
   -repeat \
   -rounds $ROUNDS \

@@ -400,6 +400,97 @@ pub const Board = struct {
     pub fn evaluateNNUE(self: *Board) i32 {
         return nnue.evaluate(&self.nnue_stack, self.game_state.side_to_move, self);
     }
+
+    pub fn isDraw(self: *Board, ply: usize) bool {
+        if (self.game_state.halfmove_clock >= 100) {
+            return true;
+        }
+        if (isMaterialDraw(self)) {
+            return true;
+        }
+        if (isThreefoldRepetition(self, ply)) {
+            return true;
+        }
+        return false;
+    }
+
+    pub fn isMaterialDraw(self: *Board) bool {
+        const white_pawns = @popCount(self.piece_bb[@intFromEnum(Color.White)][@intFromEnum(Pieces.Pawn)]);
+        const black_pawns = @popCount(self.piece_bb[@intFromEnum(Color.Black)][@intFromEnum(Pieces.Pawn)]);
+
+        const white_knights = @popCount(self.piece_bb[@intFromEnum(Color.White)][@intFromEnum(Pieces.Knight)]);
+        const black_knights = @popCount(self.piece_bb[@intFromEnum(Color.Black)][@intFromEnum(Pieces.Knight)]);
+
+        const white_bishops = @popCount(self.piece_bb[@intFromEnum(Color.White)][@intFromEnum(Pieces.Bishop)]);
+        const black_bishops = @popCount(self.piece_bb[@intFromEnum(Color.Black)][@intFromEnum(Pieces.Bishop)]);
+
+        const white_rooks = @popCount(self.piece_bb[@intFromEnum(Color.White)][@intFromEnum(Pieces.Rook)]);
+        const black_rooks = @popCount(self.piece_bb[@intFromEnum(Color.Black)][@intFromEnum(Pieces.Rook)]);
+
+        const white_queens = @popCount(self.piece_bb[@intFromEnum(Color.White)][@intFromEnum(Pieces.Queen)]);
+        const black_queens = @popCount(self.piece_bb[@intFromEnum(Color.Black)][@intFromEnum(Pieces.Queen)]);
+
+        // If any pawns, rooks, or queens exist, there's sufficient material
+        if (white_pawns > 0 or black_pawns > 0) return false;
+        if (white_rooks > 0 or black_rooks > 0) return false;
+        if (white_queens > 0 or black_queens > 0) return false;
+
+        // Count total minor pieces
+        const white_minors = white_knights + white_bishops;
+        const black_minors = black_knights + black_bishops;
+
+        // King vs King
+        if (white_minors == 0 and black_minors == 0) {
+            return true;
+        }
+
+        // King + minor vs King
+        if (white_minors == 1 and black_minors == 0) {
+            return true;
+        }
+        if (white_minors == 0 and black_minors == 1) {
+            return true;
+        }
+
+        // King + Bishop vs King + Bishop (same colored bishops)
+        if (white_bishops == 1 and black_bishops == 1 and
+            white_knights == 0 and black_knights == 0)
+        {
+            // Check if bishops are on same color squares
+            const white_bishop_bb = self.piece_bb[@intFromEnum(Color.White)][@intFromEnum(Pieces.Bishop)];
+            const black_bishop_bb = self.piece_bb[@intFromEnum(Color.Black)][@intFromEnum(Pieces.Bishop)];
+
+            const dark_squares: u64 = 0xaa55aa55aa55aa55;
+            const white_on_dark = (white_bishop_bb & dark_squares) != 0;
+            const black_on_dark = (black_bishop_bb & dark_squares) != 0;
+
+            if (white_on_dark == black_on_dark) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    pub fn isThreefoldRepetition(self: *Board, ply: usize) bool {
+        const current_zobrist = self.game_state.zobrist;
+        const halfmove_limit = @min(self.game_state.halfmove_clock, self.history.history_count);
+        var count: u32 = 0;
+
+        var i: usize = 0;
+        while (i < halfmove_limit) : (i += 1) {
+            const history_index = self.history.history_count - 1 - i;
+            const past_state = self.history.history_list[history_index];
+
+            if (past_state.zobrist == current_zobrist) {
+                count += 1;
+                if (i < ply) return true; // within search tree: twofold is enough
+                if (count >= 2) return true; // game history: need actual threefold
+            }
+        }
+
+        return false;
+    }
 };
 
 pub inline fn flipColor(color: Color) Color {

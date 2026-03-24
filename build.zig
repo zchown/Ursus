@@ -105,6 +105,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const move_picker = b.createModule(.{
+        .root_source_file = b.path("src/engine/move_picker.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const tunable_parameters_module = b.createModule(.{
+        .root_source_file = b.path("src/engine/tunable_constants.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "Ursus",
         .root_module = b.createModule(.{
@@ -142,6 +154,13 @@ pub fn build(b: *std.Build) void {
     search_module.addImport("transposition", transposition_module);
     search_module.addImport("see", see_module);
     search_module.addImport("pawn_tt", pawn_tt_module);
+    search_module.addImport("move_picker", move_picker);
+    search_module.addImport("tunable_parameters", tunable_parameters_module);
+
+    move_picker.addImport("board", board_module);
+    move_picker.addImport("moves", moves_module);
+    move_picker.addImport("see", see_module);
+    move_picker.addImport("search", search_module);
 
     transposition_module.addImport("board", board_module);
     transposition_module.addImport("zobrist", zobrist_module);
@@ -158,6 +177,7 @@ pub fn build(b: *std.Build) void {
     uci_module.addImport("pawn_tt", pawn_tt_module);
     uci_module.addImport("datagen", datagen_module);
     uci_module.addImport("nnue", nnue_module);
+    uci_module.addImport("tunable_parameters", tunable_parameters_module);
 
     eval_module.addImport("board", board_module);
     eval_module.addImport("moves", moves_module);
