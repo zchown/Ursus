@@ -7,6 +7,7 @@ FASTCHESS="fastchess"
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
   "Ursus3.10=./engines/Ursus3.10"
+  "Ursus3.6=./engines/Ursus3.6"
   "stash37=./../stash/stash-bot-v37.0/src/stash"
   "stash35=./../stash/stash-bot-v35.0/src/stash-bot" # 3350
   "Raphael=./../Raphael/uci" # 3612

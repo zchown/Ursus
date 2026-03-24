@@ -190,6 +190,8 @@ pub const MoveGen = struct {
     rooks: [brd.num_squares][4096]Bitboard,
     bishop_masks: [brd.num_squares]Bitboard,
     rook_masks: [brd.num_squares]Bitboard,
+    pinned_by_us: Bitboard = 0,
+    pinned_by_them: Bitboard = 0,
 
     const MoveGenInfo = struct {
         king_sq: brd.Square,

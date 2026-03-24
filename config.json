@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260324_014900/games.pgn",
+        "file": "matches/20260324_102421/games.pgn",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -53,14 +53,14 @@
     "sprt": {
         "alpha": 0.05,
         "beta": 0.05,
-        "elo0": -5.0,
-        "elo1": 0.0,
+        "elo0": 0.0,
+        "elo1": 5.0,
         "model": "normalized",
         "enabled": true
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 2585308041238409603,
+    "seed": 1907715043640588743,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -131,15 +131,15 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 1,
-            "losses": 7,
-            "draws": 2,
-            "penta_WW": 0,
-            "penta_WD": 0,
-            "penta_WL": 1,
-            "penta_DD": 0,
-            "penta_LD": 2,
-            "penta_LL": 2
+            "wins": 561,
+            "losses": 479,
+            "draws": 1100,
+            "penta_WW": 45,
+            "penta_WD": 295,
+            "penta_WL": 176,
+            "penta_DD": 281,
+            "penta_LD": 243,
+            "penta_LL": 30
         }
     }
 }

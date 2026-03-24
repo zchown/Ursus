@@ -866,13 +866,13 @@ pub const Searcher = struct {
             }
 
             // SEE pruning
-            // if (!is_capture and !in_check and !on_pv and !is_important and depth <= 6) {
-            //     if (!see.seeAtLeast(board, self.move_gen, move, -@as(i32, @intCast(depth)) * 50)) {
-            //         continue;
-            //     }
-            // }
+            if (!is_capture and !in_check and !on_pv and !is_important and depth <= 6 and searched_moves >= 2 and !is_important) {
+                if (!see.seeAtLeast(board, self.move_gen, move, -@as(i32, @intCast(depth)) * 25)) {
+                    continue;
+                }
+            }
 
-            if (is_capture and !in_check and !on_pv and depth <= 6 and searched_moves >= 2) {
+            if (is_capture and !in_check and !on_pv and depth <= 6 and searched_moves >= 2 and !is_important) {
                 if (!see.seeAtLeast(board, self.move_gen, move, -100)) {
                     continue;
                 }
