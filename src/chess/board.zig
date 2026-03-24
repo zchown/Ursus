@@ -370,18 +370,6 @@ pub const Board = struct {
         }
     }
 
-    pub fn printBitBoards(self: Board) void {
-        for (std.meta.tags(Color)) |color| {
-            const color_idx = @intFromEnum(color);
-            for (std.meta.tags(Pieces)) |piece| {
-                const piece_idx = @intFromEnum(piece);
-                std.debug.print("Color: {s}\n", .{@tagName(color)});
-                std.debug.print("Piece: {s}\n", .{@tagName(piece)});
-                printBitboard(self.piece_bb[color_idx][piece_idx]);
-            }
-        }
-    }
-
     pub fn hasNonPawnMaterial(self: Board, color: Color) bool {
         const color_idx = @intFromEnum(color);
         const non_pawn_bb = self.piece_bb[color_idx][@intFromEnum(Pieces.Knight)] |
@@ -391,8 +379,6 @@ pub const Board = struct {
         return non_pawn_bb != 0;
     }
 
-    /// Recompute NNUE accumulators from scratch for the current position.
-    /// Call this after setting up a position from FEN or at the root.
     pub fn refreshNNUE(self: *Board) void {
         nnue.refreshAccumulator(self, self.nnue_stack.top());
     }
@@ -535,79 +521,15 @@ pub fn bitboardToArray(bb: Bitboard) [64]bool {
     return arr;
 }
 
-pub fn printBitboard(bb: Bitboard) void {
-    for (0..8) |rank| {
-        for (0..8) |file| {
-            const square = (7 - rank) * 8 + file;
-            std.debug.print(if (getBit(bb, square)) "1 " else ". ", .{});
-        }
-        std.debug.print("\n", .{});
-    }
-}
-
+// zig fmt: off
 pub const Squares = enum(usize) {
-    a1,
-    b1,
-    c1,
-    d1,
-    e1,
-    f1,
-    g1,
-    h1,
-    a2,
-    b2,
-    c2,
-    d2,
-    e2,
-    f2,
-    g2,
-    h2,
-    a3,
-    b3,
-    c3,
-    d3,
-    e3,
-    f3,
-    g3,
-    h3,
-    a4,
-    b4,
-    c4,
-    d4,
-    e4,
-    f4,
-    g4,
-    h4,
-    a5,
-    b5,
-    c5,
-    d5,
-    e5,
-    f5,
-    g5,
-    h5,
-    a6,
-    b6,
-    c6,
-    d6,
-    e6,
-    f6,
-    g6,
-    h6,
-    a7,
-    b7,
-    c7,
-    d7,
-    e7,
-    f7,
-    g7,
-    h7,
-    a8,
-    b8,
-    c8,
-    d8,
-    e8,
-    f8,
-    g8,
-    h8,
+    a1, b1, c1, d1, e1, f1, g1, h1,
+    a2, b2, c2, d2, e2, f2, g2, h2,
+    a3, b3, c3, d3, e3, f3, g3, h3,
+    a4, b4, c4, d4, e4, f4, g4, h4,
+    a5, b5, c5, d5, e5, f5, g5, h5,
+    a6, b6, c6, d6, e6, f6, g6, h6,
+    a7, b7, c7, d7, e7, f7, g7, h7,
+    a8, b8, c8, d8, e8, f8, g8, h8,
 };
+// zig fmt: on

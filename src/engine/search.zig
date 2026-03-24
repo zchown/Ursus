@@ -1169,18 +1169,4 @@ pub const Searcher = struct {
         };
         stdout.flush() catch {};
     }
-
-    pub fn gamePhase(board: *brd.Board) i32 {
-        var phase: i32 = 0;
-        // same popcount logic as your evaluate()
-        phase += @as(i32, @popCount(board.piece_bb[0][@intFromEnum(brd.Pieces.Knight)] |
-            board.piece_bb[1][@intFromEnum(brd.Pieces.Knight)]));
-        phase += @as(i32, @popCount(board.piece_bb[0][@intFromEnum(brd.Pieces.Bishop)] |
-            board.piece_bb[1][@intFromEnum(brd.Pieces.Bishop)]));
-        phase += @as(i32, @popCount(board.piece_bb[0][@intFromEnum(brd.Pieces.Rook)] |
-            board.piece_bb[1][@intFromEnum(brd.Pieces.Rook)])) * 2;
-        phase += @as(i32, @popCount(board.piece_bb[0][@intFromEnum(brd.Pieces.Queen)] |
-            board.piece_bb[1][@intFromEnum(brd.Pieces.Queen)])) * 4;
-        return @min(phase, 24);
-    }
 };
