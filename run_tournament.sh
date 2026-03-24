@@ -6,27 +6,26 @@ FASTCHESS="fastchess"
 
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
-  "Ursus3.17=./engines/Ursus3.17"
-  "Ursus3.16=./engines/Ursus3.16"
-  # "stash37=./../stash/stash-bot-v37.0/src/stash"
-  # "stash35=./../stash/stash-bot-v35.0/src/stash-bot" # 3350
-  # "Raphael=./../Raphael/uci" # 3612
+  "Ursus3.10=./engines/Ursus3.10"
+  "stash37=./../stash/stash-bot-v37.0/src/stash"
+  "stash35=./../stash/stash-bot-v35.0/src/stash-bot" # 3350
+  "Raphael=./../Raphael/uci" # 3612
   # "Lynx=./../lynx/Lynx.Cli"
-  # "Grail=./../grail-arm64"
-  # "Simbelmyne=./../simbelmyne"
-  # "Odonata=./../odonata/target/release/odonata"
-  # "tcheran"="./../tcheran/target/release/engine"
+  "Grail=./../grail-arm64"
+  "Simbelmyne=./../simbelmyne"
+  "Odonata=./../odonata/target/release/odonata"
+  "tcheran"="./../tcheran/target/release/engine"
   # "Sirius"="./../sirius/Sirius-9.0/build/arm64/Sirius/sirius"
   # "Sykora=./../sykora/zig-out/bin/Sykora"
-  # "Pawn=./../pawn/build/pawn"
+  "Pawn=./../pawn/build/pawn"
   # "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 )
 
-OPENINGS="8moves_v3.pgn"
+# OPENINGS="8moves_v3.pgn"
 # OPENINGS="openings.pgn"
-# OPENINGS="openings/UHO_Lichess_4852_v1.epd"
+OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 
-ROUNDS=5000
+ROUNDS=250
 CONCURRENCY=10
 
 TC="8+0.08"
@@ -51,7 +50,7 @@ done
 $CUTECHESS \
   "${ENGINE_ARGS[@]}" \
   -each tc=$TC timemargin=50 option.Threads=1 option.Hash=64 \
-  -openings file="$OPENINGS" format=pgn order=random policy=round \
+  -openings file="$OPENINGS" format=epd order=random policy=round \
   -repeat 2 \
   -games 2 \
   -tb "../Ursus/Syzygy/3-4-5" \

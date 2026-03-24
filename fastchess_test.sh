@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus3.16"
+ENGINE_BASE="./engines/Ursus3.22"
 # # ENGINE_BASE="./releaseEngines/Ursus6.0"
 # ENGINE_BASE="./engines/Ursus3.2"
 # ENGINE_BASE="./engines/Ursus_with_nnue_overhead"
@@ -18,15 +18,15 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 # OPENINGS="openings.pgn"
 
 CONCURRENCY=10
-TC="8+0.08"
+TC="4+0.04"
 ROUNDS=100000
 TIMEMARGIN=50
 
 # SPRT settings
 # H0: 0 Elo (no improvement)
 # H1: +5 Elo improvement
-ELO0=0
-ELO1=5
+ELO0=-5
+ELO1=0
 ALPHA=0.05
 BETA=0.05
 
@@ -73,7 +73,7 @@ $FASTCHESS \
   -concurrency $CONCURRENCY \
   -tb "../Ursus/Syzygy/3-4-5" \
   -resign movecount=5 score=400 \
-  -draw movenumber=40 movecount=8 score=15 \
+  -draw movenumber=40 movecount=8 score=10 \
   -recover \
   -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
   -ratinginterval 10 \

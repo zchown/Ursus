@@ -10,9 +10,13 @@ const QB: i16 = 64;
 const NUM_OUTPUT_BUCKETS: usize = 8;
 const EVAL_SCALE: i64 = 128;
 
-const vec_i16_len = 16;
-const num_acc_vecs = hidden_size / vec_i16_len;
+// Target-adaptive vector width: uses the CPU's native SIMD register size.
+// AVX2 → 16, NEON → 8, AVX-512 → 32.
+const vec_i16_len: comptime_int = std.simd.suggestVectorLength(i16) orelse 8;
+const num_acc_vecs: usize = hidden_size / vec_i16_len;
 const I16Vec = @Vector(vec_i16_len, i16);
+const I32Vec = @Vector(vec_i16_len, i32);
+const cache_line = std.atomic.cache_line;
 
 const nnue_piece_to_index = [2][6]u8{
     [_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
@@ -20,9 +24,9 @@ const nnue_piece_to_index = [2][6]u8{
 };
 
 pub const NetworkWeights = struct {
-    ft_weights: [num_features][hidden_size]i16 align(@alignOf(I16Vec)),
-    ft_biases: [hidden_size]i16 align(@alignOf(I16Vec)),
-    out_weights: [NUM_OUTPUT_BUCKETS][2 * hidden_size]i16 align(@alignOf(I16Vec)),
+    ft_weights: [num_features][hidden_size]i16 align(cache_line),
+    ft_biases: [hidden_size]i16 align(cache_line),
+    out_weights: [NUM_OUTPUT_BUCKETS][2 * hidden_size]i16 align(cache_line),
     out_biases: [NUM_OUTPUT_BUCKETS]i16,
 };
 
@@ -64,8 +68,31 @@ fn materialBucket(board: *const brd.Board) usize {
     return @min((piece_count -| 2) / 4, NUM_OUTPUT_BUCKETS - 1);
 }
 
+const FeatureDelta = struct {
+    piece_color: brd.Color,
+    piece_type: brd.Pieces,
+    square: u8,
+};
+
+const DirtyPieces = struct {
+    adds: [2]FeatureDelta = undefined,
+    subs: [2]FeatureDelta = undefined,
+    num_adds: u8 = 0,
+    num_subs: u8 = 0,
+
+    inline fn addPiece(self: *DirtyPieces, color: brd.Color, piece: brd.Pieces, sq: u8) void {
+        self.adds[self.num_adds] = .{ .piece_color = color, .piece_type = piece, .square = sq };
+        self.num_adds += 1;
+    }
+
+    inline fn subPiece(self: *DirtyPieces, color: brd.Color, piece: brd.Pieces, sq: u8) void {
+        self.subs[self.num_subs] = .{ .piece_color = color, .piece_type = piece, .square = sq };
+        self.num_subs += 1;
+    }
+};
+
 pub const Accumulator = struct {
-    vals: [hidden_size]i16 align(@alignOf(I16Vec)),
+    vals: [hidden_size]i16 align(cache_line),
 
     pub fn init() Accumulator {
         return .{ .vals = std.mem.zeroes([hidden_size]i16) };
@@ -83,6 +110,10 @@ pub const Accumulator = struct {
         return @ptrCast(&self.vals);
     }
 
+    inline fn constVecs(self: *const Accumulator) *const [num_acc_vecs]I16Vec {
+        return @ptrCast(&self.vals);
+    }
+
     inline fn weightVecs(feature_idx: usize) *const [num_acc_vecs]I16Vec {
         return @ptrCast(&net_weights.?.ft_weights[feature_idx]);
     }
@@ -91,37 +122,110 @@ pub const Accumulator = struct {
         if (net_weights == null) return;
         const dst = self.vecs();
         const src = weightVecs(feature_idx);
-        inline for (0..num_acc_vecs) |i| dst[i] +%= src[i];
+        for (0..num_acc_vecs) |i| dst[i] +%= src[i];
     }
 
-    pub fn deactivateFeature(self: *Accumulator, feature_idx: usize) void {
-        if (net_weights == null) return;
+    fn addSubCopy(
+        noalias self: *Accumulator,
+        noalias parent: *const Accumulator,
+        add_feat: usize,
+        sub_feat: usize,
+    ) void {
         const dst = self.vecs();
-        const src = weightVecs(feature_idx);
-        inline for (0..num_acc_vecs) |i| dst[i] -%= src[i];
+        const src = parent.constVecs();
+        const add_w = weightVecs(add_feat);
+        const sub_w = weightVecs(sub_feat);
+        for (0..num_acc_vecs) |i| {
+            dst[i] = src[i] +% add_w[i] -% sub_w[i];
+        }
     }
 
-    pub fn moveFeature(self: *Accumulator, old_idx: usize, new_idx: usize) void {
-        if (net_weights == null) return;
+    fn addSubSubCopy(
+        noalias self: *Accumulator,
+        noalias parent: *const Accumulator,
+        add_feat: usize,
+        sub1_feat: usize,
+        sub2_feat: usize,
+    ) void {
         const dst = self.vecs();
-        const old = weightVecs(old_idx);
-        const nw = weightVecs(new_idx);
-        inline for (0..num_acc_vecs) |i|
-            dst[i] = dst[i] -% old[i] +% nw[i];
+        const src = parent.constVecs();
+        const add_w = weightVecs(add_feat);
+        const sub1_w = weightVecs(sub1_feat);
+        const sub2_w = weightVecs(sub2_feat);
+        for (0..num_acc_vecs) |i| {
+            dst[i] = src[i] +% add_w[i] -% sub1_w[i] -% sub2_w[i];
+        }
+    }
+
+    fn addAddSubSubCopy(
+        noalias self: *Accumulator,
+        noalias parent: *const Accumulator,
+        add1_feat: usize,
+        add2_feat: usize,
+        sub1_feat: usize,
+        sub2_feat: usize,
+    ) void {
+        const dst = self.vecs();
+        const src = parent.constVecs();
+        const add1_w = weightVecs(add1_feat);
+        const add2_w = weightVecs(add2_feat);
+        const sub1_w = weightVecs(sub1_feat);
+        const sub2_w = weightVecs(sub2_feat);
+        for (0..num_acc_vecs) |i| {
+            dst[i] = src[i] +% add1_w[i] +% add2_w[i] -% sub1_w[i] -% sub2_w[i];
+        }
     }
 };
 
+fn applyLazyDelta(
+    noalias state: *NNUEState,
+    noalias parent: *const NNUEState,
+) void {
+    const dirty = &state.dirty;
+
+    if (dirty.num_adds == 1 and dirty.num_subs == 1) {
+        // Quiet move or non-capture promotion
+        inline for (0..brd.num_colors) |vi| {
+            const view: brd.Color = @enumFromInt(vi);
+            const add_idx = featureIndex(view, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
+            const sub_idx = featureIndex(view, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
+            state.accumulators[vi].addSubCopy(&parent.accumulators[vi], add_idx, sub_idx);
+        }
+    } else if (dirty.num_adds == 1 and dirty.num_subs == 2) {
+        // Capture, en passant, or capture-promotion
+        inline for (0..brd.num_colors) |vi| {
+            const view: brd.Color = @enumFromInt(vi);
+            const add_idx = featureIndex(view, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
+            const sub1_idx = featureIndex(view, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
+            const sub2_idx = featureIndex(view, dirty.subs[1].piece_color, dirty.subs[1].piece_type, dirty.subs[1].square);
+            state.accumulators[vi].addSubSubCopy(&parent.accumulators[vi], add_idx, sub1_idx, sub2_idx);
+        }
+    } else if (dirty.num_adds == 2 and dirty.num_subs == 2) {
+        // Castling
+        inline for (0..brd.num_colors) |vi| {
+            const view: brd.Color = @enumFromInt(vi);
+            const add1_idx = featureIndex(view, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
+            const add2_idx = featureIndex(view, dirty.adds[1].piece_color, dirty.adds[1].piece_type, dirty.adds[1].square);
+            const sub1_idx = featureIndex(view, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
+            const sub2_idx = featureIndex(view, dirty.subs[1].piece_color, dirty.subs[1].piece_type, dirty.subs[1].square);
+            state.accumulators[vi].addAddSubSubCopy(&parent.accumulators[vi], add1_idx, add2_idx, sub1_idx, sub2_idx);
+        }
+    } else {
+        state.accumulators = parent.accumulators;
+    }
+}
+
 pub const NNUEState = struct {
     accumulators: [brd.num_colors]Accumulator,
+    dirty: DirtyPieces,
+    computed: bool,
 
     pub fn init() NNUEState {
         return .{
             .accumulators = [_]Accumulator{Accumulator.init()} ** brd.num_colors,
+            .dirty = .{},
+            .computed = false,
         };
-    }
-
-    pub fn copyFrom(self: *NNUEState, other: *const NNUEState) void {
-        self.accumulators = other.accumulators;
     }
 };
 
@@ -138,8 +242,12 @@ pub const NNUEStack = struct {
     }
 
     pub inline fn push(self: *NNUEStack) void {
-        self.states[self.current + 1].copyFrom(&self.states[self.current]);
-        self.current += 1;
+        self.ensureComputed(self.current);
+        const next = self.current + 1;
+        self.states[next].accumulators = self.states[self.current].accumulators;
+        self.states[next].dirty = .{};
+        self.states[next].computed = true;
+        self.current = next;
     }
 
     pub inline fn pop(self: *NNUEStack) void {
@@ -151,8 +259,8 @@ pub const NNUEStack = struct {
         board: *const brd.Board,
         move_data: moves.EncodedMove,
     ) void {
-        self.push();
-        const state = self.top();
+        const next = self.current + 1;
+        var dirty = DirtyPieces{};
 
         const moving_color = board.toMove();
         const opp_color = moving_color.opposite();
@@ -170,57 +278,53 @@ pub const NNUEStack = struct {
             else
                 (if (moving_color == .White) @as(u8, 3) else @as(u8, 59));
 
-            inline for (0..brd.num_colors) |vi| {
-                const view: brd.Color = @enumFromInt(vi);
-                const acc = &state.accumulators[vi];
-                acc.moveFeature(
-                    featureIndex(view, moving_color, .King, from_sq),
-                    featureIndex(view, moving_color, .King, to_sq),
-                );
-                acc.moveFeature(
-                    featureIndex(view, moving_color, .Rook, rook_from),
-                    featureIndex(view, moving_color, .Rook, rook_to),
-                );
-            }
+            dirty.addPiece(moving_color, .King, to_sq);
+            dirty.addPiece(moving_color, .Rook, rook_to);
+            dirty.subPiece(moving_color, .King, from_sq);
+            dirty.subPiece(moving_color, .Rook, rook_from);
         } else if (move_data.en_passant == 1) {
             const ep_pawn_sq: u8 =
                 if (moving_color == .White) to_sq - 8 else to_sq + 8;
 
-            inline for (0..brd.num_colors) |vi| {
-                const view: brd.Color = @enumFromInt(vi);
-                const acc = &state.accumulators[vi];
-                acc.moveFeature(
-                    featureIndex(view, moving_color, .Pawn, from_sq),
-                    featureIndex(view, moving_color, .Pawn, to_sq),
-                );
-                acc.deactivateFeature(featureIndex(view, opp_color, .Pawn, ep_pawn_sq));
-            }
+            dirty.addPiece(moving_color, .Pawn, to_sq);
+            dirty.subPiece(moving_color, .Pawn, from_sq);
+            dirty.subPiece(opp_color, .Pawn, ep_pawn_sq);
         } else if (move_data.promoted_piece != 0) {
             const promoted_type: brd.Pieces = @enumFromInt(move_data.promoted_piece);
 
-            inline for (0..brd.num_colors) |vi| {
-                const view: brd.Color = @enumFromInt(vi);
-                const acc = &state.accumulators[vi];
-                acc.deactivateFeature(featureIndex(view, moving_color, .Pawn, from_sq));
-                if (move_data.capture == 1) {
-                    const captured_type: brd.Pieces = @enumFromInt(move_data.captured_piece);
-                    acc.deactivateFeature(featureIndex(view, opp_color, captured_type, to_sq));
-                }
-                acc.activateFeature(featureIndex(view, moving_color, promoted_type, to_sq));
+            dirty.subPiece(moving_color, .Pawn, from_sq);
+            if (move_data.capture == 1) {
+                const captured_type: brd.Pieces = @enumFromInt(move_data.captured_piece);
+                dirty.subPiece(opp_color, captured_type, to_sq);
             }
+            dirty.addPiece(moving_color, promoted_type, to_sq);
         } else {
-            inline for (0..brd.num_colors) |vi| {
-                const view: brd.Color = @enumFromInt(vi);
-                const acc = &state.accumulators[vi];
-                if (move_data.capture == 1) {
-                    const captured_type: brd.Pieces = @enumFromInt(move_data.captured_piece);
-                    acc.deactivateFeature(featureIndex(view, opp_color, captured_type, to_sq));
-                }
-                acc.moveFeature(
-                    featureIndex(view, moving_color, piece_type, from_sq),
-                    featureIndex(view, moving_color, piece_type, to_sq),
-                );
+            if (move_data.capture == 1) {
+                const captured_type: brd.Pieces = @enumFromInt(move_data.captured_piece);
+                dirty.subPiece(opp_color, captured_type, to_sq);
             }
+            dirty.addPiece(moving_color, piece_type, to_sq);
+            dirty.subPiece(moving_color, piece_type, from_sq);
+        }
+
+        self.states[next].dirty = dirty;
+        self.states[next].computed = false;
+        self.current = next;
+    }
+
+    fn ensureComputed(self: *NNUEStack, target: usize) void {
+        if (self.states[target].computed) return;
+        if (net_weights == null) return;
+
+        var first_dirty = target;
+        while (!self.states[first_dirty - 1].computed) {
+            first_dirty -= 1;
+        }
+
+        var i = first_dirty;
+        while (i <= target) : (i += 1) {
+            applyLazyDelta(&self.states[i], &self.states[i - 1]);
+            self.states[i].computed = true;
         }
     }
 };
@@ -237,51 +341,68 @@ pub fn refreshAccumulator(board: *const brd.Board, state: *NNUEState) void {
             var bb = board.piece_bb[ci][pi];
             while (bb != 0) {
                 const sq: u8 = @intCast(@ctz(bb));
-                state.accumulators[@intFromEnum(brd.Color.White)].activateFeature(featureIndex(.White, piece_color, piece, sq));
-                state.accumulators[@intFromEnum(brd.Color.Black)].activateFeature(featureIndex(.Black, piece_color, piece, sq));
+                state.accumulators[@intFromEnum(brd.Color.White)].activateFeature(
+                    featureIndex(.White, piece_color, piece, sq),
+                );
+                state.accumulators[@intFromEnum(brd.Color.Black)].activateFeature(
+                    featureIndex(.Black, piece_color, piece, sq),
+                );
                 bb &= bb - 1;
             }
         }
     }
+
+    state.dirty = .{};
+    state.computed = true;
 }
 
 pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Board) i32 {
     const w = net_weights orelse return 0;
+
+    stack.ensureComputed(stack.current);
+
     const state = stack.top();
-
     const bucket = materialBucket(board);
-    const stm = @intFromEnum(side_to_move);
-    const nstm = 1 - stm;
+    const stm: usize = @intFromEnum(side_to_move);
+    const nstm: usize = 1 - stm;
 
-    const I32Vec = @Vector(vec_i16_len, i32);
-    const zero_vec = @as(I16Vec, @splat(0));
-    const qa_vec = @as(I16Vec, @splat(QA));
+    const zero_vec: I16Vec = @splat(0);
+    const qa_vec: I16Vec = @splat(QA);
 
-    const stm_acc = state.accumulators[stm].vecs();
-    const nstm_acc = state.accumulators[nstm].vecs();
+    const stm_acc = state.accumulators[stm].constVecs();
+    const nstm_acc = state.accumulators[nstm].constVecs();
 
     const bucket_weights = &w.out_weights[bucket];
-    const stm_weights: *const [num_acc_vecs]I16Vec = @ptrCast(@alignCast(bucket_weights[0..hidden_size]));
-    const nstm_weights: *const [num_acc_vecs]I16Vec = @ptrCast(@alignCast(bucket_weights[hidden_size .. 2 * hidden_size]));
+    const stm_weights: *const [num_acc_vecs]I16Vec =
+        @ptrCast(@alignCast(bucket_weights[0..hidden_size]));
+    const nstm_weights: *const [num_acc_vecs]I16Vec =
+        @ptrCast(@alignCast(bucket_weights[hidden_size .. 2 * hidden_size]));
 
-    var sum_stm = @as(I32Vec, @splat(0));
-    var sum_nstm = @as(I32Vec, @splat(0));
+    const ACC_COUNT = comptime std.math.gcd(4, num_acc_vecs);
+    var sums: [ACC_COUNT]I32Vec = @splat(@as(I32Vec, @splat(0)));
 
-    for (0..num_acc_vecs) |i| {
-        const stm_c: I32Vec = @min(@max(stm_acc[i], zero_vec), qa_vec);
-        const sw: I32Vec = stm_weights[i];
-        sum_stm +%= stm_c * stm_c * sw;
+    var i: usize = 0;
+    while (i < num_acc_vecs) {
+        inline for (0..ACC_COUNT) |a| {
+            const vi = i + a;
+            const stm_clamped = @min(@max(stm_acc[vi], zero_vec), qa_vec);
+            const nstm_clamped = @min(@max(nstm_acc[vi], zero_vec), qa_vec);
 
-        const nstm_c: I32Vec = @min(@max(nstm_acc[i], zero_vec), qa_vec);
-        const nw: I32Vec = nstm_weights[i];
-        sum_nstm +%= nstm_c * nstm_c * nw;
+            const stm_c: I32Vec = stm_clamped;
+            const nstm_c: I32Vec = nstm_clamped;
+            const sw: I32Vec = stm_weights[vi];
+            const nw: I32Vec = nstm_weights[vi];
+
+            sums[a] +%= stm_c * stm_c * sw + nstm_c * nstm_c * nw;
+        }
+        i += ACC_COUNT;
     }
 
-    const total_stm = @reduce(.Add, sum_stm);
-    const total_nstm = @reduce(.Add, sum_nstm);
+    var total_vec = sums[0];
+    inline for (1..ACC_COUNT) |a| total_vec += sums[a];
+    const total_i32 = @reduce(.Add, total_vec);
 
-    const total = @as(i64, total_stm) + @as(i64, total_nstm);
-
+    const total: i64 = total_i32;
     const qa: i64 = @as(i64, QA);
     const qa_qb: i64 = @as(i64, QA) * @as(i64, QB);
 

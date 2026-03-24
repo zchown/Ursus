@@ -588,7 +588,6 @@ pub const Searcher = struct {
     }
 
     pub fn negamax(self: *Searcher, board: *brd.Board, color: brd.Color, depth_: usize, alpha_: i32, beta_: i32, is_null: bool, node_type: NodeType, cutnode: bool) i32 {
-        // std.debug.print("Entering negamax: depth={}, alpha={}, beta={}, is_null={}, node_type={}\n", .{depth_, alpha_, beta_, is_null, node_type});
         var alpha = alpha_;
         var beta = beta_;
         var depth = depth_;
@@ -715,12 +714,12 @@ pub const Searcher = struct {
         }
 
         if (depth >= 3 and !in_check and !tt_hit and self.excluded_moves[self.ply].toU32() == 0 and (on_pv or cutnode)) {
-            depth = depth - iid_depth;
+            var r = @divTrunc(depth, 4);
+            if (r < 1) {
+                r = 1;
+            }
+            depth = depth - r;
         }
-
-        // if (depth >= 4 and !in_check and !tt_hit and self.excluded_moves[self.ply].toU32() == 0 and (on_pv or cutnode)) {
-        //     depth -= @divTrunc(depth, 4);
-        // }
 
         if (!in_check and !on_pv and self.excluded_moves[self.ply].toU32() == 0) {
             low_estimate_score = if (!tt_hit or entry.?.flag == tt.EstimationType.Under) static_eval else tt_eval;
@@ -754,19 +753,19 @@ pub const Searcher = struct {
                 nmp_static_eval += nmp_improve;
             }
 
-            if (!is_null and depth >= 3 and self.ply >= self.nmp_min_ply and nmp_static_eval >= beta and has_non_pawns) {
+            if (!is_null and depth >= 4 and self.ply >= self.nmp_min_ply and nmp_static_eval >= beta and has_non_pawns) {
                 var r = nmp_base + depth / nmp_depth_div;
                 r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(nmp_beta_div))))));
 
-                // if (cutnode) {
-                //     r += 1;
-                // }
+                if (cutnode) {
+                    r += 1;
+                }
 
                 r = @min(r, depth);
 
                 self.ply += 1;
                 board.makeNullMove();
-                var null_score = -self.negamax(board, brd.flipColor(color), depth - r, -beta, -beta + 1, true, NodeType.NonPV, !cutnode);
+                var null_score = -self.negamax(board, brd.flipColor(color), depth - r, -beta, -beta + 1, true, NodeType.NonPV, false);
                 self.ply -= 1;
                 board.unmakeNullMove();
 
@@ -865,6 +864,20 @@ pub const Searcher = struct {
             if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and static_eval + ((@as(i32, @intCast(depth)) + 1) * futility_mul) <= alpha) {
                 continue;
             }
+
+            // SEE pruning
+            // if (!is_capture and !in_check and !on_pv and !is_important and depth <= 6) {
+            //     if (!see.seeAtLeast(board, self.move_gen, move, -@as(i32, @intCast(depth)) * 50)) {
+            //         continue;
+            //     }
+            // }
+
+            if (is_capture and !in_check and !on_pv and depth <= 6 and searched_moves >= 2) {
+                if (!see.seeAtLeast(board, self.move_gen, move, -100)) {
+                    continue;
+                }
+            }
+
 
             var extension: i32 = 0;
 
@@ -985,9 +998,9 @@ pub const Searcher = struct {
                         reduction += 1;
                     }
 
-                    // if (cutnode) {
-                    //     reduction += 2;
-                    // }
+                    if (cutnode) {
+                        reduction += 1;
+                    }
 
                     reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], history_div);
 
@@ -1176,9 +1189,14 @@ pub const Searcher = struct {
 
         self.pv_length[self.ply] = 0;
 
-        if (isMaterialDraw(board)) {
+        if (isDraw(board, self.ply)) {
             return 0;
         }
+
+        // if (isMaterialDraw(board)) {
+        //     return 0;
+        // }
+
 
         if (self.ply >= max_ply) {
             return board.evaluateNNUE();
@@ -1303,6 +1321,38 @@ pub const Searcher = struct {
                 }
             }
         }
+
+        if (!in_check and move_size == 0 and self.ply > 0) {
+            const last = self.move_history[self.ply - 1];
+            const has_non_pawns_us = board.hasNonPawnMaterial(color);
+
+            // Only relevant if we just lost a rook/queen and have no pieces left
+            if (!has_non_pawns_us and (last.captured_piece == @intFromEnum(brd.Pieces.Rook) or last.captured_piece == @intFromEnum(brd.Pieces.Queen))) {
+
+                // Check if any pawn can push forward (if so, can't be stalemate)
+                const pawn_bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.Pawn)];
+                // Compute all occupied squares by unioning both sides
+                var occupied: u64 = 0;
+                inline for (0..2) |c| {
+                    inline for (0..6) |p| {
+                        occupied |= board.piece_bb[c][p];
+                    }
+                }
+
+                const pawn_pushes_exist = if (color == .White)
+                ((pawn_bb << 8) & ~occupied) != 0
+                    else
+                ((pawn_bb >> 8) & ~occupied) != 0;
+
+                if (!pawn_pushes_exist) {
+                    const all_moves = self.move_gen.generateMoves(board, false);
+                    if (all_moves.len == 0) {
+                        return 0; // stalemate — don't return a negative stand-pat
+                    }
+                }
+            }
+        }
+
         return best_score;
     }
 
