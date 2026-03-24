@@ -6,6 +6,7 @@ const srch = @import("search");
 const eval = @import("eval");
 const tt = @import("transposition");
 const pawn_tt = @import("pawn_tt");
+const hist = @import("history");
 
 pub const DatagenConfig = struct {
     num_nodes: u64 = 5000,
@@ -422,7 +423,7 @@ fn workerThread(ctx: *ThreadContext) void {
         .tt_table = &thread_tt,
     };
     searcher.move_gen.init();
-    searcher.resetHeuristics(true);
+    hist.resetHeuristics(&searcher, true);
     searcher.silent_output = true;
     searcher.thread_id = ctx.thread_id;
     defer searcher.deinit();

@@ -19,7 +19,7 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 # OPENINGS="openings.pgn"
 
 CONCURRENCY=10
-TC="4+0.04"
+TC="2+0.02"
 ROUNDS=100000
 TIMEMARGIN=50
 

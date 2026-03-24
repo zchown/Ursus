@@ -117,6 +117,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const history_module = b.createModule(.{
+        .root_source_file = b.path("src/engine/history.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "Ursus",
         .root_module = b.createModule(.{
@@ -156,6 +162,12 @@ pub fn build(b: *std.Build) void {
     search_module.addImport("pawn_tt", pawn_tt_module);
     search_module.addImport("move_picker", move_picker);
     search_module.addImport("tunable_parameters", tunable_parameters_module);
+    search_module.addImport("history", history_module);
+
+    history_module.addImport("board", board_module);
+    history_module.addImport("moves", moves_module);
+    history_module.addImport("eval", eval_module);
+    history_module.addImport("search", search_module);
 
     move_picker.addImport("board", board_module);
     move_picker.addImport("moves", moves_module);
@@ -194,6 +206,7 @@ pub fn build(b: *std.Build) void {
     datagen_module.addImport("eval", eval_module);
     datagen_module.addImport("pawn_tt", pawn_tt_module);
     datagen_module.addImport("transposition", transposition_module);
+    datagen_module.addImport("history", history_module);
 
     nnue_module.addImport("board", board_module);
     nnue_module.addImport("moves", moves_module);
