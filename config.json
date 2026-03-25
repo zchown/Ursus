@@ -1,25 +1,25 @@
 {
     "resign": {
-        "move_count": 5,
-        "score": 400,
+        "move_count": 1,
+        "score": 0,
         "twosided": false,
-        "enabled": true
+        "enabled": false
     },
     "draw": {
-        "move_number": 40,
-        "move_count": 8,
-        "score": 10,
-        "enabled": true
+        "move_number": 0,
+        "move_count": 1,
+        "score": 0,
+        "enabled": false
     },
     "maxmoves": {
         "move_count": 1,
         "enabled": false
     },
     "tb_adjudication": {
-        "syzygy_dirs": "../Ursus/Syzygy/3-4-5",
+        "syzygy_dirs": "",
         "max_pieces": 0,
         "ignore_50_move_rule": false,
-        "enabled": true
+        "enabled": false
     },
     "opening": {
         "file": "openings/UHO_Lichess_4852_v1.epd",
@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260324_162409/games.pgn",
+        "file": "",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -51,16 +51,16 @@
         "append_file": true
     },
     "sprt": {
-        "alpha": 0.05,
-        "beta": 0.05,
-        "elo0": -5.0,
+        "alpha": 0.0,
+        "beta": 0.0,
+        "elo0": 0.0,
         "elo1": 0.0,
         "model": "normalized",
-        "enabled": true
+        "enabled": false
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 10553255138413554329,
+    "seed": 4654251834220189098,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -72,7 +72,7 @@
     "rounds": 100000,
     "concurrency": 10,
     "force_concurrency": false,
-    "recover": true,
+    "recover": false,
     "noswap": false,
     "reverse": false,
     "report_penta": true,
@@ -149,15 +149,15 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 601,
-            "losses": 623,
-            "draws": 1066,
-            "penta_WW": 50,
-            "penta_WD": 270,
-            "penta_WL": 231,
-            "penta_DD": 262,
-            "penta_LD": 272,
-            "penta_LL": 60
+            "wins": 13,
+            "losses": 15,
+            "draws": 26,
+            "penta_WW": 2,
+            "penta_WD": 6,
+            "penta_WL": 3,
+            "penta_DD": 7,
+            "penta_LD": 6,
+            "penta_LL": 3
         }
     }
 }

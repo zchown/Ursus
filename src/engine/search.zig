@@ -96,6 +96,7 @@ pub const Searcher = struct {
     thread_id: usize = 0,
     root_board: *brd.Board = undefined,
     silent_output: bool = false,
+    stdout_buffer: [2048]u8 = undefined,
 
     /// Owned by the main searcher; helpers point to the same table.
     tt_table: *tt.TranspositionTable = undefined,
@@ -353,7 +354,7 @@ pub const Searcher = struct {
                 self.nmp_min_ply = 0;
 
                 if (depth == outer_depth) {
-                    score = self.negamax(board, board.toMove(), depth, alpha, beta, true, NodeType.Root, false);
+                    score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.Root, false);
                 }
                 else {
                     score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.PV, false);
@@ -400,7 +401,6 @@ pub const Searcher = struct {
                 }
 
                 self.printInfo(total_nodes, score, best_pv[0..best_pv_length], std.heap.c_allocator);
-                // self.printInfo(total_nodes, score, best_pv[0..best_pv_length], std.heap.c_allocator);
             }
 
             var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
@@ -467,7 +467,7 @@ pub const Searcher = struct {
         };
     }
 
-    pub fn negamax(self: *Searcher, board: *brd.Board, color: brd.Color, depth_: usize, alpha_: i32, beta_: i32, comptime is_null: bool, comptime node_type: NodeType, cutnode: bool) i32 {
+    pub fn negamax(self: *Searcher, board: *brd.Board, color: brd.Color, depth_: usize, alpha_: i32, beta_: i32, is_null: bool, comptime node_type: NodeType, cutnode: bool) i32 {
         var alpha = alpha_;
         var beta = beta_;
         var depth = depth_;
@@ -1138,13 +1138,29 @@ pub const Searcher = struct {
         return best_score;
     }
 
+    fn formatScore(score: i32, buf: []u8) []const u8 {
+        const mate_threshold = eval.mate_score - max_ply;
+        if (score + 20 >= mate_threshold) {
+            const plies = eval.mate_score - score;
+            const moves = @divTrunc(plies + 1, 2);
+            return std.fmt.bufPrint(buf, "score mate {d}", .{moves}) catch "score cp 0";
+        } else if (score - 20 <= -mate_threshold) {
+            const plies = eval.mate_score + score;
+            const moves = @divTrunc(plies + 1, 2);
+            return std.fmt.bufPrint(buf, "score mate -{d}", .{moves}) catch "score cp 0";
+        } else {
+            return std.fmt.bufPrint(buf, "score cp {d}", .{score}) catch "score cp 0";
+        }
+    }
+
     pub fn printInfo(self: *Searcher, nodes: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
         const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
-
-        var stdout_buffer: [1024]u8 = undefined;
-        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const nps: u64 = if (elapsed_ms > 0) (nodes * 1000) / elapsed_ms else 0;
+        const hashfull = self.tt_table.getFillPermill();
+ 
+        var stdout_writer = std.fs.File.stdout().writer(&self.stdout_buffer);
         const stdout = &stdout_writer.interface;
-
+ 
         var pv_string_buffer: [512]u8 = @splat(0);
         var pv_string_len: usize = 0;
         for (pv) |move| {
@@ -1162,11 +1178,20 @@ pub const Searcher = struct {
             pv_string_len += 1;
         }
         const pv_string = pv_string_buffer[0..pv_string_len];
-
-        // output info about the best move found
-        stdout.print("info depth {d} seldepth {d} time {d} nodes {d} pv {s} score cp {d}\n", .{ self.search_depth, self.seldepth, elapsed_ms, nodes, pv_string, score }) catch {
-            return;
-        };
+ 
+        var score_buf: [64]u8 = undefined;
+        const score_string = formatScore(score, &score_buf);
+ 
+        stdout.print("info depth {d} seldepth {d} {s} time {d} nodes {d} nps {d} hashfull {d} pv {s}\n", .{
+            self.search_depth,
+            self.seldepth,
+            score_string,
+            elapsed_ms,
+            nodes,
+            nps,
+            hashfull,
+            pv_string,
+        }) catch return;
         stdout.flush() catch {};
     }
 };

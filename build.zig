@@ -190,6 +190,7 @@ pub fn build(b: *std.Build) void {
     uci_module.addImport("datagen", datagen_module);
     uci_module.addImport("nnue", nnue_module);
     uci_module.addImport("tunable_parameters", tunable_parameters_module);
+    uci_module.addImport("perft", perft_module);
 
     eval_module.addImport("board", board_module);
     eval_module.addImport("moves", moves_module);

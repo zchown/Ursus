@@ -8,6 +8,7 @@ const eval = @import("eval");
 const pawn_tt = @import("pawn_tt");
 const datagen = @import("datagen");
 const nnue = @import("nnue");
+const perft = @import("perft");
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
@@ -182,7 +183,10 @@ pub const UciProtocol = struct {
         } else if (std.mem.eql(u8, commandName, "hce")) {
             const hce_score = eval.evaluate(&self.board, self.searcher.move_gen, -eval.mate_score, eval.mate_score, true);
             try respond(try std.fmt.allocPrint(self.allocator, "HCE Evaluation: {d}", .{hce_score}));
-        } else {
+        } else if (std.mem.eql(u8, commandName, "perft")) {
+            try self.handlePerft(args);
+        } 
+        else {
             if (self.debug_mode) {
                 try respond("Unknown command");
             }
@@ -562,6 +566,24 @@ pub const UciProtocol = struct {
         try stdout.print(fmt, args);
         try stdout.flush();
     }
+
+    fn handlePerft(self: *UciProtocol, args: [][]const u8) !void {
+        if (args.len == 0) {
+            if (self.debug_mode) {
+                try respond("Error: perft command requires a depth argument");
+            }
+            return;
+        }
+
+        const depth = try std.fmt.parseInt(u32, args[0], 10);
+        if (depth == 0) {
+            if (self.debug_mode) {
+                try respond("Error: perft depth must be greater than 0");
+            }
+            return;
+        }
+        try perft.runPerft(self.searcher.move_gen, &self.board, depth);
+    }
 };
 
 fn calculateTimeAllocation(limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {
@@ -589,5 +611,7 @@ fn calculateTimeAllocation(limits: *const SearchLimits, side_to_move: brd.Color)
             .ideal_ms = @max(ideal_ms, 1),
         };
     }
-    return .{ .max_ms = 1000, .ideal_ms = 1000 };
+
+    // otherwise infinite time
+    return .{ .max_ms = std.math.maxInt(u64), .ideal_ms = std.math.maxInt(u64) };
 }

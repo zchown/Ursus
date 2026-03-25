@@ -72,9 +72,9 @@ $FASTCHESS \
   -repeat \
   -rounds $ROUNDS \
   -concurrency $CONCURRENCY \
-  -tb "../Ursus/Syzygy/3-4-5" \
-  -resign movecount=5 score=400 \
-  -draw movenumber=40 movecount=8 score=10 \
+  # -tb "../Ursus/Syzygy/3-4-5" \
+  # -resign movecount=5 score=400 \
+  # -draw movenumber=40 movecount=8 score=10 \
   -recover \
   -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
   -ratinginterval 10 \

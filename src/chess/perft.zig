@@ -19,26 +19,32 @@ pub const PerftResult = struct {
     }
 };
 
-pub fn runPerft(mg: *mvs.MoveGen, board: *brd.Board, max_depth: usize) void {
+pub fn runPerft(mg: *mvs.MoveGen, board: *brd.Board, max_depth: usize) !void {
     for (0..max_depth) |depth| {
         const start = std.time.milliTimestamp();
         const result = perft(mg, board, depth + 1, std.heap.page_allocator);
         const end = std.time.milliTimestamp();
         const time = end - start;
 
-        std.debug.print("\nDepth: {}\n", .{depth + 1});
-        std.debug.print("-----------------\n", .{});
-        std.debug.print("Total nodes:    {}\n", .{result.total});
-        std.debug.print("Captures:       {}\n", .{result.captures});
-        std.debug.print("En passants:    {}\n", .{result.en_passant});
-        std.debug.print("Castles:        {}\n", .{result.castling});
-        std.debug.print("Promotions:     {}\n", .{result.promotions});
-        std.debug.print("Time:           {}ms\n", .{time});
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
+
+        try stdout.print("\nDepth: {}\n", .{depth + 1});
+        try stdout.print("-----------------\n", .{});
+        try stdout.print("Total nodes:    {}\n", .{result.total});
+        try stdout.print("Captures:       {}\n", .{result.captures});
+        try stdout.print("En passants:    {}\n", .{result.en_passant});
+        try stdout.print("Castles:        {}\n", .{result.castling});
+        try stdout.print("Promotions:     {}\n", .{result.promotions});
+        try stdout.print("Time:           {}ms\n", .{time});
 
         if (time > 0) {
             const kNps = (result.total * 1000) / @as(u64, @intCast(time));
-            std.debug.print("kN/s:           {}\n", .{kNps});
+            try stdout.print("kN/s:           {}\n", .{kNps});
         }
+
+        try stdout.flush();
     }
 }
 
