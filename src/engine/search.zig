@@ -472,10 +472,6 @@ pub const Searcher = struct {
         var beta = beta_;
         var depth = depth_;
 
-        const corr_idx = board.game_state.pawn_hash & 16383;
-        const np_white_corr_idx = board.game_state.white_np_hash & 16383;
-        const np_black_corr_idx = board.game_state.black_np_hash & 16383;
-
         self.pv_length[self.ply] = 0;
 
         if (self.nodes & 2047 == 0 and self.should_stop()) {
@@ -565,11 +561,7 @@ pub const Searcher = struct {
             static_eval = self.eval_history[self.ply];
         } else {
             static_eval = board.evaluateNNUE();
-
-            var correction = @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))], 512);
-            correction += @divTrunc(self.np_white_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(np_white_corr_idx))], 512);
-            correction += @divTrunc(self.np_black_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(np_black_corr_idx))], 512);
-            static_eval += correction;
+            static_eval += hist.getCorrection(self, color, board);
         }
 
         var best_score: i32 = static_eval;
@@ -932,7 +924,7 @@ pub const Searcher = struct {
         }
 
         if (!in_check and !is_null and best_move.capture == 0 and (best_score > -eval.mate_score and best_score < eval.mate_score) and self.excluded_moves[self.ply].toU32() == 0 and !(best_score >= beta and best_score <= static_eval) and !(best_move.toU32() == 0 and best_score >= static_eval)) {
-            hist.updateCorrection(self, color, board, best_score, static_eval, depth);
+            hist.updateCorrection(self, color, board, best_move, best_score, static_eval, depth);
         }
 
         if (alpha >= beta and !(best_move.capture == 1) and !(best_move.promoted_piece != 0)) {
@@ -993,11 +985,7 @@ pub const Searcher = struct {
 
         if (!in_check) {
             static_eval = board.evaluateNNUE();
-
-            var correction = @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(board.game_state.pawn_hash & 16383))], 512);
-            correction += @divTrunc(self.np_white_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(board.game_state.white_np_hash & 16383))], 512);
-            correction += @divTrunc(self.np_black_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(board.game_state.black_np_hash & 16383))], 512);
-            static_eval += correction;
+            static_eval += hist.getCorrection(self, color, board);
 
             best_score = static_eval;
 

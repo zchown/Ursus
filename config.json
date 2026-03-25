@@ -1,25 +1,25 @@
 {
     "resign": {
-        "move_count": 1,
-        "score": 0,
+        "move_count": 5,
+        "score": 400,
         "twosided": false,
-        "enabled": false
+        "enabled": true
     },
     "draw": {
-        "move_number": 0,
-        "move_count": 1,
-        "score": 0,
-        "enabled": false
+        "move_number": 40,
+        "move_count": 8,
+        "score": 10,
+        "enabled": true
     },
     "maxmoves": {
         "move_count": 1,
         "enabled": false
     },
     "tb_adjudication": {
-        "syzygy_dirs": "",
+        "syzygy_dirs": "../Ursus/Syzygy/3-4-5",
         "max_pieces": 0,
         "ignore_50_move_rule": false,
-        "enabled": false
+        "enabled": true
     },
     "opening": {
         "file": "openings/UHO_Lichess_4852_v1.epd",
@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "",
+        "file": "matches/20260325_095110/games.pgn",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -51,16 +51,16 @@
         "append_file": true
     },
     "sprt": {
-        "alpha": 0.0,
-        "beta": 0.0,
+        "alpha": 0.05,
+        "beta": 0.05,
         "elo0": 0.0,
-        "elo1": 0.0,
+        "elo1": 5.0,
         "model": "normalized",
-        "enabled": false
+        "enabled": true
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 4654251834220189098,
+    "seed": 3020120176852994125,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -72,7 +72,7 @@
     "rounds": 100000,
     "concurrency": 10,
     "force_concurrency": false,
-    "recover": false,
+    "recover": true,
     "noswap": false,
     "reverse": false,
     "report_penta": true,
@@ -101,14 +101,14 @@
                 ],
                 [
                     "Hash",
-                    "32"
+                    "64"
                 ]
             ],
             "limit": {
                 "tc": {
-                    "increment": 20,
+                    "increment": 80,
                     "fixed_time": 0,
-                    "time": 2000,
+                    "time": 8000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -130,14 +130,14 @@
                 ],
                 [
                     "Hash",
-                    "32"
+                    "64"
                 ]
             ],
             "limit": {
                 "tc": {
-                    "increment": 20,
+                    "increment": 80,
                     "fixed_time": 0,
-                    "time": 2000,
+                    "time": 8000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -149,15 +149,15 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 13,
-            "losses": 15,
-            "draws": 26,
-            "penta_WW": 2,
-            "penta_WD": 6,
-            "penta_WL": 3,
-            "penta_DD": 7,
-            "penta_LD": 6,
-            "penta_LL": 3
+            "wins": 393,
+            "losses": 373,
+            "draws": 834,
+            "penta_WW": 28,
+            "penta_WD": 192,
+            "penta_WL": 145,
+            "penta_DD": 224,
+            "penta_LD": 194,
+            "penta_LL": 17
         }
     }
 }

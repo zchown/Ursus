@@ -285,9 +285,13 @@ fn playSingleGame(
 
     // Verify opening eval isn't too extreme
     {
-        const opening_eval = board.evaluateNNUE();
+        searcher.soft_max_nodes = 2 * config.num_nodes;
+        _ = searcher.iterativeDeepening(&board, null) catch {
+            return false;
+        };
+        const opening_eval = searcher.best_move_score;
         const abs_eval = if (opening_eval < 0) -opening_eval else opening_eval;
-        if (abs_eval > 300) return false;
+        if (abs_eval > 200) return false;
     }
 
     // Record starting position AFTER random plies
