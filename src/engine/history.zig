@@ -31,6 +31,8 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
             @memset(&self.correction[c], 0);
             @memset(&self.np_white_correction[c], 0);
             @memset(&self.np_black_correction[c], 0);
+            @memset(&self.major_correction[c], 0);
+            @memset(&self.minor_correction[c], 0);
         } 
     }
 
@@ -92,12 +94,14 @@ pub fn updateCorrection(
     const corr_idx = board.game_state.pawn_hash & 16383;
     const np_white_corr_idx = board.game_state.white_np_hash & 16383;
     const np_black_corr_idx = board.game_state.black_np_hash & 16383;
+    const minor_corr_idx = board.game_state.minor_hash & 16383;
+    const major_corr_idx = board.game_state.major_hash & 16383;
 
     const err = best_score - static_eval;
     const depth_i32 = @as(i32, @intCast(depth));
 
     // Pawn correction — original EMA with depth-scaled weight
-    const pawn_weight: i32 = @min(256, depth_i32 * 32);
+    const pawn_weight: i32 = @min(128, depth_i32 * 16);
     const pawn_entry = &self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))];
     pawn_entry.* = std.math.clamp(
         pawn_entry.* + @divTrunc(err * pawn_weight - pawn_entry.* * pawn_weight, 256),
@@ -105,7 +109,7 @@ pub fn updateCorrection(
     );
 
     // Non-pawn corrections — slightly lower weight so pawn signal dominates
-    const np_weight: i32 = @min(192, depth_i32 * 24);
+    const np_weight: i32 = @min(128, depth_i32 * 16);
 
     const npw_entry = &self.np_white_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(np_white_corr_idx))];
     npw_entry.* = std.math.clamp(
@@ -117,23 +121,44 @@ pub fn updateCorrection(
     npb_entry.* = std.math.clamp(
         npb_entry.* + @divTrunc(err * np_weight - npb_entry.* * np_weight, 256),
         -16000, 16000,
-    );
+);
+
+    const major_weight: i32 = @min(128, depth_i32 * 16);
+    const major_entry = &self.major_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(major_corr_idx))];
+    major_entry.* = std.math.clamp(
+    major_entry.* + @divTrunc(err * major_weight - major_entry.* * major_weight, 256),
+    -16000, 16000,
+);
+
+    const minor_weight: i32 = @min(128, depth_i32 * 16);
+    const minor_entry= &self.minor_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(minor_corr_idx))];
+    minor_entry.* = std.math.clamp(
+    minor_entry.* + @divTrunc(err * minor_weight - minor_entry.* * minor_weight, 256),
+    -16000, 16000,
+);
+
 }
 
 pub fn getCorrection(self: *Searcher, color: brd.Color, board: *brd.Board) i32 {
     const corr_idx = board.game_state.pawn_hash & 16383;
     const np_white_corr_idx = board.game_state.white_np_hash & 16383;
     const np_black_corr_idx = board.game_state.black_np_hash & 16383;
+    const major_corr_idx =board.game_state.major_hash & 16383; 
+    const minor_corr_idx =board.game_state.minor_hash & 16383; 
 
     const c = @as(usize, @intFromEnum(color));
 
     const pawn_val = self.correction[c][@as(usize, @intCast(corr_idx))];
     const npw_val = self.np_white_correction[c][@as(usize, @intCast(np_white_corr_idx))];
     const npb_val = self.np_black_correction[c][@as(usize, @intCast(np_black_corr_idx))];
+    const major_val= self.major_correction[c][@as(usize, @intCast(major_corr_idx))];
+    const minor_val = self.minor_correction[c][@as(usize, @intCast(minor_corr_idx))];
 
     const combined = pawn_val * tp.corr_pawn_read_weight +
         npw_val * tp.corr_np_read_weight +
-        npb_val * tp.corr_np_read_weight;
+        npb_val * tp.corr_np_read_weight +
+        major_val * tp.corr_major_read_weight +
+        minor_val * tp.corr_minor_read_weight;
 
 
     // const combined = @divTrunc(pawn_val + npw_val + npb_val, 512);

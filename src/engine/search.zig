@@ -89,6 +89,8 @@ pub const Searcher = struct {
     correction: [2][16384]i32 = undefined,
     np_white_correction: [2][16384]i32 = undefined,
     np_black_correction: [2][16384]i32 = undefined,
+    major_correction: [2][16384]i32 = undefined,
+    minor_correction: [2][16384]i32 = undefined,
     capture_history: [2][7][64][7]i32 = undefined,
 
     nmp_min_ply: usize = 0,

@@ -45,5 +45,8 @@ pub const corr_div_nobm: i32 = 8;
 pub const corr_np_update_weight: i32 = 178;
 
 pub var corr_pawn_read_weight: i32 = 175;
-pub var corr_np_read_weight: i32 = 75;  
-pub var corr_read_divisor: i32 = 64314;
+pub var corr_np_read_weight: i32 = 110;  
+pub var corr_major_read_weight: i32 = 100;
+pub var corr_minor_read_weight: i32 = 175;
+
+pub var corr_read_divisor: i32 = 128738;

@@ -188,16 +188,23 @@ fn isCastlingRook(board: *const brd.Board, sq: u6, color: brd.Color) bool {
 
 fn encodeViriMove(move_data: mvs.EncodedMove) u16 {
     const from: u16 = @intCast(move_data.start_square);
-    const to: u16 = @intCast(move_data.end_square);
+    var to: u16 = @intCast(move_data.end_square);
 
     var flag: u16 = 0;
     if (move_data.castling == 1) {
         flag = 0b10_00;
+        // Viriformat encodes castling as king -> rook's original square
+        // (Chess960 convention), not king -> king's final square.
+        // Determine rook square from direction: if to > from it's kingside.
+        const rank_base: u16 = (from / 8) * 8;
+        if (to > from) {
+            to = rank_base + 7; // h-file rook (kingside)
+        } else {
+            to = rank_base; // a-file rook (queenside)
+        }
     } else if (move_data.en_passant == 1) {
         flag = 0b01_00;
     } else if (move_data.promoted_piece != 0) {
-        // Viriformat promotion flags: 0b11_xx where xx = piece type
-        // 00=knight, 01=bishop, 10=rook, 11=queen
         const promo: u16 = switch (move_data.promoted_piece) {
             @intFromEnum(brd.Pieces.Knight) => 0b11_00,
             @intFromEnum(brd.Pieces.Bishop) => 0b11_01,

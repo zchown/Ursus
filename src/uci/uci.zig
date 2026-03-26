@@ -344,8 +344,10 @@ pub const UciProtocol = struct {
         // try respond("option name se_triple_threshold type spin default 50 min 10 max 400");
         // try respond("option name pc_margin type spin default 200 min 50 max 400");
         try respond("option name corr_pawn_read_weight type spin default 200 min 25 max 750");
-        try respond("option name corr_np_read_weight type spin default 100 min 25 max 750");
-        try respond("option name corr_read_divisor type spin default 65536 min 50000 max 80000");
+        try respond("option name corr_np_read_weight type spin default 128 min 25 max 750");
+        try respond("option name corr_minor_read_weight type spin default 156 min 25 max 750");
+        try respond("option name corr_major_read_weight type spin default 100 min 25 max 750");
+        try respond("option name corr_read_divisor type spin default 131072 min 100000 max 160000");
 
         try self.newGame();
 
@@ -467,6 +469,10 @@ pub const UciProtocol = struct {
             tp.corr_np_read_weight = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "corr_read_divisor")) {
             tp.corr_read_divisor = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "corr_major_read_weight")) {
+            tp.corr_major_read_weight= try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "corr_minor_read_weight")) {
+            tp.corr_minor_read_weight= try std.fmt.parseInt(i32, args[name_end + 1], 10);
         }
         else {
             if (self.debug_mode) {
