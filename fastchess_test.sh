@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus3.23"
+ENGINE_BASE="./engines/Ursus3.22"
 # ENGINE_BASE="./../stash/stash-bot-v37.0/src/stash"          # 3431
 # # ENGINE_BASE="./releaseEngines/Ursus6.0"
 # ENGINE_BASE="./engines/Ursus3.2"
@@ -20,7 +20,7 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 # OPENINGS="openings.pgn"
 
 CONCURRENCY=10
-TC="16+0.16"
+TC="8+0.08"
 ROUNDS=100000
 TIMEMARGIN=50
 

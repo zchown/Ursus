@@ -553,23 +553,25 @@ pub const Searcher = struct {
         }
 
         var static_eval: i32 = undefined;
+        var raw_static_eval: i32 = 0;
         if (in_check) {
             static_eval = -eval.mate_score + @as(i32, @intCast(self.ply));
-        } else if (tt_hit) {
-            static_eval = tt_eval;
-        } else if (is_null) {
-            static_eval = -self.eval_history[self.ply - 1];
+        // } else if (tt_hit) {
+        //     static_eval = tt_eval;
+        // } else if (is_null) {
+        //     static_eval = -self.eval_history[self.ply - 1];
         } else if (self.excluded_moves[self.ply].toU32() != 0) {
-            static_eval = self.eval_history[self.ply];
+            raw_static_eval = self.eval_history[self.ply];
+            static_eval = raw_static_eval + hist.getCorrection(self, color, board);
         } else {
-            static_eval = board.evaluateNNUE();
-            static_eval += hist.getCorrection(self, color, board);
+            raw_static_eval = board.evaluateNNUE();
+            static_eval = raw_static_eval + hist.getCorrection(self, color, board);
         }
 
         var best_score: i32 = static_eval;
 
         var low_estimate_score: i32 = -eval.mate_score - 1;
-        self.eval_history[self.ply] = static_eval;
+        self.eval_history[self.ply] = raw_static_eval;
 
         const improving: bool = !in_check and self.ply >= 2 and static_eval > self.eval_history[self.ply - 2];
 

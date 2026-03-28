@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260326_114442/games.pgn",
+        "file": "matches/20260328_161723/games.pgn",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -60,7 +60,7 @@
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 4753338833668283872,
+    "seed": 2369302564605126557,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -106,9 +106,9 @@
             ],
             "limit": {
                 "tc": {
-                    "increment": 160,
+                    "increment": 80,
                     "fixed_time": 0,
-                    "time": 16000,
+                    "time": 8000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -120,7 +120,7 @@
         {
             "name": "Base",
             "dir": "",
-            "cmd": "./engines/Ursus3.23",
+            "cmd": "./engines/Ursus3.22",
             "args": "",
             "restart": false,
             "options": [
@@ -135,9 +135,9 @@
             ],
             "limit": {
                 "tc": {
-                    "increment": 160,
+                    "increment": 80,
                     "fixed_time": 0,
-                    "time": 16000,
+                    "time": 8000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -149,15 +149,15 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 42,
-            "losses": 52,
-            "draws": 108,
-            "penta_WW": 3,
-            "penta_WD": 17,
-            "penta_WL": 19,
-            "penta_DD": 31,
-            "penta_LD": 29,
-            "penta_LL": 2
+            "wins": 391,
+            "losses": 356,
+            "draws": 831,
+            "penta_WW": 18,
+            "penta_WD": 214,
+            "penta_WL": 141,
+            "penta_DD": 217,
+            "penta_LD": 183,
+            "penta_LL": 16
         }
     }
 }
