@@ -15,6 +15,7 @@ openings/
 *.pgn
 *.epd
 *.zip
+*.vf
 
 # Build outputs
 *.o

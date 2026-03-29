@@ -89,6 +89,8 @@ pub const Searcher = struct {
     correction: [2][16384]i32 = undefined,
     np_white_correction: [2][16384]i32 = undefined,
     np_black_correction: [2][16384]i32 = undefined,
+    major_correction: [2][16384]i32 = undefined,
+    minor_correction: [2][16384]i32 = undefined,
     capture_history: [2][7][64][7]i32 = undefined,
 
     nmp_min_ply: usize = 0,
@@ -472,10 +474,6 @@ pub const Searcher = struct {
         var beta = beta_;
         var depth = depth_;
 
-        const corr_idx = board.game_state.pawn_hash & 16383;
-        const np_white_corr_idx = board.game_state.white_np_hash & 16383;
-        const np_black_corr_idx = board.game_state.black_np_hash & 16383;
-
         self.pv_length[self.ply] = 0;
 
         if (self.nodes & 2047 == 0 and self.should_stop()) {
@@ -555,27 +553,25 @@ pub const Searcher = struct {
         }
 
         var static_eval: i32 = undefined;
+        var raw_static_eval: i32 = 0;
         if (in_check) {
             static_eval = -eval.mate_score + @as(i32, @intCast(self.ply));
-        } else if (tt_hit) {
-            static_eval = tt_eval;
-        } else if (is_null) {
-            static_eval = -self.eval_history[self.ply - 1];
+        // } else if (tt_hit) {
+        //     static_eval = tt_eval;
+        // } else if (is_null) {
+        //     static_eval = -self.eval_history[self.ply - 1];
         } else if (self.excluded_moves[self.ply].toU32() != 0) {
-            static_eval = self.eval_history[self.ply];
+            raw_static_eval = self.eval_history[self.ply];
+            static_eval = raw_static_eval + hist.getCorrection(self, color, board);
         } else {
-            static_eval = board.evaluateNNUE();
-
-            var correction = @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))], 512);
-            correction += @divTrunc(self.np_white_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(np_white_corr_idx))], 512);
-            correction += @divTrunc(self.np_black_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(np_black_corr_idx))], 512);
-            static_eval += correction;
+            raw_static_eval = board.evaluateNNUE();
+            static_eval = raw_static_eval + hist.getCorrection(self, color, board);
         }
 
         var best_score: i32 = static_eval;
 
         var low_estimate_score: i32 = -eval.mate_score - 1;
-        self.eval_history[self.ply] = static_eval;
+        self.eval_history[self.ply] = raw_static_eval;
 
         const improving: bool = !in_check and self.ply >= 2 and static_eval > self.eval_history[self.ply - 2];
 
@@ -932,7 +928,7 @@ pub const Searcher = struct {
         }
 
         if (!in_check and !is_null and best_move.capture == 0 and (best_score > -eval.mate_score and best_score < eval.mate_score) and self.excluded_moves[self.ply].toU32() == 0 and !(best_score >= beta and best_score <= static_eval) and !(best_move.toU32() == 0 and best_score >= static_eval)) {
-            hist.updateCorrection(self, color, board, best_score, static_eval, depth);
+            hist.updateCorrection(self, color, board, best_move, best_score, static_eval, depth);
         }
 
         if (alpha >= beta and !(best_move.capture == 1) and !(best_move.promoted_piece != 0)) {
@@ -993,11 +989,7 @@ pub const Searcher = struct {
 
         if (!in_check) {
             static_eval = board.evaluateNNUE();
-
-            var correction = @divTrunc(self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(board.game_state.pawn_hash & 16383))], 512);
-            correction += @divTrunc(self.np_white_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(board.game_state.white_np_hash & 16383))], 512);
-            correction += @divTrunc(self.np_black_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(board.game_state.black_np_hash & 16383))], 512);
-            static_eval += correction;
+            static_eval += hist.getCorrection(self, color, board);
 
             best_score = static_eval;
 

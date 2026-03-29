@@ -60,6 +60,8 @@ pub const GameState = struct {
     pawn_hash: zob.ZobristKey,
     white_np_hash: zob.ZobristKey,
     black_np_hash: zob.ZobristKey,
+    major_hash: zob.ZobristKey,
+    minor_hash: zob.ZobristKey,
 
     pub fn init() GameState {
         var toReturn = GameState{
@@ -72,6 +74,8 @@ pub const GameState = struct {
             .pawn_hash = 0,
             .white_np_hash = 0,
             .black_np_hash = 0,
+            .major_hash = 0,
+            .minor_hash = 0,
         };
         toReturn.zobrist = toReturn.initZobrist();
         return toReturn;
@@ -209,6 +213,14 @@ pub const Board = struct {
             else {
                 self.game_state.black_np_hash ^= zob.ZobristKeys.pieceKeys(color, piece, square);
             }
+
+            if (piece == Pieces.Rook or piece == Pieces.Queen) {
+                self.game_state.major_hash ^= zob.ZobristKeys.pieceKeys(color, piece, square);
+            }
+            if (piece == Pieces.Bishop or piece == Pieces.Knight) {
+                self.game_state.minor_hash ^= zob.ZobristKeys.pieceKeys(color, piece, square);
+            }
+
         }
     }
 
@@ -230,6 +242,14 @@ pub const Board = struct {
             else {
                 self.game_state.black_np_hash ^= zob.ZobristKeys.pieceKeys(color, piece, square);
             }
+
+            if (piece == Pieces.Rook or piece == Pieces.Queen) {
+                self.game_state.major_hash ^= zob.ZobristKeys.pieceKeys(color, piece, square);
+            }
+            if (piece == Pieces.Bishop or piece == Pieces.Knight) {
+                self.game_state.minor_hash ^= zob.ZobristKeys.pieceKeys(color, piece, square);
+            }
+
         }
     }
 
@@ -346,6 +366,8 @@ pub const Board = struct {
         self.game_state.pawn_hash = 0;
         self.game_state.white_np_hash = 0;
         self.game_state.black_np_hash = 0;
+        self.game_state.major_hash = 0;
+        self.game_state.minor_hash = 0;
         self.game_state.zobrist ^= zob.ZobristKeys.sideKeys(self.game_state.side_to_move);
         self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
         self.game_state.zobrist ^= zob.ZobristKeys.enPassantKeys(self.game_state.en_passant_square);
@@ -366,6 +388,14 @@ pub const Board = struct {
                 else {
                     self.game_state.black_np_hash ^= zob.ZobristKeys.pieceKeys(piece.color, piece.piece, piece.square);
                 }
+
+                if (piece.piece == Pieces.Rook or piece.piece == Pieces.Queen) {
+                    self.game_state.major_hash ^= zob.ZobristKeys.pieceKeys(piece.color, piece.piece, piece.square);
+                }
+                if (piece.piece == Pieces.Bishop or piece.piece == Pieces.Knight) {
+                    self.game_state.minor_hash ^= zob.ZobristKeys.pieceKeys(piece.color, piece.piece, piece.square);
+                }
+
             }
         }
     }

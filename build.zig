@@ -4,17 +4,6 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const tracy = b.option([]const u8, "tracy", "Enable Tracy integration. Supply path to Tracy source");
-    const tracy_callstack = b.option(bool, "tracy-callstack", "Include callstack information with Tracy data. Does nothing if -Dtracy is not provided") orelse (tracy != null);
-    const tracy_allocation = b.option(bool, "tracy-allocation", "Include allocation information with Tracy data. Does nothing if -Dtracy is not provided") orelse (tracy != null);
-    const tracy_callstack_depth: u32 = b.option(u32, "tracy-callstack-depth", "Declare callstack depth for Tracy data. Does nothing if -Dtracy-callstack is not provided") orelse 10;
-
-    const tracy_module = b.createModule(.{
-        .root_source_file = b.path("Tracy/tracy.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
     const board_module = b.createModule(.{
         .root_source_file = b.path("src/chess/board.zig"),
         .target = target,
@@ -112,7 +101,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const tunable_parameters_module = b.createModule(.{
-        .root_source_file = b.path("src/engine/tunable_constants.zig"),
+        .root_source_file = b.path("src/engine/tunable_parameters.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -168,6 +157,7 @@ pub fn build(b: *std.Build) void {
     history_module.addImport("moves", moves_module);
     history_module.addImport("eval", eval_module);
     history_module.addImport("search", search_module);
+    history_module.addImport("tunable_parameters", tunable_parameters_module);
 
     move_picker.addImport("board", board_module);
     move_picker.addImport("moves", moves_module);
@@ -220,22 +210,6 @@ pub fn build(b: *std.Build) void {
 
     const exe_options = b.addOptions();
     exe.root_module.addOptions("build_options", exe_options);
-    tracy_module.addOptions("build_options", exe_options);
-
-    exe_options.addOption(bool, "enable_tracy", tracy != null);
-    exe_options.addOption(bool, "enable_tracy_callstack", tracy_callstack);
-    exe_options.addOption(bool, "enable_tracy_allocation", tracy_allocation);
-    exe_options.addOption(u32, "tracy_callstack_depth", tracy_callstack_depth);
-
-    if (tracy) |tracy_path| {
-        const client_cpp = b.pathJoin(&[_][]const u8{ tracy_path, "public", "TracyClient.cpp" });
-        const tracy_c_flags: []const []const u8 = &.{ "-DTRACY_ENABLE=1", "-fno-sanitize=undefined" };
-
-        exe.root_module.addIncludePath(.{ .cwd_relative = tracy_path });
-        exe.root_module.addCSourceFile(.{ .file = .{ .cwd_relative = client_cpp }, .flags = tracy_c_flags });
-        exe.root_module.linkSystemLibrary("c++", .{ .use_pkg_config = .no });
-        exe.root_module.link_libc = true;
-    }
 
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);
