@@ -32,7 +32,7 @@
         "additional_lines_rgx": [],
         "event_name": "Fastchess Tournament",
         "site": "?",
-        "file": "matches/20260328_161723/games.pgn",
+        "file": "matches/20260401_162229/games.pgn",
         "notation": 0,
         "append_file": true,
         "track_nodes": false,
@@ -60,7 +60,7 @@
     },
     "config_name": "config.json",
     "output": 0,
-    "seed": 2369302564605126557,
+    "seed": 9248795406803136295,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -106,9 +106,9 @@
             ],
             "limit": {
                 "tc": {
-                    "increment": 80,
+                    "increment": 40,
                     "fixed_time": 0,
-                    "time": 8000,
+                    "time": 4000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -120,7 +120,7 @@
         {
             "name": "Base",
             "dir": "",
-            "cmd": "./engines/Ursus3.22",
+            "cmd": "./engines/Ursus3.24",
             "args": "",
             "restart": false,
             "options": [
@@ -135,9 +135,9 @@
             ],
             "limit": {
                 "tc": {
-                    "increment": 80,
+                    "increment": 40,
                     "fixed_time": 0,
-                    "time": 8000,
+                    "time": 4000,
                     "moves": 0,
                     "timemargin": 50
                 },
@@ -149,15 +149,15 @@
     ],
     "stats": {
         "New vs Base": {
-            "wins": 391,
-            "losses": 356,
-            "draws": 831,
-            "penta_WW": 18,
-            "penta_WD": 214,
-            "penta_WL": 141,
-            "penta_DD": 217,
-            "penta_LD": 183,
-            "penta_LL": 16
+            "wins": 19,
+            "losses": 18,
+            "draws": 57,
+            "penta_WW": 1,
+            "penta_WD": 9,
+            "penta_WL": 8,
+            "penta_DD": 19,
+            "penta_LD": 10,
+            "penta_LL": 0
         }
     }
 }

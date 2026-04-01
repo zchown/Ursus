@@ -54,7 +54,7 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
                 if (total) {
                     self.history[c][j][k] = 0;
                 } else {
-                    self.history[c][j][k] = @divTrunc(self.history[c][j][k] * 3, 4);
+                    self.history[c][j][k] = @divTrunc(self.history[c][j][k] * 3, 4) + 64;
                 }
                 self.counter_moves[c][j][k] = mvs.EncodedMove.fromU32(0);
             }

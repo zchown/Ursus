@@ -17,53 +17,74 @@ pub const EstimationType = enum(u2) {
 pub const Entry = struct {
     hash: zob.ZobristKey = 0,
     eval: i32 = 0,
+    static_eval: i32 = 0,
     move: mv.EncodedMove = mv.EncodedMove.fromU32(0),
     flag: EstimationType = .None,
     depth: u8 = 0,
     age: u8 = 0,
 };
 
+/// Packed into 128 bits for atomic load/store:
+///
+///   bits  0-31:   hash key (upper 32 bits of zobrist)
+///   bits 32-47:   eval (i16, clamped)
+///   bits 48-63:   move (u16, compressed from u32)
+///   bits 64-79:   static_eval (i16, clamped)
+///   bits 80-81:   flag (EstimationType)
+///   bits 82-89:   depth (u8)
+///   bits 90-97:   age (u8)
+///   bits 98-127:  unused
+///
 pub const PackedEntry = extern struct {
     data: u128,
 
     pub inline fn pack(
-    hash: u64,
-    eval: i32,
-    move: u32,
-    flag: EstimationType,
-    depth: u8,
-    age: u8,
-) PackedEntry {
-        // Use lower 32 bits of hash as key
+        hash: u64,
+        eval_: i32,
+        move_u16: u16,
+        static_eval: i32,
+        flag: EstimationType,
+        depth: u8,
+        age: u8,
+    ) PackedEntry {
         const hash_key: u32 = @truncate(hash >> 32);
 
-        // Clamp eval to i16 range
-        const clamped_eval: i16 = @intCast(@max(-32768, @min(32767, eval)));
+        const clamped_eval: i16 = @intCast(@max(-32768, @min(32767, eval_)));
         const eval_bits: u16 = @bitCast(clamped_eval);
 
+        const clamped_static: i16 = @intCast(@max(-32768, @min(32767, static_eval)));
+        const static_bits: u16 = @bitCast(clamped_static);
+
         var packed_entry: u128 = 0;
-        packed_entry |= @as(u128, hash_key);                    // bits 0-31
-        packed_entry |= @as(u128, eval_bits) << 32;             // bits 32-47
-        packed_entry |= @as(u128, move) << 48;                  // bits 48-79
-        packed_entry |= @as(u128, @intFromEnum(flag)) << 80;    // bits 80-81
-        packed_entry |= @as(u128, depth) << 82;                 // bits 82-89
-        packed_entry |= @as(u128, age) << 90;                   // bits 90-97
+        packed_entry |= @as(u128, hash_key);                 // bits 0-31
+        packed_entry |= @as(u128, eval_bits) << 32;          // bits 32-47
+        packed_entry |= @as(u128, move_u16) << 48;           // bits 48-63
+        packed_entry |= @as(u128, static_bits) << 64;        // bits 64-79
+        packed_entry |= @as(u128, @intFromEnum(flag)) << 80; // bits 80-81
+        packed_entry |= @as(u128, depth) << 82;              // bits 82-89
+        packed_entry |= @as(u128, age) << 90;                // bits 90-97
 
         return PackedEntry{ .data = packed_entry };
     }
 
     pub inline fn unpack(self: PackedEntry, full_hash: u64) Entry {
         const eval_bits: u16 = @truncate(self.data >> 32);
-        const eval: i16 = @bitCast(eval_bits);
-        const move: u32 = @truncate(self.data >> 48);
+        const eval_: i16 = @bitCast(eval_bits);
+
+        const move_u16: u16 = @truncate(self.data >> 48);
+
+        const static_bits: u16 = @truncate(self.data >> 64);
+        const static_eval: i16 = @bitCast(static_bits);
+
         const flag_bits: u2 = @truncate(self.data >> 80);
         const depth: u8 = @truncate(self.data >> 82);
         const age: u8 = @truncate(self.data >> 90);
 
         return Entry{
             .hash = full_hash,
-            .eval = @as(i32, eval),
-            .move = mv.EncodedMove.fromU32(move),
+            .eval = @as(i32, eval_),
+            .static_eval = @as(i32, static_eval),
+            .move = mv.EncodedMove.fromTTKey(move_u16),
             .flag = @enumFromInt(flag_bits),
             .depth = depth,
             .age = age,
@@ -136,7 +157,7 @@ pub const TranspositionTable = struct {
         return @as(usize, hash & (@as(zob.ZobristKey, self.size) - 1));
     }
 
-    pub inline fn incrememtAge(self: *TranspositionTable) void {
+    pub inline fn incrementAge(self: *TranspositionTable) void {
         const old_age = self.age.load(.monotonic);
         self.age.store(old_age +% 1, .monotonic);
     }
@@ -154,22 +175,22 @@ pub const TranspositionTable = struct {
         const current_age = self.getAge();
 
         const hash_matches = current_packed.verify(entry.hash);
-        const should_replace = 
-        entry.flag == .Exact or 
-        !hash_matches or
-        current_packed.getDepth() <= entry.depth + 4 or 
-        current_packed.getAge() != current_age;
+        const should_replace =
+            entry.flag == .Exact or
+            !hash_matches or
+            current_packed.getDepth() <= entry.depth + 4 or
+            current_packed.getAge() != current_age;
 
         if (should_replace) {
             const new_packed = PackedEntry.pack(
-            entry.hash,
-            entry.eval,
-            entry.move.toU32(),
-            entry.flag,
-            entry.depth,
-            current_age,
-        );
-
+                entry.hash,
+                entry.eval,
+                entry.move.toTTKey(),
+                entry.static_eval,
+                entry.flag,
+                entry.depth,
+                current_age,
+            );
             self.items[idx].store(new_packed.data, .release);
         }
     }
@@ -204,50 +225,53 @@ pub const TranspositionTable = struct {
         const current_age = self.getAge();
 
         const packed_entry = PackedEntry.pack(
-        entry.hash,
-        entry.eval,
-        entry.move.toU32(),
-        entry.flag,
-        entry.depth,
-        current_age,
-    );
+            entry.hash,
+            entry.eval,
+            entry.move.toTTKey(),
+            entry.static_eval,
+            entry.flag,
+            entry.depth,
+            current_age,
+        );
 
         self.items[idx].store(packed_entry.data, .release);
     }
 
     pub fn compareAndSwap(
-    self: *TranspositionTable,
-    hash: zob.ZobristKey,
-    expected_entry: Entry,
-    new_entry: Entry,
-) bool {
+        self: *TranspositionTable,
+        hash: zob.ZobristKey,
+        expected_entry: Entry,
+        new_entry: Entry,
+    ) bool {
         const idx = self.index(hash);
         const current_age = self.getAge();
 
         const expected_packed = PackedEntry.pack(
-        expected_entry.hash,
-        expected_entry.eval,
-        expected_entry.move.toU32(),
-        expected_entry.flag,
-        expected_entry.depth,
-        current_age,
-    );
+            expected_entry.hash,
+            expected_entry.eval,
+            expected_entry.move.toTTKey(),
+            expected_entry.static_eval,
+            expected_entry.flag,
+            expected_entry.depth,
+            current_age,
+        );
 
         const new_packed = PackedEntry.pack(
-        new_entry.hash,
-        new_entry.eval,
-        new_entry.move.toU32(),
-        new_entry.flag,
-        new_entry.depth,
-        current_age,
-    );
+            new_entry.hash,
+            new_entry.eval,
+            new_entry.move.toTTKey(),
+            new_entry.static_eval,
+            new_entry.flag,
+            new_entry.depth,
+            current_age,
+        );
 
         const result = self.items[idx].cmpxchgStrong(
-        expected_packed.data,
-        new_packed.data,
-        .acqRel,
-        .acquire,
-    );
+            expected_packed.data,
+            new_packed.data,
+            .acqRel,
+            .acquire,
+        );
 
         return result == null;
     }

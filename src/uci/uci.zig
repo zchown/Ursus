@@ -316,38 +316,34 @@ pub const UciProtocol = struct {
 
         try respond("option name Threads type spin default 1 min 1 max 8");
 
-        // try respond("option name aspiration_window type spin default 25 min 10 max 200");
-        // try respond("option name rfp_depth type spin default 5 min 1 max 12");
-        // try respond("option name rfp_mul type spin default 101 min 25 max 150");
-        // try respond("option name rfp_improvement type spin default 17 min 10 max 150");
-        // try respond("option name nmp_improvement type spin default 22 min 10 max 150");
-        // try respond("option name nmp_base type spin default 4 min 1 max 8");
-        // try respond("option name nmp_depth_div type spin default 3 min 1 max 8");
-        // try respond("option name nmp_beta_div type spin default 140 min 50 max 300");
-        // try respond("option name razoring_base type spin default 284 min 100 max 600");
-        // try respond("option name razoring_mul type spin default 88 min 10 max 200");
-        // try respond("option name lazy_margin type spin default 800 min 50 max 2000");
-        // try respond("option name q_see_margin type spin default -41 min -200 max 0");
-        // try respond("option name q_delta_margin type spin default 172 min 0 max 400");
-        // try respond("option name lmr_base type spin default 750 min 100 max 1500");
-        // try respond("option name lmr_div type spin default 225 min 50 max 500");
-        // try respond("option name lmr_pv_min type spin default 5 min 1 max 10");
-        // try respond("option name lmr_non_pv_min type spin default 3 min 1 max 10");
-        // try respond("option name futility_mul type spin default 214 min 25 max 400");
-        // try respond("option name iid_depth type spin default 1 min 1 max 4");
-        // try respond("option name history_div type spin default 7672 min 1000 max 12000");
-        // try respond("option name lmp_base type spin default 4 min 0 max 10");
-        // try respond("option name lmp_mul type spin default 2 min 0 max 10");
-        // try respond("option name q_see_min type spin default -200 min -500 max 0");
-        // try respond("option name lmp_improve type spin default 2 min 0 max 4");
-        // try respond("option name se_double_threshold type spin default 74 min 10 max 200");
-        // try respond("option name se_triple_threshold type spin default 50 min 10 max 400");
-        // try respond("option name pc_margin type spin default 200 min 50 max 400");
-        try respond("option name corr_pawn_read_weight type spin default 200 min 25 max 750");
-        try respond("option name corr_np_read_weight type spin default 128 min 25 max 750");
-        try respond("option name corr_minor_read_weight type spin default 156 min 25 max 750");
+        try respond("option name aspiration_window type spin default 15 min 10 max 200");
+        try respond("option name rfp_mul type spin default 63 min 25 max 150");
+        try respond("option name rfp_improvement type spin default 42 min 10 max 150");
+        try respond("option name nmp_improvement type spin default 36 min 10 max 150");
+        try respond("option name nmp_base type spin default 4 min 1 max 8");
+        try respond("option name nmp_depth_div type spin default 3 min 1 max 8");
+        try respond("option name nmp_beta_div type spin default 159 min 50 max 300");
+        try respond("option name razoring_base type spin default 337 min 100 max 600");
+        try respond("option name razoring_mul type spin default 70 min 10 max 200");
+        try respond("option name q_see_margin type spin default -37 min -200 max 0");
+        try respond("option name q_delta_margin type spin default 160 min 0 max 400");
+        try respond("option name lmr_base type spin default 428 min 100 max 1500");
+        try respond("option name lmr_div type spin default 319 min 50 max 500");
+        try respond("option name lmr_pv_min type spin default 4 min 1 max 10");
+        try respond("option name lmr_non_pv_min type spin default 2 min 1 max 10");
+        try respond("option name futility_mul type spin default 161 min 25 max 400");
+        try respond("option name history_div type spin default 8022 min 1000 max 12000");
+        try respond("option name lmp_base type spin default 200 min 0 max 1000");
+        try respond("option name lmp_mul type spin default 200 min 0 max 1000");
+        try respond("option name q_see_min type spin default -133 min -500 max 0");
+        try respond("option name lmp_improve type spin default 200 min 0 max 400");
+        try respond("option name se_double_threshold type spin default 28 min 10 max 200");
+        try respond("option name se_triple_threshold type spin default 14 min 10 max 400");
+        try respond("option name corr_pawn_read_weight type spin default 175 min 25 max 750");
+        try respond("option name corr_np_read_weight type spin default 110 min 25 max 750");
+        try respond("option name corr_minor_read_weight type spin default 175 min 25 max 750");
         try respond("option name corr_major_read_weight type spin default 100 min 25 max 750");
-        try respond("option name corr_read_divisor type spin default 131072 min 100000 max 160000");
+        try respond("option name corr_read_divisor type spin default 128738 min 75000 max 200000");
 
         try self.newGame();
 
@@ -406,63 +402,55 @@ pub const UciProtocol = struct {
             const new_thread_count = try std.fmt.parseInt(usize, args[name_end + 1], 10);
             self.threads = new_thread_count;
         } 
-        // else if (std.mem.eql(u8, option_name, "aspiration_window")) {
-        //     srch.aspiration_window = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "rfp_depth")) {
-        //     srch.rfp_depth = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "rfp_mul")) {
-        //     srch.rfp_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "rfp_improvement")) {
-        //     srch.rfp_improve = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "nmp_improvement")) {
-        //     srch.nmp_improve = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "nmp_base")) {
-        //     srch.nmp_base = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "nmp_depth_div")) {
-        //     srch.nmp_depth_div = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "nmp_beta_div")) {
-        //     srch.nmp_beta_div = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "razoring_base")) {
-        //     srch.razoring_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "razoring_mul")) {
-        //     srch.razoring_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lazy_margin")) {
-        //     eval.lazy_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "q_see_margin")) {
-        //     srch.q_see_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "q_delta_margin")) {
-        //     srch.q_delta_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmr_base")) {
-        //     srch.lmr_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        //     srch.quiet_lmr = srch.initQuietLMR();
-        // } else if (std.mem.eql(u8, option_name, "lmr_div")) {
-        //     srch.lmr_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        //     srch.quiet_lmr = srch.initQuietLMR();
-        // } else if (std.mem.eql(u8, option_name, "lmr_pv_min")) {
-        //     srch.lmr_pv_min = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmr_non_pv_min")) {
-        //     srch.lmr_non_pv_min = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "futility_mul")) {
-        //     srch.futility_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "iid_depth")) {
-        //     srch.iid_depth = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "history_div")) {
-        //     srch.history_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmp_base")) {
-        //     srch.lmp_base = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmp_mul")) {
-        //     srch.lmp_mul = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "q_see_min")) {
-        //     srch.q_see_min = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmp_improve")) {
-        //     srch.lmp_improve = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "se_double_threshold")) {
-        //     srch.se_double_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "se_triple_threshold")) {
-        //     srch.se_triple_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "pc_margin")) {
-        //     srch.pc_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } 
+        else if (std.mem.eql(u8, option_name, "aspiration_window")) {
+            tp.aspiration_window = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "rfp_mul")) {
+            tp.rfp_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "rfp_improvement")) {
+            tp.rfp_improve = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "nmp_improvement")) {
+            tp.nmp_improve = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "nmp_base")) {
+            tp.nmp_base = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "nmp_depth_div")) {
+            tp.nmp_depth_div = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "nmp_beta_div")) {
+            tp.nmp_beta_div = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "razoring_base")) {
+            tp.razoring_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "razoring_mul")) {
+            tp.razoring_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "q_see_margin")) {
+            tp.q_see_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "q_delta_margin")) {
+            tp.q_delta_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "lmr_base")) {
+            tp.lmr_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+            srch.quiet_lmr = srch.initQuietLMR();
+        } else if (std.mem.eql(u8, option_name, "lmr_div")) {
+            tp.lmr_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+            srch.quiet_lmr = srch.initQuietLMR();
+        } else if (std.mem.eql(u8, option_name, "lmr_pv_min")) {
+            tp.lmr_pv_min = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "lmr_non_pv_min")) {
+            tp.lmr_non_pv_min = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "futility_mul")) {
+            tp.futility_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "history_div")) {
+            tp.history_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "lmp_base")) {
+            tp.lmp_base = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "lmp_mul")) {
+            tp.lmp_mul = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "q_see_min")) {
+            tp.q_see_min = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "lmp_improve")) {
+            tp.lmp_improve = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "se_double_threshold")) {
+            tp.se_double_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } else if (std.mem.eql(u8, option_name, "se_triple_threshold")) {
+            tp.se_triple_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        } 
         else if (std.mem.eql(u8, option_name, "corr_pawn_read_weight")) {
             tp.corr_pawn_read_weight = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         } else if (std.mem.eql(u8, option_name, "corr_np_read_weight")) {

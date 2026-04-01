@@ -14,11 +14,11 @@ ENGINES=(
   # "Lynx=./../lynx/Lynx.Cli" # 3373
   # "Grail=./../grail-arm64" # 3336
   # "Simbelmyne=./../simbelmyne" # 3244
-  # "Odonata=./../odonata/target/release/odonata" #3352
+  "Odonata=./../odonata/target/release/odonata" #3352
   "tcheran"="./../tcheran/target/release/engine" #3634
   # "Sirius"="./../sirius/Sirius-9.0/build/arm64/Sirius/sirius" # 3534 - On my machine its absolutely terrible for some reason
   # "Sykora=./../sykora/zig-out/bin/Sykora"
-  "Pawn=./../pawn/build/pawn" # 3554
+  # "Pawn=./../pawn/build/pawn" # 3554
   # "Chess-Coding-Adventure=./../Chess-Coding-Adventure/Chess-Coding-Adventure/bin/Release/net6.0/osx-arm64/Chess-Coding-Adventure"
 )
 
@@ -29,7 +29,7 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 ROUNDS=250
 CONCURRENCY=10
 
-TC="16+0.016"
+TC="8+0.08"
 
 OUTDIR="tournaments/$(date +%Y%m%d_%H%M%S)"
 PGN="$OUTDIR/games.pgn"
@@ -57,13 +57,13 @@ $CUTECHESS \
   -tb "../Ursus/Syzygy/3-4-5" \
   -rounds $ROUNDS \
   -concurrency $CONCURRENCY \
-  -resign movecount=5 score=400 \
-  -draw movenumber=40 movecount=6 score=15 \
   -ratinginterval 25 \
   -recover \
   -pgnout "$PGN" \
   | tee "$LOG"
 
+# -resign movecount=5 score=400 \
+# 	-draw movenumber=40 movecount=6 score=15 \
 echo
 echo "Tournament finished"
 echo "PGN: $PGN"

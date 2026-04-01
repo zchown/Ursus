@@ -14,7 +14,6 @@ const score_counter: i32 = 600_000;
 
 pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList, hash_move: mvs.EncodedMove, is_null: bool) [218]i32 {
         var scores: [218]i32 = @splat(0);
-        const hm = hash_move.toU32();
 
         // Pre-fetch history pointers to avoid lookups in the loop
         const side = @intFromEnum(board.toMove());
@@ -30,7 +29,7 @@ pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList
             var score: i32 = 0;
             const move_u32 = move.toU32();
 
-            if (move_u32 == hm) {
+            if (move.matchesTTKey(hash_move)) {
                 score = score_hash;
             } else if (move.capture == 1) {
                 const see_val = see.seeCapture(board, s.move_gen, move);

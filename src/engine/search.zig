@@ -443,7 +443,7 @@ pub const Searcher = struct {
 
         self.is_searching = false;
 
-        self.tt_table.incrememtAge();
+        self.tt_table.incrementAge();
 
         // Guard against null moves
         if (self.best_move.toU32() == 0) {
@@ -516,6 +516,7 @@ pub const Searcher = struct {
         var hash_move = mvs.EncodedMove.fromU32(0);
         var tt_hit = false;
         var tt_eval: i32 = 0;
+        var tt_static_eval: i32 = 0;
         var tt_e_flag: tt.EstimationType = .None;
         var tt_depth: usize = 0;
         const entry = self.tt_table.get(board.game_state.zobrist);
@@ -525,6 +526,7 @@ pub const Searcher = struct {
             tt_eval = e.eval;
             tt_depth = @as(usize, @intCast(e.depth));
             tt_e_flag = e.flag;
+            tt_static_eval = e.static_eval;
 
             if (tt_eval > eval.mate_score - 256 and tt_eval <= eval.mate_score) {
                 tt_eval -= @as(i32, @intCast(self.ply));
@@ -556,7 +558,10 @@ pub const Searcher = struct {
         var raw_static_eval: i32 = 0;
         if (in_check) {
             static_eval = -eval.mate_score + @as(i32, @intCast(self.ply));
-        // } else if (tt_hit) {
+        } else if (tt_hit) {
+            raw_static_eval = tt_static_eval;
+            static_eval = raw_static_eval + hist.getCorrection(self, color, board);
+
         //     static_eval = tt_eval;
         // } else if (is_null) {
         //     static_eval = -self.eval_history[self.ply - 1];
@@ -952,6 +957,7 @@ pub const Searcher = struct {
                     .hash = board.game_state.zobrist,
                     .eval = best_score,
                     .move = best_move,
+                    .static_eval = raw_static_eval,
                     .flag = tt_flag,
                     .depth = @as(u8, @intCast(depth)),
                     .age = self.tt_table.getAge(),

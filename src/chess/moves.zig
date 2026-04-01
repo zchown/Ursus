@@ -30,6 +30,46 @@ pub const EncodedMove = packed struct(u32) {
 
     _padding: u4 = 0,
 
+    pub inline fn toTTKey(self: EncodedMove) u16 {
+        var key: u16 = 0;
+        key |= @as(u16, self.start_square);
+        key |= @as(u16, self.end_square) << 6;
+
+        if (self.castling == 1) {
+            key |= @as(u16, 3) << 14;
+        } else if (self.en_passant == 1) {
+            key |= @as(u16, 2) << 14;
+        } else if (self.promoted_piece != 0) {
+            key |= @as(u16, @as(u2, @intCast(self.promoted_piece - 1))) << 12;
+            key |= @as(u16, 1) << 14;
+        }
+        return key;
+    }
+
+    pub inline fn fromTTKey(key: u16) EncodedMove {
+        const from: u6 = @truncate(key);
+        const to: u6 = @truncate(key >> 6);
+        const promo: u2 = @truncate(key >> 12);
+        const mtype: u2 = @truncate(key >> 14);
+
+        var m = EncodedMove{};
+        m.start_square = from;
+        m.end_square = to;
+
+        switch (mtype) {
+            3 => { m.castling = 1; },
+            2 => { m.en_passant = 1; m.capture = 1; },
+            1 => { m.promoted_piece = @as(u4, promo) + 1; },
+            0 => {},
+        }
+
+        return m;
+    }
+
+    pub inline fn matchesTTKey(self: EncodedMove, other: EncodedMove) bool {
+        return self.toTTKey() == other.toTTKey();
+    }
+
     pub fn fromU32(value: u32) EncodedMove {
         return @bitCast(value);
     }
@@ -142,22 +182,19 @@ pub const EncodedMove = packed struct(u32) {
 };
 
 pub const MoveList = struct {
-    items: [218:EncodedMove{}]EncodedMove,
+    items: [218]EncodedMove,
     len: usize = 0,
 
     pub fn init() MoveList {
-        var ml = MoveList{ .items = undefined, .len = 0 };
-        ml.items[0] = EncodedMove{};
-        return ml;
+        return MoveList{
+            .items = undefined,
+            .len = 0,
+        };
     }
 
     pub inline fn addEncodedMove(self: *MoveList, move: EncodedMove) void {
         self.items[self.len] = move;
         self.len += 1;
-
-        // if (self.len < 218) {
-        //     self.items[self.len] = EncodedMove{};
-        // }
     }
 
     pub inline fn addMove(self: *MoveList, start: brd.Square, end: brd.Square, piece: brd.Pieces, promoted_piece: ?brd.Pieces, capture: bool, captured_piece: ?brd.Pieces, double_pawn_push: bool, en_passant: bool, castling: bool) void {
@@ -165,10 +202,6 @@ pub const MoveList = struct {
 
         self.items[self.len] = move;
         self.len += 1;
-
-        if (self.len < 218) {
-            self.items[self.len] = EncodedMove{};
-        }
     }
 
     pub inline fn addEasyMove(self: *MoveList, start: brd.Square, end: brd.Square, piece: brd.Pieces, capture: bool, captured_piece: ?brd.Pieces) void {
@@ -873,31 +906,6 @@ pub const MoveGen = struct {
         }
         return attacks;
     }
-
-    // pub fn squareAttackedBy(move_gen: *MoveGen, board: *brd.Board, target_square: brd.Square, from_piece: brd.Pieces, attacking_color: brd.Color) bool {
-    //     const attackers_bb = board.piece_bb[@intFromEnum(attacking_color)][@intFromEnum(from_piece)];
-    //     var attackers = attackers_bb;
-    //
-    //     while (attackers != 0) {
-    //         const attacker_square = brd.getLSB(attackers);
-    //         const attacks = switch (from_piece) {
-    //             brd.Pieces.Pawn => move_gen.pawns[@as(usize, @intFromEnum(attacking_color)) * 64 + attacker_square],
-    //             brd.Pieces.Knight => move_gen.knights[attacker_square],
-    //             brd.Pieces.Bishop => move_gen.getBishopAttacks(attacker_square, board.occupancy()),
-    //             brd.Pieces.Rook => move_gen.getRookAttacks(attacker_square, board.occupancy()),
-    //             brd.Pieces.Queen => move_gen.getQueenAttacks(attacker_square, board.occupancy()),
-    //             brd.Pieces.King => move_gen.kings[attacker_square],
-    //             else => 0,
-    //         };
-    //
-    //         if (brd.getBit(attacks, target_square)) {
-    //             return true;
-    //         }
-    //
-    //         brd.popBit(&attackers, attacker_square);
-    //     }
-    //     return false;
-    // }
 
     fn initSliders(self: *MoveGen) void {
         for (0..brd.num_squares) |sq| {

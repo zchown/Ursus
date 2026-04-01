@@ -1,52 +1,48 @@
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
 
-pub const aspiration_window: i32 = 15;
+pub var aspiration_window: i32 = 22;
 
 pub const rfp_depth: i32 = 6;
-pub const rfp_mul: i32 = 63;
-pub const rfp_improve: i32 = 42;
+pub var rfp_mul: i32 = 51;
+pub var rfp_improve: i32 = 55;
 
-pub const nmp_improve: i32 = 36;
-pub const nmp_base: usize = 4;
-pub const nmp_depth_div: usize = 3;
-pub const nmp_beta_div: usize = 159;
+pub var nmp_improve: i32 = 29;
+pub var nmp_base: usize = 4;
+pub var nmp_depth_div: usize = 3;
+pub var nmp_beta_div: usize = 150;
 
-pub const razoring_base: i32 = 337;
-pub const razoring_mul: i32 = 70;
+pub var razoring_base: i32 = 299;
+pub var razoring_mul: i32 = 73;
 
-pub const iid_depth: usize = 1;
+pub var lmp_improve: usize = 186;
+pub var lmp_base: usize = 194;
+pub var lmp_mul: usize = 288;
 
-pub const lmp_improve: usize = 2;
-pub const lmp_base: usize = 2;
-pub const lmp_mul: usize = 2;
+pub var futility_mul: i32 = 157;
 
-pub const futility_mul: i32 = 161;
+pub var q_see_min: i32 = -150;
+pub var q_see_margin: i32 = -41;
+pub var q_delta_margin: i32 = 201;
 
-pub const q_see_min: i32 = -133;
-pub const q_see_margin: i32 = -37;
-pub const q_delta_margin: i32 = 160;
+pub var lmr_base: i32 = 428;
+pub var lmr_div: i32 = 319;
 
-pub const lmr_base: i32 = 428;
-pub const lmr_div: i32 = 319;
+pub var lmr_pv_min: usize = 4;
+pub var lmr_non_pv_min: usize = 2;
 
-pub const lmr_pv_min: usize = 4;
-pub const lmr_non_pv_min: usize = 2;
+pub var se_double_threshold: i32 = 24;
+pub var se_triple_threshold: i32 = 21;
 
-pub const se_double_threshold: i32 = 28;
-pub const se_triple_threshold: i32 = 14;
+pub var history_div: i32 = 8252;
 
-pub const pc_margin: i32 = 182;
+pub var corr_div_bm: i32 = 10;
+pub var corr_div_nobm: i32 = 8;
+pub var corr_np_update_weight: i32 = 178;
 
-pub const history_div: i32 = 8022;
+pub var corr_pawn_read_weight: i32 = 188;
+pub var corr_np_read_weight: i32 = 122;  
+pub var corr_major_read_weight: i32 = 102;
+pub var corr_minor_read_weight: i32 = 111;
 
-pub const corr_div_bm: i32 = 10;
-pub const corr_div_nobm: i32 = 8;
-pub const corr_np_update_weight: i32 = 178;
-
-pub var corr_pawn_read_weight: i32 = 175;
-pub var corr_np_read_weight: i32 = 110;  
-pub var corr_major_read_weight: i32 = 100;
-pub var corr_minor_read_weight: i32 = 175;
-
-pub var corr_read_divisor: i32 = 128738;
+pub var corr_read_divisor: i32 = 127393;
