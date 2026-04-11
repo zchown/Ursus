@@ -9,35 +9,33 @@ const pawn_tt = @import("pawn_tt");
 const hist = @import("history");
 
 pub const DatagenConfig = struct {
-    num_nodes: u64 = 5000,
+    num_nodes: u64 = 10000,
 
     // 0 = run forever (interrupt with Ctrl+C)
     games_per_thread: u32 = 0,
 
-    num_threads: u32 = 10,
+    num_threads: u32 = 8,
 
-    random_plies: u32 = 8,
-
-    skip_early_plies: u32 = 12,
+    // Fallback: random legal moves from startpos when no opening book is provided.
+    random_plies: u32 = 12,
 
     adjudication_score: i32 = 2500,
 
-    adjudication_count: u32 = 4,
+    adjudication_count: u32 = 8,
 
-    draw_adjudication_score: i32 = 10,
+    draw_adjudication_score: i32 = 5,
 
-    draw_adjudication_count: u32 = 8,
+    draw_adjudication_count: u32 = 16,
 
     max_game_plies: u32 = 512,
 
     output_path: []const u8 = "datagen.vf",
 
-    min_score: i32 = 0,
+    // Path to an EPD book
+    opening_book_path: ?[]const u8 = null,
 
-    max_score: i32 = 10000,
-
-    /// How many games to buffer before flushing to disk
-    flush_interval: u32 = 100,
+    // How many games to buffer in memory before flushing to disk.
+    flush_interval: u32 = 64,
 };
 
 const GameResult = enum(u8) {
@@ -218,6 +216,73 @@ fn encodeViriMove(move_data: mvs.EncodedMove) u16 {
     return from | (to << 6) | (flag << 12);
 }
 
+const OpeningBook = struct {
+    positions: [][]const u8,
+    arena: std.heap.ArenaAllocator,
+
+    fn load(allocator: std.mem.Allocator, path: []const u8) !OpeningBook {
+        var arena = std.heap.ArenaAllocator.init(allocator);
+        errdefer arena.deinit();
+        const a = arena.allocator();
+
+        const raw = try std.fs.cwd().readFileAlloc(a, path, 256 * 1024 * 1024);
+
+        var list = try std.ArrayList([]const u8).initCapacity(a, 1000000);
+
+        var line_iter = std.mem.splitScalar(u8, raw, '\n');
+        while (line_iter.next()) |raw_line| {
+            const line = std.mem.trim(u8, raw_line, " \t\r");
+            if (line.len == 0 or line[0] == '#') continue;
+
+            const fen = extractFenPart(a, line) catch continue;
+            try list.append(a, fen);
+        }
+
+        if (list.items.len == 0) return error.EmptyBook;
+
+        std.debug.print("Opening book: loaded {d} positions from {s}\n", .{
+            list.items.len,
+            path,
+        });
+
+        return .{
+            .positions = try list.toOwnedSlice(a),
+            .arena = arena,
+        };
+    }
+
+    fn deinit(self: *OpeningBook) void {
+        self.arena.deinit();
+    }
+
+    fn pick(self: *const OpeningBook, rng: *Rng) []const u8 {
+        return self.positions[rng.bounded(self.positions.len)];
+    }
+};
+
+fn extractFenPart(allocator: std.mem.Allocator, line: []const u8) ![]const u8 {
+    var fields: [6][]const u8 = .{""} ** 6;
+    var count: usize = 0;
+
+    var iter = std.mem.tokenizeScalar(u8, line, ' ');
+    while (iter.next()) |tok| : (count += 1) {
+        if (count >= 6) break;
+        fields[count] = tok;
+    }
+
+    if (count < 4) return error.InvalidEpd;
+
+    if (count >= 6) {
+        return std.fmt.allocPrint(allocator, "{s} {s} {s} {s} {s} {s}", .{
+            fields[0], fields[1], fields[2], fields[3], fields[4], fields[5],
+        });
+    } else {
+        return std.fmt.allocPrint(allocator, "{s} {s} {s} {s} 0 1", .{
+            fields[0], fields[1], fields[2], fields[3],
+        });
+    }
+}
+
 const Rng = struct {
     state: [4]u64,
 
@@ -258,50 +323,53 @@ fn playSingleGame(
     rng: *Rng,
     config: *const DatagenConfig,
     game: *ViriGame,
+    book: ?*const OpeningBook,
 ) bool {
     game.* = ViriGame.init();
 
     var board = brd.Board.init();
-    fen_mod.setupStartingPosition(&board);
 
-    // Random opening plies
-    var random_ok = true;
-    for (0..config.random_plies) |_| {
-        var move_list = searcher.move_gen.generateMoves(&board, false);
+    if (book) |b| {
+        const fen = b.pick(rng);
+        fen_mod.parseFEN(&board, fen) catch return false;
+    } else {
+        fen_mod.setupStartingPosition(&board);
 
-        var legal_count: usize = 0;
-        var legal_moves: [218]mvs.EncodedMove = undefined;
-        for (move_list.items[0..move_list.len]) |move_data| {
-            mvs.makeMove(&board, move_data);
-            if (!searcher.move_gen.isInCheck(&board, board.justMoved())) {
-                legal_moves[legal_count] = move_data;
-                legal_count += 1;
+        var random_ok = true;
+        for (0..config.random_plies) |_| {
+            var move_list = searcher.move_gen.generateMoves(&board, false);
+
+            var legal_count: usize = 0;
+            var legal_moves: [218]mvs.EncodedMove = undefined;
+            for (move_list.items[0..move_list.len]) |move_data| {
+                mvs.makeMove(&board, move_data);
+                if (!searcher.move_gen.isInCheck(&board, board.justMoved())) {
+                    legal_moves[legal_count] = move_data;
+                    legal_count += 1;
+                }
+                mvs.undoMove(&board, move_data);
             }
-            mvs.undoMove(&board, move_data);
+            if (legal_count == 0) {
+                random_ok = false;
+                break;
+            }
+            const pick = rng.bounded(legal_count);
+            mvs.makeMove(&board, legal_moves[pick]);
         }
-        if (legal_count == 0) {
-            random_ok = false;
-            break;
-        }
-        const pick = rng.bounded(legal_count);
-        mvs.makeMove(&board, legal_moves[pick]);
+
+        if (!random_ok) return false;
     }
 
-    if (!random_ok) return false;
     if (board.isDraw(0)) return false;
 
-    // Verify opening eval isn't too extreme
     {
         searcher.soft_max_nodes = 2 * config.num_nodes;
-        _ = searcher.iterativeDeepening(&board, null) catch {
-            return false;
-        };
+        _ = searcher.iterativeDeepening(&board, null) catch return false;
         const opening_eval = searcher.best_move_score;
         const abs_eval = if (opening_eval < 0) -opening_eval else opening_eval;
-        if (abs_eval > 200) return false;
+        if (abs_eval > 400) return false;
     }
 
-    // Record starting position AFTER random plies
     game.setStartingBoard(&board);
 
     var result: GameResult = .Ongoing;
@@ -338,7 +406,6 @@ fn playSingleGame(
             break;
         }
 
-        // Search
         searcher.stop = false;
         searcher.is_searching = true;
         searcher.time_stop = false;
@@ -351,13 +418,13 @@ fn playSingleGame(
 
         tt.stop_signal.store(false, .release);
 
-        // Add some randomness to node count to increase variety in positions
-        const random_node_offset: i32 = @as(i32, @intCast((rng.next() % 1000))) - 500;
+        // Node jitter: +-20% of num_nodes to maintain positional variety
+        const jitter_range: i64 = @intCast(config.num_nodes / 5);
+        const random_offset: i64 = @as(i64, @intCast(rng.next() % @as(u64, @intCast(jitter_range * 2)))) - jitter_range;
+        const node_count: u64 = @intCast(@max(1000, @as(i64, @intCast(config.num_nodes)) + random_offset));
 
-        searcher.soft_max_nodes = @as(u64, @intCast(@as(i32, @intCast(config.num_nodes)) + random_node_offset));
-        const search_result = searcher.iterativeDeepening(&board, null) catch {
-            break;
-        };
+        searcher.soft_max_nodes = node_count;
+        const search_result = searcher.iterativeDeepening(&board, null) catch break;
 
         const score = search_result.score;
         const best_move = search_result.move;
@@ -370,7 +437,6 @@ fn playSingleGame(
             break :blk if (board.toMove() == .White) @intCast(clamped) else @intCast(-clamped);
         };
 
-        // Win adjudication
         const abs_score = if (score < 0) -score else score;
         if (abs_score >= config.adjudication_score) {
             win_adj_counter += 1;
@@ -386,7 +452,6 @@ fn playSingleGame(
             win_adj_counter = 0;
         }
 
-        // Draw adjudication
         if (abs_score <= config.draw_adjudication_score) {
             draw_adj_counter += 1;
             if (draw_adj_counter >= config.draw_adjudication_count) {
@@ -397,17 +462,15 @@ fn playSingleGame(
             draw_adj_counter = 0;
         }
 
-        // Record every move with its eval — viriformat stores the full game,
-        // filtering happens at training time (bullet/viriformat handle this)
+        // Record the position. Bullet trainer handles all per-position
+        // filtering (in-check, post-capture, score range, early ply skipping).
         game.addMove(best_move, white_score);
 
         mvs.makeMove(&board, best_move);
         ply += 1;
     }
 
-    if (result == .Ongoing) {
-        result = .Draw;
-    }
+    if (result == .Ongoing) result = .Draw;
 
     game.finish(result);
     return true;
@@ -418,6 +481,7 @@ const ThreadContext = struct {
     config: *const DatagenConfig,
     positions_written: std.atomic.Value(u64),
     games_played: std.atomic.Value(u64),
+    opening_book: ?*const OpeningBook,
 };
 
 fn workerThread(ctx: *ThreadContext) void {
@@ -444,7 +508,6 @@ fn workerThread(ctx: *ThreadContext) void {
     var path_buf: [256]u8 = undefined;
     const path = std.fmt.bufPrint(&path_buf, "{s}.thread{d}", .{ ctx.config.output_path, ctx.thread_id }) catch return;
 
-    // Open in append mode — safe to resume after interrupt
     const file = std.fs.cwd().openFile(path, .{ .mode = .write_only }) catch
         std.fs.cwd().createFile(path, .{}) catch |err| {
         std.debug.print("Thread {d}: Failed to open output file: {}\n", .{ ctx.thread_id, err });
@@ -453,13 +516,17 @@ fn workerThread(ctx: *ThreadContext) void {
     file.seekFromEnd(0) catch {};
     defer file.close();
 
+    const buf_capacity = @as(usize, ctx.config.flush_interval) + 16;
+    var game_buffer = std.heap.c_allocator.alloc(ViriGame, buf_capacity) catch |err| {
+        std.debug.print("Thread {d}: Failed to allocate game buffer: {}\n", .{ ctx.thread_id, err });
+        return;
+    };
+    defer std.heap.c_allocator.free(game_buffer);
+
     var game = ViriGame.init();
     var total_games: u64 = 0;
     var total_positions: u64 = 0;
     var games_since_flush: u32 = 0;
-
-    // Buffer games in memory, flush periodically
-    var game_buffer: [128]ViriGame = undefined;
     var buf_count: usize = 0;
 
     const unlimited = ctx.config.games_per_thread == 0;
@@ -467,20 +534,18 @@ fn workerThread(ctx: *ThreadContext) void {
     while (!stop_signal.load(.acquire)) {
         if (!unlimited and total_games >= ctx.config.games_per_thread) break;
 
-        const ok = playSingleGame(&searcher, &rng, ctx.config, &game);
+        searcher.tt_table.reset();
+
+        const ok = playSingleGame(&searcher, &rng, ctx.config, &game, ctx.opening_book);
         if (!ok) continue;
 
-        // Buffer the game
-        if (buf_count < game_buffer.len) {
-            game_buffer[buf_count] = game;
-            buf_count += 1;
-        }
+        game_buffer[buf_count] = game;
+        buf_count += 1;
 
         total_games += 1;
         total_positions += game.move_count;
         games_since_flush += 1;
 
-        // Flush to disk periodically
         if (games_since_flush >= ctx.config.flush_interval) {
             for (0..buf_count) |i| {
                 game_buffer[i].writeToFile(file) catch |err| {
@@ -496,7 +561,6 @@ fn workerThread(ctx: *ThreadContext) void {
         ctx.positions_written.store(total_positions, .release);
     }
 
-    // Flush remaining buffered games
     for (0..buf_count) |i| {
         game_buffer[i].writeToFile(file) catch {};
     }
@@ -545,7 +609,6 @@ fn countSingleViriFile(path: []const u8) ExistingData {
             const move_read = file.readAll(&move_buf) catch return result;
             if (move_read < 4) return result;
 
-            // Check for null terminator
             if (move_buf[0] == 0 and move_buf[1] == 0 and move_buf[2] == 0 and move_buf[3] == 0) break;
             result.positions += 1;
         }
@@ -562,6 +625,21 @@ pub fn run(config: DatagenConfig) !void {
         std.debug.print(" x {d} games, nodes {d}\n", .{ config.games_per_thread, config.num_nodes });
     }
     std.debug.print("Output: {s} (viriformat, append mode)\n", .{config.output_path});
+
+    // Load opening book if a path was provided
+    var maybe_book: ?OpeningBook = null;
+    defer if (maybe_book) |*b| b.deinit();
+
+    if (config.opening_book_path) |book_path| {
+        maybe_book = OpeningBook.load(std.heap.c_allocator, book_path) catch |err| blk: {
+            std.debug.print("Warning: failed to load opening book '{s}': {} — falling back to random plies\n", .{ book_path, err });
+            break :blk null;
+        };
+    } else {
+        std.debug.print("No opening book specified — using {d} random plies\n", .{config.random_plies});
+    }
+
+    const book_ptr: ?*const OpeningBook = if (maybe_book != null) &maybe_book.? else null;
 
     // Scan existing files for cumulative tracking
     const existing = countExistingViriData(config.output_path, config.num_threads);
@@ -590,6 +668,7 @@ pub fn run(config: DatagenConfig) !void {
             .config = &config,
             .positions_written = std.atomic.Value(u64).init(0),
             .games_played = std.atomic.Value(u64).init(0),
+            .opening_book = book_ptr,
         };
         thread_handles[i] = try std.Thread.spawn(.{}, workerThread, .{&thread_contexts[i]});
     }
@@ -697,7 +776,7 @@ pub fn parseCommand(args: [][]const u8) DatagenConfig {
     var i: usize = 0;
     while (i < args.len) : (i += 1) {
         if (std.mem.eql(u8, args[i], "nodes") and i + 1 < args.len) {
-            config.num_nodes = std.fmt.parseInt(u64, args[i + 1], 10) catch 5000;
+            config.num_nodes = std.fmt.parseInt(u64, args[i + 1], 10) catch 10000;
             i += 1;
         } else if (std.mem.eql(u8, args[i], "games") and i + 1 < args.len) {
             config.games_per_thread = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
@@ -707,6 +786,9 @@ pub fn parseCommand(args: [][]const u8) DatagenConfig {
             i += 1;
         } else if (std.mem.eql(u8, args[i], "output") and i + 1 < args.len) {
             config.output_path = args[i + 1];
+            i += 1;
+        } else if (std.mem.eql(u8, args[i], "book") and i + 1 < args.len) {
+            config.opening_book_path = args[i + 1];
             i += 1;
         } else if (std.mem.eql(u8, args[i], "random_plies") and i + 1 < args.len) {
             config.random_plies = std.fmt.parseInt(u32, args[i + 1], 10) catch 8;
