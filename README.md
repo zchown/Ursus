@@ -2,7 +2,9 @@
 
 Ursus is a UCI-compatible chess engine written in [Zig](https://ziglang.org/). It uses a bitboard-based board representation, alpha-beta search with many search optimizations, and uses a NNUE for evaluation.
 
-Sometimes available to play on lichess not often online but when it is you can play it here: [`Ursus_bot`](https://lichess.org/@/Ursus_bot)
+Available to play on lichess: [`Ursus_bot`](https://lichess.org/@/Ursus_bot)
+
+It is playing on an old Intel NUC with a Intel® Core™ i5-4250U configured for 2 threads and a hash size of 1GB.
 
 [![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=bullet)](https://lichess.org/@/Ursus_bot/perf/bullet)
 [![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=blitz)](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=blitz)
