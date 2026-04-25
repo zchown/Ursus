@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const brd = @import("board");
 const moves = @import("moves");
 
@@ -9,14 +10,86 @@ const QA: i16 = 255;
 const QB: i16 = 64;
 const NUM_OUTPUT_BUCKETS: usize = 8;
 const EVAL_SCALE: i64 = 128;
-
-// Target-adaptive vector width: uses the CPU's native SIMD register size.
-// AVX2 → 16, NEON → 8, AVX-512 → 32.
-const vec_i16_len: comptime_int = std.simd.suggestVectorLength(i16) orelse 8;
-const num_acc_vecs: usize = hidden_size / vec_i16_len;
-const I16Vec = @Vector(vec_i16_len, i16);
-const I32Vec = @Vector(vec_i16_len, i32);
 const cache_line = std.atomic.cache_line;
+
+const CpuTarget = enum { avx2, sse2, aarch64, fallback };
+
+const TARGET: CpuTarget = blk: {
+    const cpu = builtin.cpu;
+    switch (cpu.arch) {
+        .x86_64 => {
+            if (std.Target.x86.featureSetHas(cpu.features, .avx2)) break :blk .avx2;
+            if (std.Target.x86.featureSetHas(cpu.features, .sse2)) break :blk .sse2;
+        },
+        .aarch64 => break :blk .aarch64,
+        else => {},
+    }
+    break :blk .fallback;
+};
+
+const vec_i16_len: comptime_int = std.simd.suggestVectorLength(i16) orelse 8;
+const vec_i32_len: comptime_int = vec_i16_len / 2; // maddwd halves lane count
+const num_acc_vecs: usize = hidden_size / vec_i16_len;
+
+const I16Vec = @Vector(vec_i16_len, i16);
+const I32Vec = @Vector(vec_i32_len, i32); // exactly one native register wide
+
+inline fn maddwd(a: I16Vec, b: I16Vec) I32Vec {
+    return switch (TARGET) {
+        // AVX2: 3-operand non-destructive encoding.
+        // AT&T syntax: vpmaddwd src2, src1, dst
+        .avx2 => asm ("vpmaddwd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> I32Vec),
+            : [a] "x" (a),
+              [b] "x" (b),
+        ),
+
+        // SSE2: 2-operand destructive encoding.
+        // "0" constraint ties the first input to the output register.
+        .sse2 => asm ("pmaddwd %[b], %[a]"
+            : [ret] "=x" (-> I32Vec),
+            : [a] "0" (a),
+              [b] "x" (b),
+        ),
+
+        // aarch64 should never reach here – handled in scReluAccumulate.
+        .aarch64 => unreachable,
+
+        // Portable fallback: deinterlace even/odd lanes, widen, multiply, add.
+        .fallback => blk: {
+            const a_parts = std.simd.deinterlace(2, a);
+            const b_parts = std.simd.deinterlace(2, b);
+            const lo: I32Vec = @as(I32Vec, a_parts[0]) * @as(I32Vec, b_parts[0]);
+            const hi: I32Vec = @as(I32Vec, a_parts[1]) * @as(I32Vec, b_parts[1]);
+            break :blk lo + hi;
+        },
+    };
+}
+
+//sum  +=  v[i]² * w[i]   for all i   (Lizard reordering: (v*w)*v)
+inline fn scReluAccumulate(sum: I32Vec, vw: I16Vec, v: I16Vec) I32Vec {
+    return switch (TARGET) {
+        // aarch64: smlal + smlal2 — multiply-accumulate long, lower and upper halves.
+        .aarch64 => blk: {
+            const after_lo: I32Vec = asm (
+                \\smlal %[d].4s, %[n].4h, %[m].4h
+                : [d] "=w" (-> I32Vec),
+                : [n] "w" (vw),
+                  [m] "w" (v),
+                  [_] "0" (sum),
+            );
+            break :blk asm (
+                \\smlal2 %[d].4s, %[n].8h, %[m].8h
+                : [d] "=w" (-> I32Vec),
+                : [n] "w" (vw),
+                  [m] "w" (v),
+                  [_] "0" (after_lo),
+            );
+        },
+        // All other targets: delegate to maddwd and add to sum.
+        else => sum +% maddwd(vw, v),
+    };
+}
 
 const nnue_piece_to_index = [2][6]u8{
     [_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
@@ -49,9 +122,7 @@ pub fn featureIndex(
 ) usize {
     const oriented_sq: usize = if (view == .White) square else mirRank(square);
     const is_own: usize = if (view == piece_color) 0 else 1;
-
     const piece_idx = @intFromEnum(piece_type);
-
     const piece_offset = nnue_piece_to_index[is_own][piece_idx];
     return oriented_sq + (@as(usize, piece_offset) * 64);
 }
@@ -184,7 +255,6 @@ fn applyLazyDelta(
     const dirty = &state.dirty;
 
     if (dirty.num_adds == 1 and dirty.num_subs == 1) {
-        // Quiet move or non-capture promotion
         inline for (0..brd.num_colors) |vi| {
             const view: brd.Color = @enumFromInt(vi);
             const add_idx = featureIndex(view, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
@@ -192,7 +262,6 @@ fn applyLazyDelta(
             state.accumulators[vi].addSubCopy(&parent.accumulators[vi], add_idx, sub_idx);
         }
     } else if (dirty.num_adds == 1 and dirty.num_subs == 2) {
-        // Capture, en passant, or capture-promotion
         inline for (0..brd.num_colors) |vi| {
             const view: brd.Color = @enumFromInt(vi);
             const add_idx = featureIndex(view, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
@@ -201,7 +270,6 @@ fn applyLazyDelta(
             state.accumulators[vi].addSubSubCopy(&parent.accumulators[vi], add_idx, sub1_idx, sub2_idx);
         }
     } else if (dirty.num_adds == 2 and dirty.num_subs == 2) {
-        // Castling
         inline for (0..brd.num_colors) |vi| {
             const view: brd.Color = @enumFromInt(vi);
             const add1_idx = featureIndex(view, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
@@ -385,15 +453,15 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Bo
     while (i < num_acc_vecs) {
         inline for (0..ACC_COUNT) |a| {
             const vi = i + a;
-            const stm_clamped = @min(@max(stm_acc[vi], zero_vec), qa_vec);
-            const nstm_clamped = @min(@max(nstm_acc[vi], zero_vec), qa_vec);
 
-            const stm_c: I32Vec = stm_clamped;
-            const nstm_c: I32Vec = nstm_clamped;
-            const sw: I32Vec = stm_weights[vi];
-            const nw: I32Vec = nstm_weights[vi];
+            const stm_v  = @min(@max(stm_acc[vi],  zero_vec), qa_vec);
+            const nstm_v = @min(@max(nstm_acc[vi], zero_vec), qa_vec);
 
-            sums[a] +%= stm_c * stm_c * sw + nstm_c * nstm_c * nw;
+            const stm_vw  = stm_v  *% stm_weights[vi];
+            const nstm_vw = nstm_v *% nstm_weights[vi];
+
+            sums[a] = scReluAccumulate(sums[a], stm_vw,  stm_v);
+            sums[a] = scReluAccumulate(sums[a], nstm_vw, nstm_v);
         }
         i += ACC_COUNT;
     }
@@ -403,10 +471,9 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Bo
     const total_i32 = @reduce(.Add, total_vec);
 
     const total: i64 = total_i32;
-    const qa: i64 = @as(i64, QA);
     const qa_qb: i64 = @as(i64, QA) * @as(i64, QB);
 
-    var output: i64 = @divTrunc(total, qa);
+    var output: i64 = @divTrunc(total, @as(i64, QA));
     output += @as(i64, w.out_biases[bucket]);
     output *= EVAL_SCALE;
     output = @divTrunc(output, qa_qb);

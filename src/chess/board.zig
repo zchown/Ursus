@@ -175,23 +175,23 @@ pub const Board = struct {
         }
     }
     
-    pub fn getPieces(self: Board, color: Color, piece: Pieces) Bitboard {
+    pub fn getPieces(self: *const Board, color: Color, piece: Pieces) Bitboard {
         return self.piece_bb[@intFromEnum(color)][@intFromEnum(piece)];
     }
 
-    pub inline fn occupancy(self: Board) Bitboard {
+    pub inline fn occupancy(self: *const Board) Bitboard {
         return self.color_bb[@intFromEnum(Color.White)] | self.color_bb[@intFromEnum(Color.Black)];
     }
 
-    pub inline fn toMove(self: Board) Color {
+    pub inline fn toMove(self: *const Board) Color {
         return self.game_state.side_to_move;
     }
 
-    pub inline fn justMoved(self: Board) Color {
+    pub inline fn justMoved(self: *const Board) Color {
         return if (self.game_state.side_to_move == Color.White) Color.Black else Color.White;
     }
 
-    pub inline fn kingSquare(self: Board, color: Color) Square {
+    pub inline fn kingSquare(self: *const Board, color: Color) Square {
         return @ctz(self.piece_bb[@intFromEnum(color)][@intFromEnum(Pieces.King)]);
     }
 
@@ -286,7 +286,7 @@ pub const Board = struct {
         self.game_state.zobrist ^= zob.ZobristKeys.castleKeys(self.game_state.castling_rights);
     }
 
-    pub fn copyBoard(self: Board) Board {
+    pub fn copyBoard(self: *Board) Board {
         return .{
             .piece_bb = self.piece_bb,
             .color_bb = self.color_bb,
@@ -296,15 +296,20 @@ pub const Board = struct {
         };
     }
 
+    // pub fn copyFrom(self: *Board, other: *Board) void {
+    //     self.piece_bb = other.piece_bb;
+    //     self.color_bb = other.color_bb;
+    //     self.game_state = other.game_state;
+    //     self.history = other.history;
+    //     self.nnue_stack = other.nnue_stack;
+    // }
     pub fn copyFrom(self: *Board, other: *Board) void {
-        self.piece_bb = other.piece_bb;
-        self.color_bb = other.color_bb;
-        self.game_state = other.game_state;
-        self.history = other.history;
-        self.nnue_stack = other.nnue_stack;
+        const dest = std.mem.asBytes(self);
+        const src = std.mem.asBytes(other);
+        @memcpy(dest, src);
     }
 
-    pub fn getPieceList(self: Board) [max_pieces]?Piece {
+    pub fn getPieceList(self: *const Board) [max_pieces]?Piece {
         var list: [max_pieces]?Piece = undefined;
         var count: usize = 0;
 
@@ -333,7 +338,7 @@ pub const Board = struct {
         return list;
     }
 
-    pub fn getPieceFromSquare(self: Board, square: Square) ?Pieces {
+    pub fn getPieceFromSquare(self: *const Board, square: Square) ?Pieces {
         for (std.meta.tags(Color)) |color| {
             const color_idx = @intFromEnum(color);
             for (std.meta.tags(Pieces)) |piece| {
@@ -347,7 +352,7 @@ pub const Board = struct {
         return null;
     }
 
-    pub fn getColorFromSquare(self: Board, square: Square) ?Color {
+    pub fn getColorFromSquare(self: *const Board, square: Square) ?Color {
         for (std.meta.tags(Color)) |color| {
             const color_idx = @intFromEnum(color);
             for (std.meta.tags(Pieces)) |piece| {
@@ -400,7 +405,7 @@ pub const Board = struct {
         }
     }
 
-    pub fn hasNonPawnMaterial(self: Board, color: Color) bool {
+    pub fn hasNonPawnMaterial(self: *const Board, color: Color) bool {
         const color_idx = @intFromEnum(color);
         const non_pawn_bb = self.piece_bb[color_idx][@intFromEnum(Pieces.Knight)] |
                            self.piece_bb[color_idx][@intFromEnum(Pieces.Bishop)] |

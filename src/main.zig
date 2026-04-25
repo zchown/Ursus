@@ -6,7 +6,7 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    var engine = try uci.UciProtocol.init(gpa.allocator());
+    const engine = try uci.UciProtocol.init(gpa.allocator());
 
     var stdin_buf: [4096 * 2]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buf);

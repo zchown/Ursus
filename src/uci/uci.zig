@@ -37,7 +37,7 @@ pub const UciOption = struct {
 
 const SearchContext = struct {
     protocol: *UciProtocol,
-    board: brd.Board,
+    board: *brd.Board,
     max_depth: ?u8 = null,
 };
 
@@ -45,12 +45,14 @@ fn searchThreadFn(ctx: *SearchContext) void {
     const protocol = ctx.protocol;
 
     defer {
-        std.heap.c_allocator.destroy(ctx);
+        // Destroy the context using the engine's internal allocator
+        protocol.allocator.destroy(ctx.board);
+        protocol.allocator.destroy(ctx);
         @atomicStore(bool, &protocol.is_searching, false, .release);
     }
 
     const result = protocol.searcher.parallelIterativeDeepening(
-        &ctx.board,
+        ctx.board,
         ctx.max_depth,
         ctx.protocol.threads,
     ) catch |err| {
@@ -68,18 +70,17 @@ fn searchThreadFn(ctx: *SearchContext) void {
 }
 
 fn outputBestMove(protocol: *UciProtocol, result: srch.SearchResult) !void {
-    _ = protocol;
-
     var stdout_buffer: [1024]u8 = undefined;
     var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
     const stdout = &stdout_writer.interface;
 
-    const move_str = try result.move.uciToString(std.heap.c_allocator);
-    defer std.heap.c_allocator.free(move_str);
+    // Use the protocol's allocator for string formatting
+    const move_str = try result.move.uciToString(protocol.allocator);
+    defer protocol.allocator.free(move_str);
 
     if (result.pv_length >= 2) {
-        const ponder_str = try result.pv[1].uciToString(std.heap.c_allocator);
-        defer std.heap.c_allocator.free(ponder_str);
+        const ponder_str = try result.pv[1].uciToString(protocol.allocator);
+        defer protocol.allocator.free(ponder_str);
         try stdout.print("bestmove {s} ponder {s}\n", .{ move_str, ponder_str });
     } else {
         try stdout.print("bestmove {s}\n", .{move_str});
@@ -104,23 +105,35 @@ pub const UciProtocol = struct {
     ponder_limits: SearchLimits = .{},
     ponder_side: brd.Color = .White,
 
-    pub fn init(a: std.mem.Allocator) !UciProtocol {
-        // std.debug.print("Initializing UCI protocol...\n", .{});
+    pub fn init(a: std.mem.Allocator) !*UciProtocol {
+        // 1. Allocate the massive object directly on the heap
+        const protocol = try a.create(UciProtocol);
+        errdefer a.destroy(protocol);
 
+        // 2. Zero it out directly in heap memory to completely avoid stack copies
+        @memset(std.mem.asBytes(protocol), 0);
+
+        // 3. Initialize necessary fields safely in-place
+        protocol.allocator = a;
+        protocol.board.game_state = brd.GameState.init();
+        protocol.hash_size_mb = 64;
+
+        // 4. Initialize global threading arrays safely
+        srch.search_helpers = try std.ArrayList(srch.Searcher).initCapacity(a, 0);
+        srch.threads = try std.ArrayList(std.Thread).initCapacity(a, 1);
+
+        // 5. Initialize the Searcher
         const searcher_ptr = try a.create(srch.Searcher);
-        errdefer a.destroy(searcher_ptr);
-
+        searcher_ptr.* = srch.Searcher{};
         searcher_ptr.initInPlace();
+        protocol.searcher = searcher_ptr;
 
         nnue.initWeights();
 
-        var protocol = UciProtocol{
-            .board = brd.Board.init(),
-            .allocator = a,
-            .searcher = searcher_ptr,
-        };
-
+        // 6. Initialize TT Table
         protocol.tt_table = try tt.TranspositionTable.init(a, protocol.hash_size_mb);
+
+        // 7. Safe pointer assignment
         searcher_ptr.tt_table = &protocol.tt_table;
 
         return protocol;
@@ -186,8 +199,7 @@ pub const UciProtocol = struct {
             try respond(try std.fmt.allocPrint(self.allocator, "HCE Evaluation: {d}", .{hce_score}));
         } else if (std.mem.eql(u8, commandName, "perft")) {
             try self.handlePerft(args);
-        } 
-        else {
+        } else {
             if (self.debug_mode) {
                 try respond("Unknown command");
             }
@@ -295,16 +307,24 @@ pub const UciProtocol = struct {
             @atomicStore(bool, &self.is_pondering, false, .release);
         }
 
+        // try srch.search_helpers.resize(self.allocator, self.threads);
+        // try srch.threads.resize(self.allocator, self.threads);
+
         self.is_searching = true;
 
-        const ctx = try std.heap.c_allocator.create(SearchContext);
-        ctx.* = .{
-            .protocol = self,
-            .board = self.board,
-            .max_depth = if (limits.depth) |d| @as(u8, @intCast(@min(d, 255))) else null,
-        };
+        const ctx = try self.allocator.create(SearchContext);
+        
+        ctx.protocol = self;
+        ctx.max_depth = if (limits.depth) |d| @as(u8, @intCast(@min(d, 255))) else null;
+        
+        ctx.board = try self.allocator.create(brd.Board);
+        ctx.board.copyFrom(&self.board); 
 
-        self.search_thread = try std.Thread.spawn(.{}, searchThreadFn, .{ctx});
+        const spawn_config = std.Thread.SpawnConfig{
+            .stack_size = 8 * 1024 * 1024,
+        };
+        
+        self.search_thread = try std.Thread.spawn(spawn_config, searchThreadFn, .{ctx});
     }
 
     fn handleUci(self: *UciProtocol) !void {
@@ -350,7 +370,6 @@ pub const UciProtocol = struct {
         try respond("uciok");
 
         srch.quiet_lmr = srch.initQuietLMR();
-
     }
 
     fn handleSetOption(self: *UciProtocol, args: [][]const u8) !void {
@@ -485,11 +504,14 @@ pub const UciProtocol = struct {
     fn newGame(self: *UciProtocol) !void {
         self.tt_table.reset();
 
-        self.board = brd.Board.init();
+        // Safely zero out the massive board directly in memory
+        @memset(std.mem.asBytes(&self.board), 0);
+
+        // Re-initialize only what's needed
+        self.board.game_state = brd.GameState.init();
         fen.setupStartingPosition(&self.board);
         self.board.refreshNNUE();
         self.is_searching = false;
-
     }
 
     fn handlePosition(self: *UciProtocol, args: [][]const u8) !void {
@@ -501,9 +523,13 @@ pub const UciProtocol = struct {
         }
 
         if (std.mem.eql(u8, args[0], "startpos")) {
-            self.board = brd.Board.init();
+            @memset(std.mem.asBytes(&self.board), 0);
+
+            // Re-initialize only what is needed
+            self.board.game_state = brd.GameState.init();
             fen.setupStartingPosition(&self.board);
             self.board.refreshNNUE();
+            
             var j: usize = 1;
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
                 j += 1;

@@ -15,9 +15,9 @@ pub var nmp_beta_div: usize = 150;
 pub var razoring_base: i32 = 299;
 pub var razoring_mul: i32 = 73;
 
-pub var lmp_improve: usize = 186;
-pub var lmp_base: usize = 194;
-pub var lmp_mul: usize = 288;
+pub var lmp_improve: usize = 219;
+pub var lmp_base: usize = 503;
+pub var lmp_mul: usize = 185;
 
 pub var futility_mul: i32 = 157;
 

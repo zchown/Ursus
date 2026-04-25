@@ -17,10 +17,10 @@ pub fn initQuietLMR() [64][64]i32 {
     const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base)) / 100.0;
     const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_div)) / 100.0;
     var table: [64][64]i32 = undefined;
-    for (1..64) |d| {
-        for (1..64) |m| {
-            const df: f32 = @floatFromInt(d);
-            const mf: f32 = @floatFromInt(m);
+    for (0..64) |d| {
+        for (0..64) |m| {
+            const df: f32 = @floatFromInt(@max(d, 1));
+            const mf: f32 = @floatFromInt(@max(m, 1));
             table[d][m] = @intFromFloat(lmr_base_f + @log(df) * @log(mf) / lmr_div_f);
         }
     }
@@ -158,11 +158,25 @@ pub const Searcher = struct {
 
     pub inline fn should_not_continue(self: *Searcher, factor: f32) bool {
         const thinking = @atomicLoad(bool, &self.force_think, .acquire);
+        
+        // Prevent floating point overflow when time is infinite
+        const scaled_ideal_ms = if (self.ideal_ms == std.math.maxInt(u64))
+            std.math.maxInt(u64)
+        else
+            @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor));
+
         return self.stop or
             (self.thread_id == 0 and self.search_depth > self.min_depth and
                 ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
-                    (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor))))));
+                    (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, scaled_ideal_ms))));
     }
+    // pub inline fn should_not_continue(self: *Searcher, factor: f32) bool {
+    //     const thinking = @atomicLoad(bool, &self.force_think, .acquire);
+    //     return self.stop or
+    //         (self.thread_id == 0 and self.search_depth > self.min_depth and
+    //             ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
+    //                 (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor))))));
+    // }
 
     const ThreadContext = struct {
         searcher: *Searcher,
@@ -222,7 +236,7 @@ pub const Searcher = struct {
         main_searcher.root_board = board;
 
         for (search_helpers.items) |*helper| {
-            var board_copy = try std.heap.c_allocator.create(brd.Board);
+            var board_copy: *brd.Board = try std.heap.c_allocator.create(brd.Board);
             board_copy.copyFrom(board);
 
             helper.root_board = board_copy;
@@ -474,11 +488,21 @@ pub const Searcher = struct {
         var beta = beta_;
         var depth = depth_;
 
-        self.pv_length[self.ply] = 0;
 
         if (self.nodes & 2047 == 0 and self.should_stop()) {
             self.time_stop = true;
             tt.stop_signal.store(true, .release);
+            return 0;
+        }
+
+
+        self.pv_length[self.ply] = 0;
+
+        if (self.ply >= max_ply - 1) {
+            return board.evaluateNNUE();
+        }
+
+        if (board.isDraw(self.ply)) {
             return 0;
         }
 
@@ -487,18 +511,11 @@ pub const Searcher = struct {
         const is_root = comptime (node_type == NodeType.Root);
         const on_pv = comptime (node_type != NodeType.NonPV);
 
-        if (self.ply == max_ply) {
-            return board.evaluateNNUE();
-        }
 
         const in_check: bool = self.move_gen.isInCheck(board, color);
 
         if (depth == 0) {
             return self.qsearch(board, color, alpha, beta);
-        }
-
-        if (board.isDraw(self.ply)) {
-            return 0;
         }
 
         // mate distance pruning
@@ -633,7 +650,10 @@ pub const Searcher = struct {
 
             if (!is_null and depth >= 4 and self.ply >= self.nmp_min_ply and nmp_static_eval >= beta and has_non_pawns) {
                 var r = tp.nmp_base + depth / tp.nmp_depth_div;
-                r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
+                // r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
+                const diff = static_eval - beta;
+                const div = @divTrunc(diff, @as(i32, @intCast(tp.nmp_beta_div)));
+                r += @as(usize, @intCast(@max(0, @min(4, div))));
 
                 if (cutnode) {
                     r += 1;
@@ -699,8 +719,10 @@ pub const Searcher = struct {
             const is_capture = move.capture == 1;
             const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
 
-            if (depth <= 5 and !is_root and i > 1 and !in_check and !on_pv) {
+            if (!is_root and i > 1 and !in_check and !on_pv) {
                 var lmp_threshold: usize = tp.lmp_base + depth * tp.lmp_mul;
+
+                lmp_threshold = @divTrunc(lmp_threshold, 100);
 
                 lmp_threshold += self.thread_id;
 
@@ -976,15 +998,15 @@ pub const Searcher = struct {
             return 0;
         }
 
-        self.pv_length[self.ply] = 0;
-
         if (board.isDraw(self.ply)) {
             return 0;
         }
 
-        if (self.ply >= max_ply) {
+        if (self.ply >= max_ply - 1) {
             return board.evaluateNNUE();
         }
+
+        self.pv_length[self.ply] = 0;
 
         self.nodes += 1;
 

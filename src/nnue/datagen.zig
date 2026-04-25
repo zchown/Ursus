@@ -9,15 +9,15 @@ const pawn_tt = @import("pawn_tt");
 const hist = @import("history");
 
 pub const DatagenConfig = struct {
-    num_nodes: u64 = 10000,
+    num_nodes: u64 = 5000,
 
     // 0 = run forever (interrupt with Ctrl+C)
     games_per_thread: u32 = 0,
 
-    num_threads: u32 = 8,
+    num_threads: u32 = 10,
 
     // Fallback: random legal moves from startpos when no opening book is provided.
-    random_plies: u32 = 12,
+    random_plies: u32 = 10,
 
     adjudication_score: i32 = 2500,
 
@@ -335,8 +335,11 @@ fn playSingleGame(
     } else {
         fen_mod.setupStartingPosition(&board);
 
+        const jiggle: i32 = if (rng.next() % 2 == 0) -1 else 1;
+        const actual_plies: u32 = @intCast(@max(0, @as(i32, @intCast(config.random_plies)) + jiggle));
+
         var random_ok = true;
-        for (0..config.random_plies) |_| {
+        for (0..actual_plies) |_| {
             var move_list = searcher.move_gen.generateMoves(&board, false);
 
             var legal_count: usize = 0;
@@ -370,6 +373,10 @@ fn playSingleGame(
         if (abs_eval > 400) return false;
     }
 
+    // Viriformat recording starts here — the opening phase (book lookup or
+    // random plies) is complete and no moves have been added to `game` yet.
+    // Only moves played by the search loop below are ever passed to
+    // game.addMove, so random opening moves can never appear in the output.
     game.setStartingBoard(&board);
 
     var result: GameResult = .Ongoing;

@@ -16,6 +16,9 @@ openings/
 *.epd
 *.zip
 *.vf
+datagen/
+datagen2/
+scripts/
 
 # Build outputs
 *.o
