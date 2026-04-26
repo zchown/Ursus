@@ -121,7 +121,7 @@ pub fn build(b: *std.Build) void {
         }),
         .use_llvm = true,
     });
-
+    exe.linkLibC();
 
     board_module.addImport("zobrist", zobrist_module);
     board_module.addImport("moves", moves_module);
@@ -206,6 +206,43 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("perft", perft_module);
     exe.root_module.addImport("datagen", datagen_module);
 
+    const fathom_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    fathom_mod.addCSourceFile(.{
+        .file = b.path("deps/fathom/src/tbprobe.c"),
+        .flags = &.{ "-std=c11", "-O3", "-DNDEBUG" },
+    });
+    fathom_mod.addIncludePath(b.path("deps/fathom/src"));
+
+    const fathom = b.addLibrary(.{
+        .name = "fathom",
+        .linkage = .static,
+        .root_module = fathom_mod,
+    });
+
+    const tb_mod = b.createModule(.{
+        .root_source_file = b.path("src/engine/tb.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    tb_mod.addCSourceFile(.{
+        .file = b.path("deps/Fathom/src/tbprobe.c"),
+        .flags = &.{ "-std=c11", "-O3", "-DNDEBUG" },
+    });
+    tb_mod.addIncludePath(b.path("deps/fathom/src"));
+    tb_mod.addImport("board", board_module);
+    tb_mod.addImport("moves", moves_module);
+
+    search_module.addImport("tb", tb_mod);
+    uci_module.addImport("tb", tb_mod);
+
+    exe.root_module.linkLibrary(fathom);
+    exe.root_module.addIncludePath(b.path("deps/fathom/src"));
+    
     b.installArtifact(exe);
 
     const exe_options = b.addOptions();
@@ -219,36 +256,4 @@ pub fn build(b: *std.Build) void {
         run_cmd.addArgs(args);
     }
 
-    // const tuner_optimize = b.option(
-    //     std.builtin.OptimizeMode,
-    //     "tuner-optimize",
-    //     "Optimization for the tuner binary (default: ReleaseFast)",
-    // ) orelse .ReleaseFast;
-
-    // const tuner_exe = b.addExecutable(.{
-    //     .name = "texel_tuner",
-    //     .root_module = b.createModule(.{
-    //         .root_source_file = b.path("src/texel_tuner.zig"),
-    //         .target = target,
-    //         .optimize = tuner_optimize,
-    //     }),
-    //     .use_llvm = true,
-    // });
-    //
-    // tuner_exe.root_module.addImport("board", board_module);
-    // tuner_exe.root_module.addImport("moves", moves_module);
-    // tuner_exe.root_module.addImport("eval", eval_module);
-    // tuner_exe.root_module.addImport("fen", fen_module);
-    // tuner_exe.root_module.addImport("pawn_tt", pawn_tt_module);
-    // tuner_exe.root_module.addImport("zobrist", zobrist_module);
-    //
-    // b.installArtifact(tuner_exe);
-
-    // const run_tuner_step = b.step("tune", "Run the texel tuner");
-    // const run_tuner_cmd = b.addRunArtifact(tuner_exe);
-    // run_tuner_step.dependOn(&run_tuner_cmd.step);
-    // run_tuner_cmd.step.dependOn(b.getInstallStep());
-    // if (b.args) |args| {
-    //     run_tuner_cmd.addArgs(args);
-    // }
 }

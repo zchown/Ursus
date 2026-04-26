@@ -6,6 +6,8 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
+    // try perft.runPerftTest();
+
     const engine = try uci.UciProtocol.init(gpa.allocator());
 
     var stdin_buf: [4096 * 2]u8 = undefined;

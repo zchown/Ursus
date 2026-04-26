@@ -108,7 +108,6 @@ pub fn updateCorrection(
         -16000, 16000,
     );
 
-    // Non-pawn corrections — slightly lower weight so pawn signal dominates
     const np_weight: i32 = @min(128, depth_i32 * 16);
 
     const npw_entry = &self.np_white_correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(np_white_corr_idx))];

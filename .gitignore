@@ -19,6 +19,7 @@ openings/
 datagen/
 datagen2/
 scripts/
+deps/
 
 # Build outputs
 *.o

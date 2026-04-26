@@ -93,20 +93,82 @@ fn parseCastlingRights(board: *Board, castling_rights: []const u8) !void {
     for (castling_rights) |char| {
         switch (char) {
             'K' => {
+                const rook_file = findOuterRookFile(board, brd.Color.White, true) orelse return error.InvalidFEN;
+                board.game_state.white_ks_rook_file = rook_file;
                 board.addCastlingRights(brd.CastleRights.WhiteKingside);
             },
             'Q' => {
+                const rook_file = findOuterRookFile(board, brd.Color.White, false) orelse return error.InvalidFEN;
+                board.game_state.white_qs_rook_file = rook_file;
                 board.addCastlingRights(brd.CastleRights.WhiteQueenside);
             },
             'k' => {
+                const rook_file = findOuterRookFile(board, brd.Color.Black, true) orelse return error.InvalidFEN;
+                board.game_state.black_ks_rook_file = rook_file;
                 board.addCastlingRights(brd.CastleRights.BlackKingside);
             },
             'q' => {
+                const rook_file = findOuterRookFile(board, brd.Color.Black, false) orelse return error.InvalidFEN;
+                board.game_state.black_qs_rook_file = rook_file;
                 board.addCastlingRights(brd.CastleRights.BlackQueenside);
+            },
+            'A'...'H' => {
+                const rook_file: u3 = @intCast(char - 'A');
+                const king_file = getKingFile(board, brd.Color.White);
+                if (rook_file > king_file) {
+                    board.game_state.white_ks_rook_file = rook_file;
+                    board.addCastlingRights(brd.CastleRights.WhiteKingside);
+                } else {
+                    board.game_state.white_qs_rook_file = rook_file;
+                    board.addCastlingRights(brd.CastleRights.WhiteQueenside);
+                }
+            },
+            'a'...'h' => {
+                const rook_file: u3 = @intCast(char - 'a');
+                const king_file = getKingFile(board, brd.Color.Black);
+                if (rook_file > king_file) {
+                    board.game_state.black_ks_rook_file = rook_file;
+                    board.addCastlingRights(brd.CastleRights.BlackKingside);
+                } else {
+                    board.game_state.black_qs_rook_file = rook_file;
+                    board.addCastlingRights(brd.CastleRights.BlackQueenside);
+                }
             },
             else => return error.InvalidFEN,
         }
     }
+}
+
+fn getKingFile(board: *Board, color: brd.Color) u3 {
+    const rank_base: usize = if (color == brd.Color.White) 0 else 56;
+    const king_bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.King)];
+    const king_sq: usize = @ctz(king_bb);
+    return @intCast((king_sq - rank_base) % 8);
+}
+
+fn findOuterRookFile(board: *Board, color: brd.Color, kingside: bool) ?u3 {
+    const rank_base: usize = if (color == brd.Color.White) 0 else 56;
+    const king_file = @as(usize, getKingFile(board, color));
+    var rook_bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.Rook)];
+
+    var found_file: ?u3 = null;
+    while (rook_bb != 0) {
+        const sq: usize = @ctz(rook_bb);
+        if (sq >= rank_base and sq < rank_base + 8) {
+            const file = sq - rank_base;
+            if (kingside and file > king_file) {
+                if (found_file == null or file > @as(usize, found_file.?)) {
+                    found_file = @intCast(file);
+                }
+            } else if (!kingside and file < king_file) {
+                if (found_file == null or file < @as(usize, found_file.?)) {
+                    found_file = @intCast(file);
+                }
+            }
+        }
+        rook_bb &= rook_bb - 1;
+    }
+    return found_file;
 }
 
 fn parseEnPassant(board: *Board, en_passant: []const u8) !void {
@@ -192,22 +254,43 @@ pub fn toFEN(board: *Board, allocator: std.mem.Allocator) ![]u8 {
     try fen.append(allocator, ' ');
     var has_castling_rights = false;
 
-    if ((board.game_state.castling_rights) &
-        @intFromEnum(brd.CastleRights.WhiteKingside) != 0)
-    {
-        try fen.append(allocator, 'K');
+    const white_king_file = getKingFile(board, brd.Color.White);
+    const black_king_file = getKingFile(board, brd.Color.Black);
+
+    if ((board.game_state.castling_rights & @intFromEnum(brd.CastleRights.WhiteKingside)) != 0) {
+        const rf = board.game_state.white_ks_rook_file;
+        if (white_king_file == 4 and rf == 7) {
+            try fen.append(allocator, 'K');
+        } else {
+            try fen.append(allocator, @as(u8, 'A') + @as(u8, rf));
+        }
         has_castling_rights = true;
     }
-    if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) {
-        try fen.append(allocator, 'Q');
+    if ((board.game_state.castling_rights & @intFromEnum(brd.CastleRights.WhiteQueenside)) != 0) {
+        const rf = board.game_state.white_qs_rook_file;
+        if (white_king_file == 4 and rf == 0) {
+            try fen.append(allocator, 'Q');
+        } else {
+            try fen.append(allocator, @as(u8, 'A') + @as(u8, rf));
+        }
         has_castling_rights = true;
     }
-    if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackKingside) != 0) {
-        try fen.append(allocator, 'k');
+    if ((board.game_state.castling_rights & @intFromEnum(brd.CastleRights.BlackKingside)) != 0) {
+        const rf = board.game_state.black_ks_rook_file;
+        if (black_king_file == 4 and rf == 7) {
+            try fen.append(allocator, 'k');
+        } else {
+            try fen.append(allocator, @as(u8, 'a') + @as(u8, rf));
+        }
         has_castling_rights = true;
     }
-    if ((board.game_state.castling_rights) & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) {
-        try fen.append(allocator, 'q');
+    if ((board.game_state.castling_rights & @intFromEnum(brd.CastleRights.BlackQueenside)) != 0) {
+        const rf = board.game_state.black_qs_rook_file;
+        if (black_king_file == 4 and rf == 0) {
+            try fen.append(allocator, 'q');
+        } else {
+            try fen.append(allocator, @as(u8, 'a') + @as(u8, rf));
+        }
         has_castling_rights = true;
     }
 

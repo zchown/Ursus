@@ -118,10 +118,10 @@ const ViriGame = struct {
         self.header.extra = 0; // datagen version
     }
 
-    fn addMove(self: *ViriGame, move_data: mvs.EncodedMove, white_score: i16) void {
+    fn addMove(self: *ViriGame, move_data: mvs.EncodedMove, white_score: i16, board: *const brd.Board) void {
         if (self.move_count >= max_moves_per_game) return;
         self.moves[self.move_count] = .{
-            .move_data = encodeViriMove(move_data),
+            .move_data = encodeViriMove(move_data, board),
             .eval_score = white_score,
         };
         self.move_count += 1;
@@ -173,33 +173,35 @@ fn encodePieceAt(board: *const brd.Board, sq: u6) u8 {
 }
 
 fn isCastlingRook(board: *const brd.Board, sq: u6, color: brd.Color) bool {
-    const cr = board.game_state.castling_rights;
+    const gs = board.game_state;
+    const cr = gs.castling_rights;
     if (color == .White) {
-        if (sq == 0 and (cr & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0)) return true;
-        if (sq == 7 and (cr & @intFromEnum(brd.CastleRights.WhiteKingside) != 0)) return true;
+        if ((cr & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) and
+            @as(usize, sq) == gs.rookSquare(.White, false)) return true;
+        if ((cr & @intFromEnum(brd.CastleRights.WhiteKingside) != 0) and
+            @as(usize, sq) == gs.rookSquare(.White, true)) return true;
     } else {
-        if (sq == 56 and (cr & @intFromEnum(brd.CastleRights.BlackQueenside) != 0)) return true;
-        if (sq == 63 and (cr & @intFromEnum(brd.CastleRights.BlackKingside) != 0)) return true;
+        if ((cr & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) and
+            @as(usize, sq) == gs.rookSquare(.Black, false)) return true;
+        if ((cr & @intFromEnum(brd.CastleRights.BlackKingside) != 0) and
+            @as(usize, sq) == gs.rookSquare(.Black, true)) return true;
     }
     return false;
 }
 
-fn encodeViriMove(move_data: mvs.EncodedMove) u16 {
+fn encodeViriMove(move_data: mvs.EncodedMove, board: *const brd.Board) u16 {
     const from: u16 = @intCast(move_data.start_square);
     var to: u16 = @intCast(move_data.end_square);
 
     var flag: u16 = 0;
     if (move_data.castling == 1) {
         flag = 0b10_00;
-        // Viriformat encodes castling as king -> rook's original square
-        // (Chess960 convention), not king -> king's final square.
-        // Determine rook square from direction: if to > from it's kingside.
-        const rank_base: u16 = (from / 8) * 8;
-        if (to > from) {
-            to = rank_base + 7; // h-file rook (kingside)
-        } else {
-            to = rank_base; // a-file rook (queenside)
-        }
+        // Viriformat uses king → rook's *original* square (Chess960 UCI convention).
+        // Our EncodedMove stores the king's destination (g-file = KS, c-file = QS).
+        // Look up the actual rook square from board state before the move is applied.
+        const moving_color = board.game_state.side_to_move;
+        const kingside = (move_data.end_square % 8) == 6; // g-file = 6
+        to = @intCast(board.game_state.rookSquare(moving_color, kingside));
     } else if (move_data.en_passant == 1) {
         flag = 0b01_00;
     } else if (move_data.promoted_piece != 0) {
@@ -471,7 +473,7 @@ fn playSingleGame(
 
         // Record the position. Bullet trainer handles all per-position
         // filtering (in-check, post-capture, score range, early ply skipping).
-        game.addMove(best_move, white_score);
+        game.addMove(best_move, white_score, &board);
 
         mvs.makeMove(&board, best_move);
         ply += 1;

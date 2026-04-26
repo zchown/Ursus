@@ -62,6 +62,12 @@ pub const GameState = struct {
     black_np_hash: zob.ZobristKey,
     major_hash: zob.ZobristKey,
     minor_hash: zob.ZobristKey,
+    // Chess960 / DFRC: the file (0-7) of each castling rook.
+    // Standard chess defaults: a-file = 0, h-file = 7.
+    white_ks_rook_file: u3,  // kingside rook file for White
+    white_qs_rook_file: u3,  // queenside rook file for White
+    black_ks_rook_file: u3,  // kingside rook file for Black
+    black_qs_rook_file: u3,  // queenside rook file for Black
 
     pub fn init() GameState {
         var toReturn = GameState{
@@ -76,9 +82,35 @@ pub const GameState = struct {
             .black_np_hash = 0,
             .major_hash = 0,
             .minor_hash = 0,
+            .white_ks_rook_file = 7,
+            .white_qs_rook_file = 0,
+            .black_ks_rook_file = 7,
+            .black_qs_rook_file = 0,
         };
         toReturn.zobrist = toReturn.initZobrist();
         return toReturn;
+    }
+
+    /// Returns the square of a castling rook given color and kingside/queenside.
+    pub inline fn rookSquare(self: GameState, color: Color, kingside: bool) Square {
+        const rank: usize = if (color == Color.White) 0 else 56;
+        const file: usize = if (kingside)
+            (if (color == Color.White) @as(usize, self.white_ks_rook_file) else @as(usize, self.black_ks_rook_file))
+        else
+            (if (color == Color.White) @as(usize, self.white_qs_rook_file) else @as(usize, self.black_qs_rook_file));
+        return rank + file;
+    }
+
+    /// Returns the castled king destination square (g-file for KS, c-file for QS).
+    pub inline fn kingCastleDest(color: Color, kingside: bool) Square {
+        const rank: usize = if (color == Color.White) 0 else 56;
+        return if (kingside) rank + 6 else rank + 2;
+    }
+
+    /// Returns the castled rook destination square (f-file for KS, d-file for QS).
+    pub inline fn rookCastleDest(color: Color, kingside: bool) Square {
+        const rank: usize = if (color == Color.White) 0 else 56;
+        return if (kingside) rank + 5 else rank + 3;
     }
 
     pub fn initZobrist(self: GameState) zob.ZobristKey {

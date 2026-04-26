@@ -46,3 +46,5 @@ pub var corr_major_read_weight: i32 = 102;
 pub var corr_minor_read_weight: i32 = 111;
 
 pub var corr_read_divisor: i32 = 127393;
+
+pub var tb_probe_depth: usize = 1;

@@ -14,7 +14,11 @@ It is playing on an old Intel NUC with a Intel® Core™ i5-4250U configured for
 
 ## Building
 
-Ursus requires a [Zig](https://ziglang.org/) compiler. Because of Zigs pre 1.0 status and breaking changes it is recommended to use Zig 0.15.2 for building. There are no guarantees that code will compile on any other versions of Zig. There are no external dependencies for building or running the engine, but turning on optimizations and native target is highly recommended for best performance.
+Ursus requires a [Zig](https://ziglang.org/) compiler. Because of Zigs pre 1.0 status and breaking changes it is recommended to use Zig 0.15.2 for building. There are no guarantees that code will compile on any other versions of Zig.
+
+Ursus uses [Fathom](https://github.com/jdart1/Fathom) for Syzygy endgame tablebase probing. Place the Fathom source files (`tbprobe.c`, `tbprobe.h`, `tbconfig.h`, `stdendian.h`) under `deps/Fathom/src/` before building -- Fathom is bundled in via the build script and does not need to be installed separately. It is the only external dependency.
+
+Turning on optimizations and native target is highly recommended for best performance.
 
 ```bash
 zig build -Doptimize=ReleaseFast -Dtarget=native
@@ -44,10 +48,12 @@ Ursus implements the core UCI protocol. The table below summarizes supported com
 | `debug` | Supported -- turns debug mode on/off or prints current board FEN, debug mode is used to print any errors or warnings when parsing UCI commands or during search |
 | `d` | Supported -- pretty-prints the current board |
 | `register` | Accepted |
-| `setoption name Hash` | Sets Hash size in MB, supported up to 4096MB (4GB) |
+| `setoption name Hash` | Sets Hash size in MB, default 256 MB, supported up to 16384MB (16GB) |
 | `setoption name Clear Hash` | Supported |
 | `setoption name Ponder` | Supported |
-| `setoption name Threads` | Sets number of search threads, supported up to 128 |
+| `setoption name Threads` | Sets number of search threads, default 1, supported up to 128 |
+| `setoption name SyzygyPath` | Path to directory containing Syzygy tablebases (`.rtbw` / `.rtbz`); multiple directories separated by `:` on Unix or `;` on Windows. Empty / `<empty>` unloads. |
+| `setoption name SyzygyProbeDepth` | Minimum depth at which in-tree WDL probing fires, default 1. Increase if TB probing causes a noticeable NPS drop. |
 | `datagen` | Used to run self-play data generation for training the NNUE |
 | `eval` / `hce` | Supported -- prints the current static NNUE or legacy HCE evaluation |
 
@@ -57,6 +63,8 @@ Ursus implements the core UCI protocol. The table below summarizes supported com
 
 - [fastchess](https://github.com/Disservin/fastchess) For being using to run my SPRT tests
 - [cutechess](https://github.com/cutechess/cutechess) For being used to run tournaments and as a GUI for allowing me to play Ursus when it was much weaker.
+- [Fathom](https://github.com/jdart1/Fathom) For the Syzygy tablebase probing library.
+- [Syzygy tablebases](https://github.com/syzygy1/tb) by Ronald de Man, the underlying tablebase format Ursus probes.
 - [bullet](https://github.com/jw1912/bullet) For running NNUE training.
 - [weather-factory](https://github.com/jnlt3/weather-factory) Initially I ran my own spsa training code but yours was better and easier to use so thank you.
 - [Kaggle](https://www.kaggle.com/) For providing free GPU resources for training the NNUE
@@ -71,4 +79,3 @@ Ursus implements the core UCI protocol. The table below summarizes supported com
 - [Engine Programming Discord](https://discord.com/invite/F6W6mMsTGN) For being a great resource for engine development and providing a friendly community to discuss chess programming with. Also for putting up with me.
 - [Chess Programming Wiki](https://www.chessprogramming.org/) For being a great resource for learning about different techniques and the history of chess programming.
 - [lichess](https://lichess.org/) For allowing me to have Ursus play games on their platform
-

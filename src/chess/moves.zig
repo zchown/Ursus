@@ -509,70 +509,76 @@ pub const MoveGen = struct {
     }
 
     pub fn generateCastleMoves(self: *MoveGen, board: *Board, move_list: *MoveList, comptime color: brd.Color) void {
-        if (color == brd.Color.White) {
-            // White Kingside (O-O)
-            if ((board.game_state.castling_rights & @intFromEnum(brd.CastleRights.WhiteKingside)) != 0) {
-                const f1 = @intFromEnum(brd.Squares.f1);
-                const g1 = @intFromEnum(brd.Squares.g1);
-                const e1 = @intFromEnum(brd.Squares.e1);
-                if (!brd.getBit(board.occupancy(), f1) and
-                !brd.getBit(board.occupancy(), g1) and
-                !self.isAttacked(e1, brd.Color.Black, board) and
-                !self.isAttacked(f1, brd.Color.Black, board) and
-                !self.isAttacked(g1, brd.Color.Black, board))
-            {
-                    move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.g1), brd.Pieces.King, null, false, null, false, false, true);
-                }
-            }
+        const gs = &board.game_state;
+        const king_bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.King)];
+        if (king_bb == 0) return;
+        const king_sq = brd.getLSB(king_bb);
+        const enemy = comptime brd.flipColor(color);
+        const occ = board.occupancy();
+        // Remove king from occupancy for attack-through-king checks.
+        const occ_no_king = occ ^ king_bb;
 
-            // White Queenside (O-O-O)
-            if ((board.game_state.castling_rights & @intFromEnum(brd.CastleRights.WhiteQueenside)) != 0) {
-                const d1 = @intFromEnum(brd.Squares.d1);
-                const c1 = @intFromEnum(brd.Squares.c1);
-                const b1 = @intFromEnum(brd.Squares.b1);
-                const e1 = @intFromEnum(brd.Squares.e1);
-                if (!brd.getBit(board.occupancy(), d1) and
-                !brd.getBit(board.occupancy(), c1) and
-                !brd.getBit(board.occupancy(), b1) and
-                !self.isAttacked(e1, brd.Color.Black, board) and
-                !self.isAttacked(d1, brd.Color.Black, board) and
-                !self.isAttacked(c1, brd.Color.Black, board))
-            {
-                    move_list.addMove(@intFromEnum(brd.Squares.e1), @intFromEnum(brd.Squares.c1), brd.Pieces.King, null, false, null, false, false, true);
-                }
-            }
-        } else {
-            // Black Kingside (O-O)
-            if ((board.game_state.castling_rights & @intFromEnum(brd.CastleRights.BlackKingside)) != 0) {
-                const f8 = @intFromEnum(brd.Squares.f8);
-                const g8 = @intFromEnum(brd.Squares.g8);
-                const e8 = @intFromEnum(brd.Squares.e8);
-                if (!brd.getBit(board.occupancy(), f8) and
-                !brd.getBit(board.occupancy(), g8) and
-                !self.isAttacked(e8, brd.Color.White, board) and
-                !self.isAttacked(f8, brd.Color.White, board) and
-                !self.isAttacked(g8, brd.Color.White, board))
-            {
-                    move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.g8), brd.Pieces.King, null, false, null, false, false, true);
-                }
-            }
-            // Black Queenside (O-O-O)
-            if ((board.game_state.castling_rights & @intFromEnum(brd.CastleRights.BlackQueenside)) != 0) {
-                const d8 = @intFromEnum(brd.Squares.d8);
-                const c8 = @intFromEnum(brd.Squares.c8);
-                const b8 = @intFromEnum(brd.Squares.b8);
-                const e8 = @intFromEnum(brd.Squares.e8);
-                if (!brd.getBit(board.occupancy(), d8) and
-                !brd.getBit(board.occupancy(), c8) and
-                !brd.getBit(board.occupancy(), b8) and
-                !self.isAttacked(e8, brd.Color.White, board) and
-                !self.isAttacked(d8, brd.Color.White, board) and
-                !self.isAttacked(c8, brd.Color.White, board))
-            {
-                    move_list.addMove(@intFromEnum(brd.Squares.e8), @intFromEnum(brd.Squares.c8), brd.Pieces.King, null, false, null, false, false, true);
-                }
+        // Kingside
+        const ks_right = comptime if (color == .White) brd.CastleRights.WhiteKingside else brd.CastleRights.BlackKingside;
+        if ((gs.castling_rights & @intFromEnum(ks_right)) != 0) {
+            const rook_sq  = gs.rookSquare(color, true);
+            const king_dest = brd.GameState.kingCastleDest(color, true);
+            const rook_dest = brd.GameState.rookCastleDest(color, true);
+            if (self.isCastleLegal(board, king_sq, rook_sq, king_dest, rook_dest, enemy, occ_no_king)) {
+                move_list.addMove(king_sq, king_dest, brd.Pieces.King, null, false, null, false, false, true);
             }
         }
+
+        // Queenside
+        const qs_right = comptime if (color == .White) brd.CastleRights.WhiteQueenside else brd.CastleRights.BlackQueenside;
+        if ((gs.castling_rights & @intFromEnum(qs_right)) != 0) {
+            const rook_sq  = gs.rookSquare(color, false);
+            const king_dest = brd.GameState.kingCastleDest(color, false);
+            const rook_dest = brd.GameState.rookCastleDest(color, false);
+            if (self.isCastleLegal(board, king_sq, rook_sq, king_dest, rook_dest, enemy, occ_no_king)) {
+                move_list.addMove(king_sq, king_dest, brd.Pieces.King, null, false, null, false, false, true);
+            }
+        }
+    }
+
+    fn isCastleLegal(
+        self: *MoveGen,
+        board: *Board,
+        king_sq: brd.Square,
+        rook_sq: brd.Square,
+        king_dest: brd.Square,
+        rook_dest: brd.Square,
+        enemy: brd.Color,
+        occ_no_king: Bitboard,
+    ) bool {
+        const king_bb = brd.getSquareBB(king_sq);
+        const rook_bb = brd.getSquareBB(rook_sq);
+
+        const span_kr    = rankSpan(king_sq, rook_sq);
+        const span_rdest = rankSpan(rook_sq, rook_dest);
+        const dests      = brd.getSquareBB(king_dest) | brd.getSquareBB(rook_dest);
+        const must_be_empty = (span_kr | span_rdest | dests) & ~king_bb & ~rook_bb;
+
+        // Check those squares against occupancy (excluding both king and rook).
+        const occ_no_king_rook = occ_no_king & ~rook_bb;
+        if (must_be_empty & occ_no_king_rook != 0) return false;
+
+        // King must not pass through, or land on, an attacked square.
+        var king_path = rankSpan(king_sq, king_dest);
+        while (king_path != 0) {
+            const sq = brd.getLSB(king_path);
+            if (self.isAttackedOcc(sq, enemy, board, occ_no_king)) return false;
+            brd.popBit(&king_path, sq);
+        }
+
+        return true;
+    }
+
+    /// Returns a bitboard covering every square from lo to hi (inclusive) on the same rank.
+    inline fn rankSpan(sq1: brd.Square, sq2: brd.Square) Bitboard {
+        const lo = @min(sq1, sq2);
+        const hi = @max(sq1, sq2);
+        return ((@as(Bitboard, 2) << @intCast(hi)) -% 1) & ~((@as(Bitboard, 1) << @intCast(lo)) -% 1);
     }
 
     pub inline fn isAttacked(self: *MoveGen, sq: brd.Square, comptime color: brd.Color, board: *Board) bool {
@@ -954,19 +960,16 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
     }
 
     if (move.castling == 1) {
-        board.movePiece(moving_color, brd.Pieces.King, from_square, to_square);
+        // to_square is the king's destination (g-file=6 for KS, c-file=2 for QS).
+        const kingside = (to_square % 8) == 6;
+        const rook_sq   = board.game_state.rookSquare(moving_color, kingside);
+        const rook_dest = brd.GameState.rookCastleDest(moving_color, kingside);
 
-        if (to_square > from_square) {
-            // Kingside castling
-            const rook_from = if (moving_color == brd.Color.White) @as(brd.Square, 7) else @as(brd.Square, 63);
-            const rook_to = if (moving_color == brd.Color.White) @as(brd.Square, 5) else @as(brd.Square, 61);
-            board.movePiece(moving_color, brd.Pieces.Rook, rook_from, rook_to);
-        } else {
-            // Queenside castling
-            const rook_from = if (moving_color == brd.Color.White) @as(brd.Square, 0) else @as(brd.Square, 56);
-            const rook_to = if (moving_color == brd.Color.White) @as(brd.Square, 3) else @as(brd.Square, 59);
-            board.movePiece(moving_color, brd.Pieces.Rook, rook_from, rook_to);
-        }
+        // Remove both pieces first to avoid overlap issues (Chess960 safe).
+        board.removePiece(moving_color, brd.Pieces.King, from_square);
+        board.removePiece(moving_color, brd.Pieces.Rook, rook_sq);
+        board.addPiece(moving_color, brd.Pieces.King, to_square);
+        board.addPiece(moving_color, brd.Pieces.Rook, rook_dest);
 
         if (moving_color == brd.Color.White) {
             board.removeCastlingRights(brd.CastleRights.WhiteKingside);
@@ -1038,15 +1041,15 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
             }
         } else if (piece_type == brd.Pieces.Rook) {
             if (moving_color == brd.Color.White) {
-                if (from_square == @intFromEnum(brd.Squares.a1)) {
+                if (from_square == board.game_state.rookSquare(.White, false)) {
                     board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
-                } else if (from_square == @intFromEnum(brd.Squares.h1)) {
+                } else if (from_square == board.game_state.rookSquare(.White, true)) {
                     board.removeCastlingRights(brd.CastleRights.WhiteKingside);
                 }
             } else {
-                if (from_square == @intFromEnum(brd.Squares.a8)) {
+                if (from_square == board.game_state.rookSquare(.Black, false)) {
                     board.removeCastlingRights(brd.CastleRights.BlackQueenside);
-                } else if (from_square == @intFromEnum(brd.Squares.h8)) {
+                } else if (from_square == board.game_state.rookSquare(.Black, true)) {
                     board.removeCastlingRights(brd.CastleRights.BlackKingside);
                 }
             }
@@ -1055,13 +1058,13 @@ pub fn makeMove(board: *Board, move: EncodedMove) void {
         board.clearEnPassantSquare();
     }
 
-    if (to_square == @intFromEnum(brd.Squares.a1)) {
+    if (to_square == board.game_state.rookSquare(.White, false)) {
         board.removeCastlingRights(brd.CastleRights.WhiteQueenside);
-    } else if (to_square == @intFromEnum(brd.Squares.h1)) {
+    } else if (to_square == board.game_state.rookSquare(.White, true)) {
         board.removeCastlingRights(brd.CastleRights.WhiteKingside);
-    } else if (to_square == @intFromEnum(brd.Squares.a8)) {
+    } else if (to_square == board.game_state.rookSquare(.Black, false)) {
         board.removeCastlingRights(brd.CastleRights.BlackQueenside);
-    } else if (to_square == @intFromEnum(brd.Squares.h8)) {
+    } else if (to_square == board.game_state.rookSquare(.Black, true)) {
         board.removeCastlingRights(brd.CastleRights.BlackKingside);
     }
 
@@ -1081,17 +1084,16 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
     const side_to_undo = board.justMoved();
 
     if (move.castling == 1) {
-        board.movePiece(side_to_undo, brd.Pieces.King, to_square, from_square);
+        // to_square is the king's castled destination.
+        const kingside = (to_square % 8) == 6;
+        const rook_sq   = board.game_state.rookSquare(side_to_undo, kingside);
+        const rook_dest = brd.GameState.rookCastleDest(side_to_undo, kingside);
 
-        if (to_square > from_square) {
-            const rook_from = if (side_to_undo == brd.Color.White) @as(brd.Square, 7) else @as(brd.Square, 63);
-            const rook_to = if (side_to_undo == brd.Color.White) @as(brd.Square, 5) else @as(brd.Square, 61);
-            board.movePiece(side_to_undo, brd.Pieces.Rook, rook_to, rook_from);
-        } else {
-            const rook_from = if (side_to_undo == brd.Color.White) @as(brd.Square, 0) else @as(brd.Square, 56);
-            const rook_to = if (side_to_undo == brd.Color.White) @as(brd.Square, 3) else @as(brd.Square, 59);
-            board.movePiece(side_to_undo, brd.Pieces.Rook, rook_to, rook_from);
-        }
+        // Remove both pieces first (safe for Chess960 overlapping squares).
+        board.removePiece(side_to_undo, brd.Pieces.King, to_square);
+        board.removePiece(side_to_undo, brd.Pieces.Rook, rook_dest);
+        board.addPiece(side_to_undo, brd.Pieces.King, from_square);
+        board.addPiece(side_to_undo, brd.Pieces.Rook, rook_sq);
     }
     else if (move.en_passant == 1) {
         board.movePiece(side_to_undo, brd.Pieces.Pawn, to_square, from_square);
@@ -1175,9 +1177,28 @@ pub fn parseMove(board: *brd.Board, moveStr: []const u8) ?EncodedMove {
         };
     }
 
+    var actual_to = to;
+    const king_sq_val = from; 
+    _ = king_sq_val;
+
+    const ks_right: brd.CastleRights = if (color == .White) brd.CastleRights.WhiteKingside else brd.CastleRights.BlackKingside;
+    const qs_right: brd.CastleRights = if (color == .White) brd.CastleRights.WhiteQueenside else brd.CastleRights.BlackQueenside;
+    const has_ks = (board.game_state.castling_rights & @intFromEnum(ks_right)) != 0;
+    const has_qs = (board.game_state.castling_rights & @intFromEnum(qs_right)) != 0;
+
+    // Check if king is moving to a friendly rook square (UCI_Chess960 encoding).
+    const rook_sq_ks = board.game_state.rookSquare(color, true);
+    const rook_sq_qs = board.game_state.rookSquare(color, false);
+    if (piece == 5 and has_ks and to == rook_sq_ks) {
+        actual_to = brd.GameState.kingCastleDest(color, true);
+    } else if (piece == 5 and has_qs and to == rook_sq_qs) {
+        actual_to = brd.GameState.kingCastleDest(color, false);
+    }
+
+    const king_dest_ks = brd.GameState.kingCastleDest(color, true);
+    const king_dest_qs = brd.GameState.kingCastleDest(color, false);
     const castling = (piece == 5) and
-((from == @intFromEnum(brd.Squares.e1) and (to == @intFromEnum(brd.Squares.g1) or to == @intFromEnum(brd.Squares.c1))) or
-(from == @intFromEnum(brd.Squares.e8) and (to == @intFromEnum(brd.Squares.g8) or to == @intFromEnum(brd.Squares.c8))));
+        ((has_ks and actual_to == king_dest_ks) or (has_qs and actual_to == king_dest_qs));
 
     const rank_from = (from) / 8;
     const double_pawn_push = (piece == 0) and
@@ -1186,7 +1207,7 @@ pub fn parseMove(board: *brd.Board, moveStr: []const u8) ?EncodedMove {
 
     return EncodedMove{
         .start_square = @intCast(from),
-        .end_square = @intCast(to),
+        .end_square = @intCast(actual_to),
         .piece = @intCast(piece),
         .promoted_piece = promoted_piece,
         .capture = @intFromBool(capture),

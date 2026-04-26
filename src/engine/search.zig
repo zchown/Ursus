@@ -7,6 +7,7 @@ const see = @import("see");
 const mp = @import("move_picker");
 const tp = @import("tunable_parameters");
 const hist = @import("history");
+const tb = @import("tb");
 
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
@@ -65,6 +66,7 @@ pub const Searcher = struct {
     time_stop: bool = false,
 
     nodes: u64 = 0,
+    tb_hits: u64 = 0,
     ply: usize = 0,
     seldepth: usize = 0,
     stop: bool = false,
@@ -100,7 +102,6 @@ pub const Searcher = struct {
     silent_output: bool = false,
     stdout_buffer: [2048]u8 = undefined,
 
-    /// Owned by the main searcher; helpers point to the same table.
     tt_table: *tt.TranspositionTable = undefined,
 
     pub const PieceColor = struct {
@@ -170,13 +171,6 @@ pub const Searcher = struct {
                 ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
                     (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, scaled_ideal_ms))));
     }
-    // pub inline fn should_not_continue(self: *Searcher, factor: f32) bool {
-    //     const thinking = @atomicLoad(bool, &self.force_think, .acquire);
-    //     return self.stop or
-    //         (self.thread_id == 0 and self.search_depth > self.min_depth and
-    //             ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
-    //                 (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor))))));
-    // }
 
     const ThreadContext = struct {
         searcher: *Searcher,
@@ -334,11 +328,56 @@ pub const Searcher = struct {
         tt.stop_signal.store(false, .release);
         hist.resetHeuristics(self, false);
         self.nodes = 0;
+        self.tb_hits = 0;
         self.best_move = mvs.EncodedMove.fromU32(0);
         self.best_move_score = -eval.mate_score;
         self.timer = std.time.Timer.start() catch unreachable;
         self.perspective = board.toMove();
         self.search_score = 0;
+
+        if (self.thread_id == 0 and tb.isLoaded()) blk: {
+            var tb_occupied: u64 = 0;
+            inline for (0..2) |c| {
+                inline for (0..6) |p| {
+                    tb_occupied |= board.piece_bb[c][p];
+                }
+            }
+            const piece_count = @popCount(tb_occupied);
+            if (piece_count > @as(usize, @intCast(tb.largest()))) break :blk;
+
+            const root_probe = tb.probeRootDtz(board, self.move_gen) orelse break :blk;
+
+            self.tb_hits += 1;
+            self.best_move = root_probe.move;
+            self.best_move_score = switch (root_probe.wdl) {
+                tb.TB_LOSS => -eval.tb_win_score,
+                tb.TB_WIN => eval.tb_win_score,
+                else => 0,
+            };
+
+            var pv_buf: [max_ply]mvs.EncodedMove = undefined;
+            pv_buf[0] = root_probe.move;
+
+            self.search_depth = 1;
+            self.seldepth = 1;
+
+            if (!self.silent_output) {
+                self.printInfo(0, 1, self.best_move_score, pv_buf[0..1], std.heap.c_allocator);
+            }
+
+            self.is_searching = false;
+            self.tt_table.incrementAge();
+
+            return SearchResult{
+                .move = root_probe.move,
+                .score = self.best_move_score,
+                .depth = 1,
+                .nodes = 0,
+                .time_ms = (self.timer.read() / std.time.ns_per_ms) -| self.time_offset,
+                .pv = pv_buf,
+                .pv_length = 1,
+            };
+        }
 
         var prev_score: i32 = -eval.mate_score;
         var score: i32 = -eval.mate_score;
@@ -412,11 +451,13 @@ pub const Searcher = struct {
 
             if (!self.silent_output) {
                 var total_nodes = self.nodes;
+                var total_tb_hits = self.tb_hits;
                 for (search_helpers.items) |helper| {
                     total_nodes += helper.nodes;
+                    total_tb_hits += helper.tb_hits;
                 }
 
-                self.printInfo(total_nodes, score, best_pv[0..best_pv_length], std.heap.c_allocator);
+                self.printInfo(total_nodes, total_tb_hits, score, best_pv[0..best_pv_length], std.heap.c_allocator);
             }
 
             var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
@@ -567,6 +608,53 @@ pub const Searcher = struct {
                 }
                 if (alpha >= beta) {
                     return tt_eval;
+                }
+            }
+        }
+
+        if (!is_root and self.excluded_moves[self.ply].toU32() == 0 and depth >= tp.tb_probe_depth) {
+            const tb_max = tb.largest();
+            if (tb_max > 0) {
+                var tb_occupied: u64 = 0;
+                inline for (0..2) |c| {
+                    inline for (0..6) |p| {
+                        tb_occupied |= board.piece_bb[c][p];
+                    }
+                }
+                const piece_count = @popCount(tb_occupied);
+                if (piece_count <= @as(usize, @intCast(tb_max))) {
+                    if (tb.probeWdl(board)) |wdl| {
+                        self.tb_hits += 1;
+
+                        const tb_score: i32 = switch (wdl) {
+                            tb.TB_LOSS => -eval.tb_win_score,
+                            tb.TB_WIN => eval.tb_win_score,
+                            else => 0,
+                        };
+                        const tb_flag: tt.EstimationType = switch (wdl) {
+                            tb.TB_LOSS => .Over,
+                            tb.TB_WIN => .Under,
+                            else => .Exact,
+                        };
+
+                        const cutoff = (tb_flag == .Exact) or
+                            (tb_flag == .Under and tb_score >= beta) or
+                            (tb_flag == .Over and tb_score <= alpha);
+
+                        if (cutoff) {
+                            const tdepth: u8 = @intCast(@min(depth + 6, 255));
+                            self.tt_table.set(tt.Entry{
+                                .hash = board.game_state.zobrist,
+                                .eval = tb_score,
+                                .move = mvs.EncodedMove.fromU32(0),
+                                .static_eval = 0,
+                                .flag = tb_flag,
+                                .depth = tdepth,
+                                .age = self.tt_table.getAge(),
+                            });
+                            return tb_score;
+                        }
+                    }
                 }
             }
         }
@@ -1173,7 +1261,7 @@ pub const Searcher = struct {
         }
     }
 
-    pub fn printInfo(self: *Searcher, nodes: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
+    pub fn printInfo(self: *Searcher, nodes: u64, tb_hits: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
         const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
         const nps: u64 = if (elapsed_ms > 0) (nodes * 1000) / elapsed_ms else 0;
         const hashfull = self.tt_table.getFillPermill();
@@ -1202,7 +1290,7 @@ pub const Searcher = struct {
         var score_buf: [64]u8 = undefined;
         const score_string = formatScore(score, &score_buf);
  
-        stdout.print("info depth {d} seldepth {d} {s} time {d} nodes {d} nps {d} hashfull {d} pv {s}\n", .{
+        stdout.print("info depth {d} seldepth {d} {s} time {d} nodes {d} nps {d} hashfull {d} tbhits {d} pv {s}\n", .{
             self.search_depth,
             self.seldepth,
             score_string,
@@ -1210,6 +1298,7 @@ pub const Searcher = struct {
             nodes,
             nps,
             hashfull,
+            tb_hits,
             pv_string,
         }) catch return;
         stdout.flush() catch {};
