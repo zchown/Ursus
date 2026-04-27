@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus3.30"
+ENGINE_BASE="./zig-out/bin/Ursus"
+# ENGINE_BASE="./engines/Ursus3.31"
 # ENGINE_BASE="./../stash/stash-bot-v37.0/src/stash"          # 3431
 # # ENGINE_BASE="./releaseEngines/Ursus6.0"
 # ENGINE_BASE="./engines/Ursus3.2"
@@ -20,7 +21,7 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 # OPENINGS="openings.pgn"
 
 CONCURRENCY=10
-TC="4+0.04"
+TC="8+0.08"
 ROUNDS=100000
 TIMEMARGIN=50
 
@@ -81,6 +82,23 @@ $FASTCHESS \
   -ratinginterval 10 \
   -pgnout file="$PGN" \
   | tee "$LOG"
+#
+# $FASTCHESS \
+#   -variant fischerandom \
+#   -engine cmd="$ENGINE_NEW"  name=New \
+#   -engine cmd="$ENGINE_BASE" name=Base \
+#   -each tc=$TC timemargin=$TIMEMARGIN option.Threads=1 option.Hash=256 option.UCI_Chess960=true \
+#   -openings file="dfrc.epd" format=epd order=random \
+#   -tb "../Ursus/Syzygy/3-4-5" \
+#   -repeat \
+#   -rounds $ROUNDS \
+#   -concurrency $CONCURRENCY \
+#   -resign movecount=5 score=300 \
+#   -draw movenumber=40 movecount=8 score=10 \
+#   -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
+#   -ratinginterval 10 \
+#   -pgnout file="$PGN" \
+#   | tee "$LOG"
 
 
 echo

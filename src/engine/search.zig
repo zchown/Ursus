@@ -336,6 +336,7 @@ pub const Searcher = struct {
         self.timer = std.time.Timer.start() catch unreachable;
         self.perspective = board.toMove();
         self.search_score = 0;
+        self.root_board = board;
 
         if (self.thread_id == 0 and tb.isLoaded()) blk: {
             var tb_occupied: u64 = 0;
