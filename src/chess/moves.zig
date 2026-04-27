@@ -1128,7 +1128,7 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
     }
 }
 
-pub fn parseMove(board: *brd.Board, moveStr: []const u8) ?EncodedMove {
+pub fn parseMove(board: *brd.Board, moveStr: []const u8, chess960: bool) ?EncodedMove {
     if (moveStr.len < 4) return null;
 
     const from = parseSquare(moveStr[0..2]) orelse return null;
@@ -1150,8 +1150,8 @@ pub fn parseMove(board: *brd.Board, moveStr: []const u8) ?EncodedMove {
     var captured_piece: u4 = 0;
 
     const en_passant = (piece == 0) and
-(board.game_state.en_passant_square != null) and
-(to == board.game_state.en_passant_square.?);
+        (board.game_state.en_passant_square != null) and
+        (to == board.game_state.en_passant_square.?);
     if (en_passant) {
         capture = true;
         captured_piece = 0;
@@ -1177,10 +1177,6 @@ pub fn parseMove(board: *brd.Board, moveStr: []const u8) ?EncodedMove {
         };
     }
 
-    var actual_to = to;
-    const king_sq_val = from; 
-    _ = king_sq_val;
-
     const ks_right: brd.CastleRights = if (color == .White) brd.CastleRights.WhiteKingside else brd.CastleRights.BlackKingside;
     const qs_right: brd.CastleRights = if (color == .White) brd.CastleRights.WhiteQueenside else brd.CastleRights.BlackQueenside;
     const has_ks = (board.game_state.castling_rights & @intFromEnum(ks_right)) != 0;
@@ -1188,21 +1184,28 @@ pub fn parseMove(board: *brd.Board, moveStr: []const u8) ?EncodedMove {
 
     const rook_sq_ks = board.game_state.rookSquare(color, true);
     const rook_sq_qs = board.game_state.rookSquare(color, false);
-    if (piece == 5 and has_ks and to == rook_sq_ks) {
-        actual_to = brd.GameState.kingCastleDest(color, true);
-    } else if (piece == 5 and has_qs and to == rook_sq_qs) {
-        actual_to = brd.GameState.kingCastleDest(color, false);
-    }
-
     const king_dest_ks = brd.GameState.kingCastleDest(color, true);
     const king_dest_qs = brd.GameState.kingCastleDest(color, false);
-    const castling = (piece == 5) and
-        ((has_ks and actual_to == king_dest_ks) or (has_qs and actual_to == king_dest_qs));
 
-    const rank_from = (from) / 8;
+    const ks_remapped = piece == 5 and has_ks and to == rook_sq_ks;
+    const qs_remapped = piece == 5 and has_qs and to == rook_sq_qs;
+
+    var actual_to = to;
+    if (ks_remapped) {
+        actual_to = king_dest_ks;
+    } else if (qs_remapped) {
+        actual_to = king_dest_qs;
+    }
+
+    const castling = (piece == 5) and if (chess960)
+        ks_remapped or qs_remapped
+    else
+        (has_ks and actual_to == king_dest_ks) or (has_qs and actual_to == king_dest_qs);
+
+    const rank_from = from / 8;
     const double_pawn_push = (piece == 0) and
-((color == .White and rank_from == 1 and (to) / 8 == 3) or
-(color == .Black and rank_from == 6 and (to) / 8 == 4));
+        ((color == .White and rank_from == 1 and to / 8 == 3) or
+         (color == .Black and rank_from == 6 and to / 8 == 4));
 
     return EncodedMove{
         .start_square = @intCast(from),

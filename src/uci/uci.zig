@@ -583,7 +583,7 @@ pub const UciProtocol = struct {
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
                 j += 1;
                 for (args[j..]) |move_str| {
-                    const move = mvs.parseMove(&self.board, move_str) orelse {
+                    const move = mvs.parseMove(&self.board, move_str, self.chess960) orelse {
                         if (self.debug_mode) {
                             try respond("Error: invalid move");
                         }
@@ -610,7 +610,7 @@ pub const UciProtocol = struct {
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
                 j += 1;
                 for (args[j..]) |move_str| {
-                    const move = mvs.parseMove(&self.board, move_str) orelse {
+                    const move = mvs.parseMove(&self.board, move_str, self.chess960) orelse {
                         if (self.debug_mode) {
                             try respond("Error: invalid move");
                         }

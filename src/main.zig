@@ -17,9 +17,6 @@ pub fn main() !void {
     while (true) {
         const maybe_line = reader.takeDelimiterExclusive('\n') catch |err| switch (err) {
             error.EndOfStream => break,
-            error.StreamTooLong => {
-                return err;
-            },
             else => return err,
         };
 
@@ -27,6 +24,8 @@ pub fn main() !void {
 
         if (std.mem.eql(u8, trimmed, "quit")) break;
 
-        try engine.receiveCommand(trimmed);
+        engine.receiveCommand(trimmed) catch |err| {
+            std.debug.print("Command error: {} on: {s}\n", .{ err, trimmed });
+        };
     }
 }
