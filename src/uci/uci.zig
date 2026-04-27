@@ -40,10 +40,12 @@ const SearchContext = struct {
     protocol: *UciProtocol,
     board: *brd.Board,
     max_depth: ?u8 = null,
+    root_color: brd.Color = .White,
 };
 
 fn searchThreadFn(ctx: *SearchContext) void {
     const protocol = ctx.protocol;
+    const root_color = ctx.root_color;
 
     defer {
         // Destroy the context using the engine's internal allocator
@@ -65,22 +67,38 @@ fn searchThreadFn(ctx: *SearchContext) void {
         std.Thread.sleep(1_000_000); // 1ms
     }
 
-    outputBestMove(protocol, result) catch |err| {
+    outputBestMove(protocol, result, root_color) catch |err| {
         std.debug.print("Output error in search thread: {}\n", .{err});
     };
 }
 
-fn outputBestMove(protocol: *UciProtocol, result: srch.SearchResult) !void {
+fn moveToUciStr(protocol: *UciProtocol, move: mvs.EncodedMove, color: brd.Color) ![]const u8 {
+    if (protocol.chess960 and move.castling == 1) {
+        const kingside = (move.end_square % 8) == 6; // g-file = kingside
+        const rook_sq = protocol.board.game_state.rookSquare(color, kingside);
+        const start_file: u8 = move.start_square % 8;
+        const start_rank: u8 = @as(u8, @intCast(move.start_square / 8)) + 1;
+        const rook_file: u8 = @as(u8, @intCast(rook_sq % 8));
+        const rook_rank: u8 = @as(u8, @intCast(rook_sq / 8)) + 1;
+        return std.fmt.allocPrint(protocol.allocator, "{c}{d}{c}{d}", .{
+            'a' + start_file, start_rank,
+            'a' + rook_file,  rook_rank,
+        });
+    }
+    return move.uciToString(protocol.allocator);
+}
+
+fn outputBestMove(protocol: *UciProtocol, result: srch.SearchResult, root_color: brd.Color) !void {
     var stdout_buffer: [1024]u8 = undefined;
     var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
     const stdout = &stdout_writer.interface;
 
-    // Use the protocol's allocator for string formatting
-    const move_str = try result.move.uciToString(protocol.allocator);
+    const move_str = try moveToUciStr(protocol, result.move, root_color);
     defer protocol.allocator.free(move_str);
 
     if (result.pv_length >= 2) {
-        const ponder_str = try result.pv[1].uciToString(protocol.allocator);
+        const ponder_color = brd.flipColor(root_color);
+        const ponder_str = try moveToUciStr(protocol, result.pv[1], ponder_color);
         defer protocol.allocator.free(ponder_str);
         try stdout.print("bestmove {s} ponder {s}\n", .{ move_str, ponder_str });
     } else {
@@ -96,6 +114,7 @@ pub const UciProtocol = struct {
     debug_mode: bool = false,
     should_quit: bool = false,
     is_searching: bool = false,
+    chess960: bool = false,
     hash_size_mb: u32 = 256,
     threads: usize = 1,
     searcher: *srch.Searcher,
@@ -308,17 +327,18 @@ pub const UciProtocol = struct {
         self.is_searching = true;
 
         const ctx = try self.allocator.create(SearchContext);
-        
+
         ctx.protocol = self;
         ctx.max_depth = if (limits.depth) |d| @as(u8, @intCast(@min(d, 255))) else null;
-        
+        ctx.root_color = self.board.toMove();
+
         ctx.board = try self.allocator.create(brd.Board);
-        ctx.board.copyFrom(&self.board); 
+        ctx.board.copyFrom(&self.board);
 
         const spawn_config = std.Thread.SpawnConfig{
             .stack_size = 8 * 1024 * 1024,
         };
-        
+
         self.search_thread = try std.Thread.spawn(spawn_config, searchThreadFn, .{ctx});
     }
 
@@ -328,9 +348,8 @@ pub const UciProtocol = struct {
 
         try respond("option name Ponder type check default false");
         try respond("option name Hash type spin default 256 min 1 max 16384");
-
         try respond("option name Threads type spin default 1 min 1 max 8");
-
+        try respond("option name UCI_Chess960 type check default false");
         try respond("option name SyzygyPath type string default <empty>");
         try respond("option name SyzygyProbeDepth type spin default 1 min 1 max 100");
 
@@ -409,6 +428,11 @@ pub const UciProtocol = struct {
             }
         } else if (std.mem.eql(u8, option_name, "Ponder")) {
             // TODO: ?
+        } else if (std.mem.eql(u8, option_name, "UCI_Chess960")) {
+            if (args.len >= name_end + 2) {
+                self.chess960 = std.mem.eql(u8, args[name_end + 1], "true");
+                self.searcher.chess960 = self.chess960;
+            }
         } else if (std.mem.eql(u8, option_name, "Threads")) {
             if (args.len < name_end + 2) {
                 if (self.debug_mode) {
@@ -418,8 +442,7 @@ pub const UciProtocol = struct {
             }
             const new_thread_count = try std.fmt.parseInt(usize, args[name_end + 1], 10);
             self.threads = new_thread_count;
-        } 
-        else if (std.mem.eql(u8, option_name, "SyzygyPath")) {
+        } else if (std.mem.eql(u8, option_name, "SyzygyPath")) {
             self.stopSearch();
 
             if (args.len < name_end + 2) {
@@ -444,22 +467,23 @@ pub const UciProtocol = struct {
                 try respond(msg);
             }
         } else if (std.mem.eql(u8, option_name, "SyzygyProbeDepth")) {
-            tp.tb_probe_depth = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        } 
-        // else if (std.mem.eql(u8, option_name, "aspiration_window")) {
+            if (args.len >= name_end + 2) {
+                tp.tb_probe_depth = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+            }
+        // } else if (std.mem.eql(u8, option_name, "aspiration_window")) {
         //     tp.aspiration_window = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "rfp_mul")) {
         //     tp.rfp_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "rfp_improvement")) {
-        //     tp.rfp_improve = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        //     tp.rfp_improvement = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "nmp_improvement")) {
-        //     tp.nmp_improve = try std.fmt.parseInt(i32, args[name_end + 1], 10);
+        //     tp.nmp_improvement = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "nmp_base")) {
-        //     tp.nmp_base = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        //     tp.nmp_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "nmp_depth_div")) {
-        //     tp.nmp_depth_div = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        //     tp.nmp_depth_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "nmp_beta_div")) {
-        //     tp.nmp_beta_div = try std.fmt.parseInt(usize, args[name_end + 1], 10);
+        //     tp.nmp_beta_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "razoring_base")) {
         //     tp.razoring_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "razoring_mul")) {
@@ -494,8 +518,7 @@ pub const UciProtocol = struct {
         //     tp.se_double_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "se_triple_threshold")) {
         //     tp.se_triple_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } 
-        // else if (std.mem.eql(u8, option_name, "corr_pawn_read_weight")) {
+        // } else if (std.mem.eql(u8, option_name, "corr_pawn_read_weight")) {
         //     tp.corr_pawn_read_weight = try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // } else if (std.mem.eql(u8, option_name, "corr_np_read_weight")) {
         //     tp.corr_np_read_weight = try std.fmt.parseInt(i32, args[name_end + 1], 10);
@@ -506,7 +529,7 @@ pub const UciProtocol = struct {
         // } else if (std.mem.eql(u8, option_name, "corr_minor_read_weight")) {
         //     tp.corr_minor_read_weight= try std.fmt.parseInt(i32, args[name_end + 1], 10);
         // }
-        else {
+        } else {
             if (self.debug_mode) {
                 try respond("Unknown option");
             }
@@ -555,7 +578,7 @@ pub const UciProtocol = struct {
             self.board.game_state = brd.GameState.init();
             fen.setupStartingPosition(&self.board);
             self.board.refreshNNUE();
-            
+
             var j: usize = 1;
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
                 j += 1;

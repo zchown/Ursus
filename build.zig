@@ -212,10 +212,10 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
     fathom_mod.addCSourceFile(.{
-        .file = b.path("deps/fathom/src/tbprobe.c"),
+        .file = b.path("deps/Fathom/src/tbprobe.c"),
         .flags = &.{ "-std=c11", "-O3", "-DNDEBUG" },
     });
-    fathom_mod.addIncludePath(b.path("deps/fathom/src"));
+    fathom_mod.addIncludePath(b.path("deps/Fathom/src"));
 
     const fathom = b.addLibrary(.{
         .name = "fathom",
@@ -233,7 +233,7 @@ pub fn build(b: *std.Build) void {
         .file = b.path("deps/Fathom/src/tbprobe.c"),
         .flags = &.{ "-std=c11", "-O3", "-DNDEBUG" },
     });
-    tb_mod.addIncludePath(b.path("deps/fathom/src"));
+    tb_mod.addIncludePath(b.path("deps/Fathom/src"));
     tb_mod.addImport("board", board_module);
     tb_mod.addImport("moves", moves_module);
 
@@ -241,8 +241,8 @@ pub fn build(b: *std.Build) void {
     uci_module.addImport("tb", tb_mod);
 
     exe.root_module.linkLibrary(fathom);
-    exe.root_module.addIncludePath(b.path("deps/fathom/src"));
-    
+    exe.root_module.addIncludePath(b.path("deps/Fathom/src"));
+
     b.installArtifact(exe);
 
     const exe_options = b.addOptions();
@@ -255,5 +255,4 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-
 }

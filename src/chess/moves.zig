@@ -1186,7 +1186,6 @@ pub fn parseMove(board: *brd.Board, moveStr: []const u8) ?EncodedMove {
     const has_ks = (board.game_state.castling_rights & @intFromEnum(ks_right)) != 0;
     const has_qs = (board.game_state.castling_rights & @intFromEnum(qs_right)) != 0;
 
-    // Check if king is moving to a friendly rook square (UCI_Chess960 encoding).
     const rook_sq_ks = board.game_state.rookSquare(color, true);
     const rook_sq_qs = board.game_state.rookSquare(color, false);
     if (piece == 5 and has_ks and to == rook_sq_ks) {

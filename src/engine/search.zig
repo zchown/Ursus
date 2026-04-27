@@ -57,6 +57,7 @@ pub const Searcher = struct {
     time_offset: u64 = 0,
     timer: std.time.Timer = undefined,
     prev_depth_ms: u64 = 0,
+    chess960: bool = false,
 
     move_gen: *mvs.MoveGen = undefined,
 
@@ -184,7 +185,7 @@ pub const Searcher = struct {
         };
     }
 
-    pub fn initHelperThreads(num_threads: usize, shared_tt: *tt.TranspositionTable) !void {
+    pub fn initHelperThreads(num_threads: usize, shared_tt: *tt.TranspositionTable, chess960: bool) !void {
         if (num_threads <= 1) {
             return; // No helpers needed for single-threaded search
         }
@@ -204,6 +205,7 @@ pub const Searcher = struct {
             // var helper = Searcher.init();
             var helper = Searcher{};
             helper.initInPlace();
+            helper.chess960 = chess960;
             helper.thread_id = i;
             helper.silent_output = true; // not used but for future
             helper.tt_table = shared_tt;
@@ -222,7 +224,7 @@ pub const Searcher = struct {
         }
 
         if (search_helpers.items.len != num_threads - 1) {
-            try initHelperThreads(num_threads, main_searcher.tt_table);
+            try initHelperThreads(num_threads, main_searcher.tt_table, main_searcher.chess960);
         }
 
         threads.clearRetainingCapacity();
@@ -1261,35 +1263,50 @@ pub const Searcher = struct {
         }
     }
 
+
     pub fn printInfo(self: *Searcher, nodes: u64, tb_hits: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
         const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
         const nps: u64 = if (elapsed_ms > 0) (nodes * 1000) / elapsed_ms else 0;
         const hashfull = self.tt_table.getFillPermill();
- 
+
         var stdout_writer = std.fs.File.stdout().writer(&self.stdout_buffer);
         const stdout = &stdout_writer.interface;
- 
+
         var pv_string_buffer: [512]u8 = @splat(0);
         var pv_string_len: usize = 0;
+        var pv_color = self.perspective;
+
         for (pv) |move| {
-            const cur_move_str = move.uciToString(allocator) catch {
-                return; // If conversion fails, skip printing the PV
+            const cur_move_str = blk: {
+                if (self.chess960 and move.castling == 1) {
+                    const kingside = (move.end_square % 8) == 6;
+                    const rook_sq = self.root_board.game_state.rookSquare(pv_color, kingside);
+                    const sf: u8 = move.start_square % 8;
+                    const sr: u8 = @as(u8, @intCast(move.start_square / 8)) + 1;
+                    const rf: u8 = @as(u8, @intCast(rook_sq % 8));
+                    const rr: u8 = @as(u8, @intCast(rook_sq / 8)) + 1;
+                    break :blk std.fmt.allocPrint(allocator, "{c}{d}{c}{d}", .{
+                        'a' + sf, sr, 'a' + rf, rr,
+                    }) catch return;
+                }
+                break :blk move.uciToString(allocator) catch return;
             };
             defer allocator.free(cur_move_str);
+
             const needed_len = pv_string_len + cur_move_str.len + 1;
-            if (needed_len > pv_string_buffer.len) {
-                break;
-            }
+            if (needed_len > pv_string_buffer.len) break;
             std.mem.copyForwards(u8, pv_string_buffer[pv_string_len..], cur_move_str);
             pv_string_len += cur_move_str.len;
             pv_string_buffer[pv_string_len] = ' ';
             pv_string_len += 1;
+
+            pv_color = brd.flipColor(pv_color);
         }
         const pv_string = pv_string_buffer[0..pv_string_len];
- 
+
         var score_buf: [64]u8 = undefined;
         const score_string = formatScore(score, &score_buf);
- 
+
         stdout.print("info depth {d} seldepth {d} {s} time {d} nodes {d} nps {d} hashfull {d} tbhits {d} pv {s}\n", .{
             self.search_depth,
             self.seldepth,
