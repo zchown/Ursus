@@ -541,6 +541,9 @@ pub const MoveGen = struct {
         }
     }
 
+    /// Chess960-correct castling legality check.
+    /// Verifies the squares between king/rook and their destinations are clear,
+    /// and that the king's travel path is not attacked.
     fn isCastleLegal(
         self: *MoveGen,
         board: *Board,
@@ -554,6 +557,13 @@ pub const MoveGen = struct {
         const king_bb = brd.getSquareBB(king_sq);
         const rook_bb = brd.getSquareBB(rook_sq);
 
+        // Three sets of squares must be clear of other pieces (excluding the
+        // castling king and rook themselves):
+        //   1. span(king, rook)   — the corridor between king and rook.
+        //   2. span(rook, rook_dest) — the rook's travel path to its destination.
+        //      This matters when the rook's destination is further than the
+        //      king-rook gap (e.g. f-file QS rook travels through e-file).
+        //   3. The king and rook destination squares.
         const span_kr    = rankSpan(king_sq, rook_sq);
         const span_rdest = rankSpan(rook_sq, rook_dest);
         const dests      = brd.getSquareBB(king_dest) | brd.getSquareBB(rook_dest);
@@ -564,10 +574,13 @@ pub const MoveGen = struct {
         if (must_be_empty & occ_no_king_rook != 0) return false;
 
         // King must not pass through, or land on, an attacked square.
+        // Use occ_no_king_rook: if an enemy slider would attack through the
+        // rook's current square to hit the king's path, that attack is real
+        // because the rook vacates its square during castling.
         var king_path = rankSpan(king_sq, king_dest);
         while (king_path != 0) {
             const sq = brd.getLSB(king_path);
-            if (self.isAttackedOcc(sq, enemy, board, occ_no_king)) return false;
+            if (self.isAttackedOcc(sq, enemy, board, occ_no_king_rook)) return false;
             brd.popBit(&king_path, sq);
         }
 
@@ -578,6 +591,8 @@ pub const MoveGen = struct {
     inline fn rankSpan(sq1: brd.Square, sq2: brd.Square) Bitboard {
         const lo = @min(sq1, sq2);
         const hi = @max(sq1, sq2);
+        // Build a contiguous run of bits from lo to hi.
+        // ((2 << hi) - 1) gives bits 0..hi; subtracting (1 << lo) clears bits below lo.
         return ((@as(Bitboard, 2) << @intCast(hi)) -% 1) & ~((@as(Bitboard, 1) << @intCast(lo)) -% 1);
     }
 
@@ -1219,7 +1234,6 @@ pub fn parseMove(board: *brd.Board, moveStr: []const u8, chess960: bool) ?Encode
         .castling = @intFromBool(castling),
     };
 }
-
 fn parseSquare(squareStr: []const u8) ?brd.Square {
     if (squareStr.len != 2) {
         return null;

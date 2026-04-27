@@ -1,0 +1,531 @@
+Starting fastchess SPRT match
+  New:    ./zig-out/bin/Ursus
+  Base:   ./zig-out/bin/Ursus
+  TC:     8+0.08
+  Rounds: 100000 (SPRT will stop early)
+  SPRT:   elo0=-5 elo1=0 alpha=0.05 beta=0.05
+  Output: matches/20260426_214154
+
+Indexing opening suite...
+Started game 1 of 200000 (New vs Base)
+Started game 7 of 200000 (New vs Base)
+Started game 4 of 200000 (Base vs New)
+Started game 8 of 200000 (Base vs New)
+Started game 5 of 200000 (New vs Base)
+Started game 3 of 200000 (New vs Base)
+Started game 6 of 200000 (Base vs New)
+Started game 2 of 200000 (Base vs New)
+Finished game 5 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 9 of 200000 (New vs Base)
+Finished game 6 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 10 of 200000 (Base vs New)
+Finished game 2 (Base vs New): 0-1 {Black mates}
+Started game 11 of 200000 (New vs Base)
+Finished game 8 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 12 of 200000 (Base vs New)
+Finished game 7 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 13 of 200000 (New vs Base)
+Finished game 1 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 14 of 200000 (Base vs New)
+Finished game 3 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 15 of 200000 (New vs Base)
+Finished game 9 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 16 of 200000 (Base vs New)
+Finished game 10 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 17 of 200000 (New vs Base)
+Finished game 4 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 18 of 200000 (Base vs New)
+Finished game 12 (Base vs New): 0-1 {Black mates}
+Started game 19 of 200000 (New vs Base)
+Finished game 11 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 20 of 200000 (Base vs New)
+Finished game 14 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 21 of 200000 (New vs Base)
+Finished game 13 (New vs Base): 1-0 {White mates}
+Started game 22 of 200000 (Base vs New)
+Finished game 15 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 23 of 200000 (New vs Base)
+Finished game 16 (Base vs New): 1-0 {White mates}
+Started game 24 of 200000 (Base vs New)
+Finished game 18 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 25 of 200000 (New vs Base)
+Finished game 17 (New vs Base): 1/2-1/2 {Draw by fifty moves rule}
+Started game 26 of 200000 (Base vs New)
+Finished game 20 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 27 of 200000 (New vs Base)
+Finished game 19 (New vs Base): 0-1 {Black mates}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: -17.39 +/- 58.68, nElo: -45.62 +/- 152.27
+LOS: 27.85 %, DrawRatio: 70.00 %, PairsRatio: 0.50
+Games: 20, Wins: 4, Losses: 5, Draws: 11, Points: 9.5 (47.50 %)
+Ptnml(0-2): [0, 2, 7, 1, 0], WL/DD Ratio: 0.75
+LLR: -0.04 (-1.2%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 28 of 200000 (Base vs New)
+Finished game 21 (New vs Base): 1-0 {White mates}
+Started game 29 of 200000 (New vs Base)
+Finished game 22 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 30 of 200000 (Base vs New)
+Finished game 24 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 31 of 200000 (New vs Base)
+Finished game 25 (New vs Base): 1-0 {White mates}
+Started game 32 of 200000 (Base vs New)
+Finished game 28 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 33 of 200000 (New vs Base)
+Finished game 29 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 34 of 200000 (Base vs New)
+Finished game 23 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 35 of 200000 (New vs Base)
+Finished game 27 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 36 of 200000 (Base vs New)
+Finished game 30 (Base vs New): 1-0 {White mates}
+Started game 37 of 200000 (New vs Base)
+Finished game 26 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 38 of 200000 (Base vs New)
+Finished game 31 (New vs Base): 1-0 {White mates}
+Started game 39 of 200000 (New vs Base)
+Finished game 32 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 40 of 200000 (Base vs New)
+Finished game 33 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 41 of 200000 (New vs Base)
+Finished game 35 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 42 of 200000 (Base vs New)
+Finished game 34 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 43 of 200000 (New vs Base)
+Finished game 39 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 44 of 200000 (Base vs New)
+Finished game 37 (New vs Base): 1-0 {White mates}
+Started game 45 of 200000 (New vs Base)
+Finished game 38 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 46 of 200000 (Base vs New)
+Finished game 36 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 47 of 200000 (New vs Base)
+Finished game 41 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 48 of 200000 (Base vs New)
+Finished game 42 (Base vs New): 0-1 {Black mates}
+Started game 49 of 200000 (New vs Base)
+Finished game 45 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 50 of 200000 (Base vs New)
+Finished game 40 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: 41.56 +/- 61.79, nElo: 72.13 +/- 105.07
+LOS: 91.08 %, DrawRatio: 57.14 %, PairsRatio: 2.00
+Games: 42, Wins: 14, Losses: 9, Draws: 19, Points: 23.5 (55.95 %)
+Ptnml(0-2): [0, 3, 12, 4, 2], WL/DD Ratio: 1.00
+LLR: 0.14 (4.6%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 51 of 200000 (New vs Base)
+Finished game 44 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 52 of 200000 (Base vs New)
+Finished game 43 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 53 of 200000 (New vs Base)
+Finished game 46 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 54 of 200000 (Base vs New)
+Finished game 48 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 55 of 200000 (New vs Base)
+Finished game 47 (New vs Base): 1/2-1/2 {Draw by fifty moves rule}
+Started game 56 of 200000 (Base vs New)
+Finished game 50 (Base vs New): 0-1 {Black mates}
+Started game 57 of 200000 (New vs Base)
+Finished game 51 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 58 of 200000 (Base vs New)
+Finished game 49 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 59 of 200000 (New vs Base)
+Finished game 52 (Base vs New): 1-0 {White mates}
+Started game 60 of 200000 (Base vs New)
+Finished game 54 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 61 of 200000 (New vs Base)
+Finished game 55 (New vs Base): 0-1 {Black mates}
+Started game 62 of 200000 (Base vs New)
+Finished game 58 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 63 of 200000 (New vs Base)
+Finished game 56 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 64 of 200000 (Base vs New)
+Finished game 53 (New vs Base): 1/2-1/2 {Draw by fifty moves rule}
+Started game 65 of 200000 (New vs Base)
+Finished game 57 (New vs Base): 1-0 {White mates}
+Started game 66 of 200000 (Base vs New)
+Finished game 60 (Base vs New): 1-0 {White mates}
+Started game 67 of 200000 (New vs Base)
+Finished game 66 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 68 of 200000 (Base vs New)
+Finished game 61 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 69 of 200000 (New vs Base)
+Finished game 63 (New vs Base): 0-1 {Black mates}
+Started game 70 of 200000 (Base vs New)
+Finished game 59 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: -0.00 +/- 67.00, nElo: 0.00 +/- 87.91
+LOS: 50.00 %, DrawRatio: 46.67 %, PairsRatio: 1.00
+Games: 60, Wins: 18, Losses: 18, Draws: 24, Points: 30.0 (50.00 %)
+Ptnml(0-2): [3, 5, 14, 5, 3], WL/DD Ratio: 1.00
+LLR: 0.01 (0.2%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 71 of 200000 (New vs Base)
+Finished game 62 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 72 of 200000 (Base vs New)
+Finished game 64 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 73 of 200000 (New vs Base)
+Finished game 65 (New vs Base): 1-0 {White mates}
+Started game 74 of 200000 (Base vs New)
+Finished game 69 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 75 of 200000 (New vs Base)
+Finished game 72 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 76 of 200000 (Base vs New)
+Finished game 68 (Base vs New): 1-0 {White mates}
+Started game 77 of 200000 (New vs Base)
+Finished game 70 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 78 of 200000 (Base vs New)
+Finished game 71 (New vs Base): 0-1 {Black mates}
+Started game 79 of 200000 (New vs Base)
+Finished game 73 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 80 of 200000 (Base vs New)
+Finished game 74 (Base vs New): 1-0 {White mates}
+Started game 81 of 200000 (New vs Base)
+Finished game 67 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 82 of 200000 (Base vs New)
+Finished game 75 (New vs Base): 1-0 {White mates}
+Started game 83 of 200000 (New vs Base)
+Finished game 76 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 84 of 200000 (Base vs New)
+Finished game 78 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 85 of 200000 (New vs Base)
+Finished game 79 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 86 of 200000 (Base vs New)
+Finished game 81 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 87 of 200000 (New vs Base)
+Finished game 77 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 88 of 200000 (Base vs New)
+Finished game 80 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: -8.69 +/- 56.94, nElo: -11.73 +/- 76.13
+LOS: 38.14 %, DrawRatio: 42.50 %, PairsRatio: 0.92
+Games: 80, Wins: 23, Losses: 25, Draws: 32, Points: 39.0 (48.75 %)
+Ptnml(0-2): [4, 8, 17, 8, 3], WL/DD Ratio: 1.12
+LLR: -0.03 (-1.0%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 89 of 200000 (New vs Base)
+Finished game 83 (New vs Base): 1-0 {White mates}
+Started game 90 of 200000 (Base vs New)
+Finished game 82 (Base vs New): 0-1 {Black mates}
+Started game 91 of 200000 (New vs Base)
+Finished game 85 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 92 of 200000 (Base vs New)
+Finished game 84 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 93 of 200000 (New vs Base)
+Finished game 88 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 94 of 200000 (Base vs New)
+Finished game 87 (New vs Base): 1-0 {White mates}
+Started game 95 of 200000 (New vs Base)
+Finished game 86 (Base vs New): 0-1 {Black mates}
+Started game 96 of 200000 (Base vs New)
+Finished game 89 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 97 of 200000 (New vs Base)
+Finished game 90 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 98 of 200000 (Base vs New)
+Finished game 91 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 99 of 200000 (New vs Base)
+Finished game 93 (New vs Base): 0-1 {Black mates}
+Started game 100 of 200000 (Base vs New)
+Finished game 92 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 101 of 200000 (New vs Base)
+Finished game 94 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 102 of 200000 (Base vs New)
+Finished game 98 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 103 of 200000 (New vs Base)
+Finished game 95 (New vs Base): 1-0 {White mates}
+Started game 104 of 200000 (Base vs New)
+Finished game 96 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 105 of 200000 (New vs Base)
+Finished game 97 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 106 of 200000 (Base vs New)
+Finished game 101 (New vs Base): 1-0 {White mates}
+Started game 107 of 200000 (New vs Base)
+Finished game 100 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 108 of 200000 (Base vs New)
+Finished game 106 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 109 of 200000 (New vs Base)
+Finished game 105 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 110 of 200000 (Base vs New)
+Finished game 102 (Base vs New): 0-1 {Black mates}
+Started game 111 of 200000 (New vs Base)
+Finished game 99 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: 3.34 +/- 47.97, nElo: 4.68 +/- 66.77
+LOS: 55.46 %, DrawRatio: 44.23 %, PairsRatio: 1.07
+Games: 104, Wins: 33, Losses: 32, Draws: 39, Points: 52.5 (50.48 %)
+Ptnml(0-2): [4, 10, 23, 11, 4], WL/DD Ratio: 1.56
+LLR: 0.03 (1.1%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 112 of 200000 (Base vs New)
+Finished game 103 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 113 of 200000 (New vs Base)
+Finished game 104 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 114 of 200000 (Base vs New)
+Finished game 107 (New vs Base): 0-1 {Black mates}
+Started game 115 of 200000 (New vs Base)
+Finished game 110 (Base vs New): 1-0 {White mates}
+Started game 116 of 200000 (Base vs New)
+Finished game 109 (New vs Base): 1-0 {White mates}
+Started game 117 of 200000 (New vs Base)
+Finished game 108 (Base vs New): 1-0 {White mates}
+Started game 118 of 200000 (Base vs New)
+Finished game 111 (New vs Base): 1-0 {White mates}
+Started game 119 of 200000 (New vs Base)
+Finished game 112 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 120 of 200000 (Base vs New)
+Finished game 113 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 121 of 200000 (New vs Base)
+Finished game 114 (Base vs New): 1-0 {White mates}
+Started game 122 of 200000 (Base vs New)
+Finished game 119 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 123 of 200000 (New vs Base)
+Finished game 118 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 124 of 200000 (Base vs New)
+Finished game 115 (New vs Base): 1-0 {White mates}
+Started game 125 of 200000 (New vs Base)
+Finished game 120 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: -5.99 +/- 44.94, nElo: -8.48 +/- 63.23
+LOS: 39.64 %, DrawRatio: 46.55 %, PairsRatio: 0.94
+Games: 116, Wins: 36, Losses: 38, Draws: 42, Points: 57.0 (49.14 %)
+Ptnml(0-2): [5, 11, 27, 11, 4], WL/DD Ratio: 1.70
+LLR: -0.03 (-1.0%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 126 of 200000 (Base vs New)
+Finished game 116 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 127 of 200000 (New vs Base)
+Finished game 117 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 128 of 200000 (Base vs New)
+Finished game 121 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 129 of 200000 (New vs Base)
+Finished game 122 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 130 of 200000 (Base vs New)
+Finished game 129 (New vs Base): 1-0 {White mates}
+Started game 131 of 200000 (New vs Base)
+Finished game 124 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 132 of 200000 (Base vs New)
+Finished game 123 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 133 of 200000 (New vs Base)
+Finished game 127 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 134 of 200000 (Base vs New)
+Finished game 125 (New vs Base): 0-1 {Black mates}
+Started game 135 of 200000 (New vs Base)
+Finished game 128 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 136 of 200000 (Base vs New)
+Finished game 126 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 137 of 200000 (New vs Base)
+Finished game 130 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 138 of 200000 (Base vs New)
+Finished game 132 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 139 of 200000 (New vs Base)
+Finished game 131 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 140 of 200000 (Base vs New)
+Finished game 133 (New vs Base): 1-0 {White mates}
+Started game 141 of 200000 (New vs Base)
+Finished game 136 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 142 of 200000 (Base vs New)
+Finished game 135 (New vs Base): 1-0 {White mates}
+Started game 143 of 200000 (New vs Base)
+Finished game 134 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 144 of 200000 (Base vs New)
+Finished game 139 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 145 of 200000 (New vs Base)
+Finished game 138 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 146 of 200000 (Base vs New)
+Finished game 141 (New vs Base): 1-0 {White mates}
+Started game 147 of 200000 (New vs Base)
+Finished game 137 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 148 of 200000 (Base vs New)
+Finished game 140 (Base vs New): 1-0 {White mates}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: -4.96 +/- 43.73, nElo: -6.57 +/- 57.55
+LOS: 41.15 %, DrawRatio: 41.43 %, PairsRatio: 0.95
+Games: 140, Wins: 45, Losses: 47, Draws: 48, Points: 69.0 (49.29 %)
+Ptnml(0-2): [7, 14, 29, 14, 6], WL/DD Ratio: 1.90
+LLR: -0.02 (-0.8%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 149 of 200000 (New vs Base)
+Finished game 143 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 150 of 200000 (Base vs New)
+Finished game 144 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 151 of 200000 (New vs Base)
+Finished game 142 (Base vs New): 0-1 {Black mates}
+Started game 152 of 200000 (Base vs New)
+Finished game 146 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 153 of 200000 (New vs Base)
+Finished game 145 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 154 of 200000 (Base vs New)
+Finished game 150 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 155 of 200000 (New vs Base)
+Finished game 152 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 156 of 200000 (Base vs New)
+Finished game 147 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 157 of 200000 (New vs Base)
+Finished game 149 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 158 of 200000 (Base vs New)
+Finished game 148 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 159 of 200000 (New vs Base)
+Finished game 153 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 160 of 200000 (Base vs New)
+Finished game 151 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 161 of 200000 (New vs Base)
+Finished game 154 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 162 of 200000 (Base vs New)
+Finished game 157 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 163 of 200000 (New vs Base)
+Finished game 155 (New vs Base): 1-0 {White mates}
+Started game 164 of 200000 (Base vs New)
+Finished game 159 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 165 of 200000 (New vs Base)
+Finished game 158 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 166 of 200000 (Base vs New)
+Finished game 156 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 167 of 200000 (New vs Base)
+Finished game 166 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 168 of 200000 (Base vs New)
+Finished game 160 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: 2.17 +/- 41.23, nElo: 2.85 +/- 53.83
+LOS: 54.13 %, DrawRatio: 40.00 %, PairsRatio: 1.00
+Games: 160, Wins: 51, Losses: 50, Draws: 59, Points: 80.5 (50.31 %)
+Ptnml(0-2): [7, 17, 32, 16, 8], WL/DD Ratio: 1.46
+LLR: 0.04 (1.2%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 169 of 200000 (New vs Base)
+Finished game 163 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 170 of 200000 (Base vs New)
+Finished game 164 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 171 of 200000 (New vs Base)
+Finished game 162 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 172 of 200000 (Base vs New)
+Finished game 161 (New vs Base): 0-1 {Black mates}
+Started game 173 of 200000 (New vs Base)
+Finished game 165 (New vs Base): 1-0 {White mates}
+Started game 174 of 200000 (Base vs New)
+Finished game 167 (New vs Base): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 175 of 200000 (New vs Base)
+Finished game 170 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 176 of 200000 (Base vs New)
+Finished game 168 (Base vs New): 0-1 {Black mates}
+Started game 177 of 200000 (New vs Base)
+Finished game 169 (New vs Base): 0-1 {Black mates}
+Started game 178 of 200000 (Base vs New)
+Finished game 171 (New vs Base): 0-1 {Black mates}
+Started game 179 of 200000 (New vs Base)
+Finished game 173 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 180 of 200000 (Base vs New)
+Finished game 172 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 181 of 200000 (New vs Base)
+Finished game 174 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 182 of 200000 (Base vs New)
+Finished game 175 (New vs Base): 0-1 {Black mates}
+Started game 183 of 200000 (New vs Base)
+Finished game 178 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 184 of 200000 (Base vs New)
+Finished game 179 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 185 of 200000 (New vs Base)
+Finished game 176 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 186 of 200000 (Base vs New)
+Finished game 177 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 187 of 200000 (New vs Base)
+Finished game 181 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 188 of 200000 (Base vs New)
+Finished game 182 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 189 of 200000 (New vs Base)
+Finished game 183 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 190 of 200000 (Base vs New)
+Finished game 180 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: 5.73 +/- 37.74, nElo: 7.69 +/- 50.48
+LOS: 61.74 %, DrawRatio: 41.76 %, PairsRatio: 1.04
+Games: 182, Wins: 58, Losses: 55, Draws: 69, Points: 92.5 (50.82 %)
+Ptnml(0-2): [7, 19, 38, 18, 9], WL/DD Ratio: 1.38
+LLR: 0.08 (2.6%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 191 of 200000 (New vs Base)
+Finished game 186 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 192 of 200000 (Base vs New)
+Finished game 187 (New vs Base): 0-1 {Black mates}
+Started game 193 of 200000 (New vs Base)
+Finished game 188 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 194 of 200000 (Base vs New)
+Finished game 189 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 195 of 200000 (New vs Base)
+Finished game 184 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 196 of 200000 (Base vs New)
+Finished game 190 (Base vs New): 0-1 {Black mates}
+Started game 197 of 200000 (New vs Base)
+Finished game 185 (New vs Base): 1/2-1/2 {Draw by fifty moves rule}
+Started game 198 of 200000 (Base vs New)
+Finished game 193 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 199 of 200000 (New vs Base)
+Finished game 191 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 200 of 200000 (Base vs New)
+Finished game 194 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 201 of 200000 (New vs Base)
+Finished game 192 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 202 of 200000 (Base vs New)
+Finished game 195 (New vs Base): 1-0 {White mates}
+Started game 203 of 200000 (New vs Base)
+Finished game 196 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 204 of 200000 (Base vs New)
+Finished game 197 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 205 of 200000 (New vs Base)
+Finished game 199 (New vs Base): 1-0 {White mates}
+Started game 206 of 200000 (Base vs New)
+Finished game 200 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+--------------------------------------------------
+Results of New vs Base (8+0.08, 1t, 256MB, dfrc.epd):
+Elo: 7.02 +/- 35.18, nElo: 9.69 +/- 48.39
+LOS: 65.27 %, DrawRatio: 43.43 %, PairsRatio: 1.07
+Games: 198, Wins: 62, Losses: 58, Draws: 78, Points: 101.0 (51.01 %)
+Ptnml(0-2): [7, 20, 43, 20, 9], WL/DD Ratio: 1.26
+LLR: 0.10 (3.4%) (-2.94, 2.94) [-5.00, 0.00]
+--------------------------------------------------
+Started game 207 of 200000 (New vs Base)
+Finished game 201 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 208 of 200000 (Base vs New)
+Finished game 198 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 209 of 200000 (New vs Base)
+Finished game 202 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 210 of 200000 (Base vs New)
+Finished game 203 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 211 of 200000 (New vs Base)
+Finished game 204 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 212 of 200000 (Base vs New)
+Finished game 207 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 213 of 200000 (New vs Base)
+Finished game 208 (Base vs New): 1-0 {White mates}
+Started game 214 of 200000 (Base vs New)
+Finished game 206 (Base vs New): 1-0 {White mates}
+Started game 215 of 200000 (New vs Base)
+Finished game 205 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 216 of 200000 (Base vs New)
+Finished game 209 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 217 of 200000 (New vs Base)
+Finished game 211 (New vs Base): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 218 of 200000 (Base vs New)
+Finished game 210 (Base vs New): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 219 of 200000 (New vs Base)
+Finished game 212 (Base vs New): 0-1 {Black wins by adjudication: SyzygyTB}
+Started game 220 of 200000 (Base vs New)
+Finished game 217 (New vs Base): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 221 of 200000 (New vs Base)
+Finished game 214 (Base vs New): 1/2-1/2 {Draw by 3-fold repetition}
+Started game 222 of 200000 (Base vs New)
+Finished game 213 (New vs Base): 1/2-1/2 {Draw by adjudication: SyzygyTB}
+Started game 223 of 200000 (New vs Base)
+Finished game 216 (Base vs New): 1-0 {White wins by adjudication: SyzygyTB}
+Started game 224 of 200000 (Base vs New)
+Finished game 215 (New vs Base): 0-1 {Black mates}
+Started game 225 of 200000 (New vs Base)

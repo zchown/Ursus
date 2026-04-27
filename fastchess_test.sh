@@ -20,8 +20,8 @@ FASTCHESS="fastchess"
 OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 # OPENINGS="openings.pgn"
 
-CONCURRENCY=10
-TC="1+0.01"
+CONCURRENCY=8
+TC="8+0.08"
 ROUNDS=100000
 TIMEMARGIN=50
 
