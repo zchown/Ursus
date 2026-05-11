@@ -426,7 +426,7 @@ pub const Searcher = struct {
                 }
 
                 if (score <= alpha) {
-                    beta = @divTrunc(alpha + beta, 2);
+                    // beta = @divTrunc(alpha + beta, 2);
                     alpha = @max(alpha - delta, -eval.mate_score);
                     delta = @min(delta * 2, eval.mate_score);
                     window_failed = true;

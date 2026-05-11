@@ -97,8 +97,7 @@ fn outputBestMove(protocol: *UciProtocol, result: srch.SearchResult, root_color:
     defer protocol.allocator.free(move_str);
 
     if (result.pv_length >= 2) {
-        const ponder_color = brd.flipColor(root_color);
-        const ponder_str = try moveToUciStr(protocol, result.pv[1], ponder_color);
+        const ponder_str = try result.pv[1].uciToString(protocol.allocator);
         defer protocol.allocator.free(ponder_str);
         try stdout.print("bestmove {s} ponder {s}\n", .{ move_str, ponder_str });
     } else {
