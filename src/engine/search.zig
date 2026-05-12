@@ -929,6 +929,10 @@ pub const Searcher = struct {
                 }
             }
 
+            if (move.promoted_piece != 0) {
+                extension += 1;
+            }
+
             if (in_check) {
                 extension += 1;
             }

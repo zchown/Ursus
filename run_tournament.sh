@@ -7,15 +7,18 @@ FASTCHESS="fastchess"
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
   "Ursus3.29=./engines/Ursus3.29"
-  # "Ursus3.6=./engines/Ursus3.6"
-  "stash37=./../stash/stash-bot-v37.0/src/stash" # 3426
-  "stash35=./../stash/stash-bot-v35.0/src/stash-bot" # 3350
-  "Raphael=./../Raphael/uci" # 3612
-  "Lynx=./../lynx/Lynx.Cli" # 3373
-  "Grail=./../grail-arm64" # 3336
-  "Simbelmyne=./../simbelmyne" # 3244
-  "Odonata=./../odonata/target/release/odonata" #3352
-  "tcheran"="./../tcheran/target/release/engine" #3634
+  "Ursus3.15=./engines/Ursus3.15"
+  "Ursus3.6=./engines/Ursus3.6"
+  "Ursus2.26=./engines/Ursus2.26"
+  "Ursus2.17=./engines/Ursus2.17"
+  # "stash37=./../stash/stash-bot-v37.0/src/stash" # 3426
+  # "stash35=./../stash/stash-bot-v35.0/src/stash-bot" # 3350
+  # "Raphael=./../Raphael/uci" # 3612
+  # "Lynx=./../lynx/Lynx.Cli" # 3373
+  # "Grail=./../grail-arm64" # 3336
+  # "Simbelmyne=./../simbelmyne" # 3244
+  # "Odonata=./../odonata/target/release/odonata" #3352
+  # "tcheran"="./../tcheran/target/release/engine" #3634
   # "Sirius"="./../sirius/Sirius-9.0/build/arm64/Sirius/sirius" # 3534 - On my machine its absolutely terrible for some reason
   # "Sykora=./../sykora/zig-out/bin/Sykora"
   # "Pawn=./../pawn/build/pawn" # 3554
@@ -50,7 +53,7 @@ done
 
 $CUTECHESS \
   "${ENGINE_ARGS[@]}" \
-  -each tc=$TC timemargin=50 option.Threads=1 option.Hash=64 \
+  -each tc=$TC option.Threads=1 option.Hash=256 \
   -openings file="$OPENINGS" format=epd order=random policy=round \
   -repeat 2 \
   -games 2 \
@@ -62,8 +65,6 @@ $CUTECHESS \
   -pgnout "$PGN" \
   | tee "$LOG"
 
-# -resign movecount=5 score=400 \
-# 	-draw movenumber=40 movecount=6 score=15 \
 echo
 echo "Tournament finished"
 echo "PGN: $PGN"
