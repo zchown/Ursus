@@ -290,7 +290,7 @@ pub const TranspositionTable = struct {
         return .{ .used = used, .total = self.size };
     }
 
-    pub fn getFillPermill(self: *TranspositionTable) usize {
+    pub fn getFillPermill(self: *const TranspositionTable) usize {
         const sample_size = @min(1000, self.size);
         var used: usize = 0;
 

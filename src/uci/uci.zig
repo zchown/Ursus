@@ -12,6 +12,8 @@ const perft = @import("perft");
 const tp = @import("tunable_parameters");
 const tb = @import("tb");
 
+var move_overhead: u64 = 10;
+
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
     btime: ?u64 = null,
@@ -305,7 +307,7 @@ pub const UciProtocol = struct {
         if (limits.ponder) {
             var real_limits = limits;
             real_limits.ponder = false;
-            const time_alloc = calculateTimeAllocation(&real_limits, self.board.toMove());
+            const time_alloc = self.calculateTimeAllocation(&real_limits, self.board.toMove());
             self.searcher.max_ms = time_alloc.max_ms;
             self.searcher.ideal_ms = time_alloc.ideal_ms;
             self.searcher.force_think = true;
@@ -314,7 +316,7 @@ pub const UciProtocol = struct {
             @atomicStore(bool, &self.is_pondering, true, .release);
         } else {
             self.searcher.force_think = false;
-            const time_alloc = calculateTimeAllocation(&limits, self.board.toMove());
+            const time_alloc = self.calculateTimeAllocation(&limits, self.board.toMove());
             self.searcher.max_ms = time_alloc.max_ms;
             self.searcher.ideal_ms = time_alloc.ideal_ms;
             @atomicStore(bool, &self.is_pondering, false, .release);
@@ -351,35 +353,7 @@ pub const UciProtocol = struct {
         try respond("option name UCI_Chess960 type check default false");
         try respond("option name SyzygyPath type string default <empty>");
         try respond("option name SyzygyProbeDepth type spin default 1 min 1 max 100");
-
-        // try respond("option name aspiration_window type spin default 15 min 10 max 200");
-        // try respond("option name rfp_mul type spin default 63 min 25 max 150");
-        // try respond("option name rfp_improvement type spin default 42 min 10 max 150");
-        // try respond("option name nmp_improvement type spin default 36 min 10 max 150");
-        // try respond("option name nmp_base type spin default 4 min 1 max 8");
-        // try respond("option name nmp_depth_div type spin default 3 min 1 max 8");
-        // try respond("option name nmp_beta_div type spin default 159 min 50 max 300");
-        // try respond("option name razoring_base type spin default 337 min 100 max 600");
-        // try respond("option name razoring_mul type spin default 70 min 10 max 200");
-        // try respond("option name q_see_margin type spin default -37 min -200 max 0");
-        // try respond("option name q_delta_margin type spin default 160 min 0 max 400");
-        // try respond("option name lmr_base type spin default 428 min 100 max 1500");
-        // try respond("option name lmr_div type spin default 319 min 50 max 500");
-        // try respond("option name lmr_pv_min type spin default 4 min 1 max 10");
-        // try respond("option name lmr_non_pv_min type spin default 2 min 1 max 10");
-        // try respond("option name futility_mul type spin default 161 min 25 max 400");
-        // try respond("option name history_div type spin default 8022 min 1000 max 12000");
-        // try respond("option name lmp_base type spin default 200 min 0 max 1000");
-        // try respond("option name lmp_mul type spin default 200 min 0 max 1000");
-        // try respond("option name q_see_min type spin default -133 min -500 max 0");
-        // try respond("option name lmp_improve type spin default 200 min 0 max 400");
-        // try respond("option name se_double_threshold type spin default 28 min 10 max 200");
-        // try respond("option name se_triple_threshold type spin default 14 min 10 max 400");
-        // try respond("option name corr_pawn_read_weight type spin default 175 min 25 max 750");
-        // try respond("option name corr_np_read_weight type spin default 110 min 25 max 750");
-        // try respond("option name corr_minor_read_weight type spin default 175 min 25 max 750");
-        // try respond("option name corr_major_read_weight type spin default 100 min 25 max 750");
-        // try respond("option name corr_read_divisor type spin default 128738 min 75000 max 200000");
+        try respond("option name Overhead type spin default 10 min 0 max 1000");
 
         try self.newGame();
 
@@ -469,65 +443,10 @@ pub const UciProtocol = struct {
             if (args.len >= name_end + 2) {
                 tp.tb_probe_depth = try std.fmt.parseInt(usize, args[name_end + 1], 10);
             }
-        // } else if (std.mem.eql(u8, option_name, "aspiration_window")) {
-        //     tp.aspiration_window = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "rfp_mul")) {
-        //     tp.rfp_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "rfp_improvement")) {
-        //     tp.rfp_improvement = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "nmp_improvement")) {
-        //     tp.nmp_improvement = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "nmp_base")) {
-        //     tp.nmp_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "nmp_depth_div")) {
-        //     tp.nmp_depth_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "nmp_beta_div")) {
-        //     tp.nmp_beta_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "razoring_base")) {
-        //     tp.razoring_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "razoring_mul")) {
-        //     tp.razoring_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "q_see_margin")) {
-        //     tp.q_see_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "q_delta_margin")) {
-        //     tp.q_delta_margin = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmr_base")) {
-        //     tp.lmr_base = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        //     srch.quiet_lmr = srch.initQuietLMR();
-        // } else if (std.mem.eql(u8, option_name, "lmr_div")) {
-        //     tp.lmr_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        //     srch.quiet_lmr = srch.initQuietLMR();
-        // } else if (std.mem.eql(u8, option_name, "lmr_pv_min")) {
-        //     tp.lmr_pv_min = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmr_non_pv_min")) {
-        //     tp.lmr_non_pv_min = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "futility_mul")) {
-        //     tp.futility_mul = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "history_div")) {
-        //     tp.history_div = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmp_base")) {
-        //     tp.lmp_base = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmp_mul")) {
-        //     tp.lmp_mul = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "q_see_min")) {
-        //     tp.q_see_min = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "lmp_improve")) {
-        //     tp.lmp_improve = try std.fmt.parseInt(usize, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "se_double_threshold")) {
-        //     tp.se_double_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "se_triple_threshold")) {
-        //     tp.se_triple_threshold = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "corr_pawn_read_weight")) {
-        //     tp.corr_pawn_read_weight = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "corr_np_read_weight")) {
-        //     tp.corr_np_read_weight = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "corr_read_divisor")) {
-        //     tp.corr_read_divisor = try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "corr_major_read_weight")) {
-        //     tp.corr_major_read_weight= try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // } else if (std.mem.eql(u8, option_name, "corr_minor_read_weight")) {
-        //     tp.corr_minor_read_weight= try std.fmt.parseInt(i32, args[name_end + 1], 10);
-        // }
+        } else if (std.mem.eql(u8, option_name, "Overhead")) {
+            if (args.len >= name_end + 2) {
+                move_overhead = try std.fmt.parseInt(u64, args[name_end + 1], 10);
+            }
         } else {
             if (self.debug_mode) {
                 try respond("Unknown option");
@@ -535,9 +454,9 @@ pub const UciProtocol = struct {
         }
 
         // setup pawn_tt
-        if (!pawn_tt.pawn_tt_initialized) {
-            try pawn_tt.TranspositionTable.initGlobal(self.hash_size_mb / 8);
-        }
+        // if (!pawn_tt.pawn_tt_initialized) {
+            // try pawn_tt.TranspositionTable.initGlobal(self.hash_size_mb / 8);
+        // }
     }
 
     fn respond(response: []const u8) !void {
@@ -663,34 +582,41 @@ pub const UciProtocol = struct {
         }
         try perft.runPerft(self.searcher.move_gen, &self.board, depth);
     }
-};
 
-fn calculateTimeAllocation(limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {
-    const overhead: u64 = 30;
-
-    if (limits.movetime) |mt| {
-        return .{ .max_ms = mt, .ideal_ms = mt };
-    }
-    if (limits.infinite or limits.ponder) {
+    fn calculateTimeAllocation(self: *const UciProtocol, limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {
+        if (limits.movetime) |mt| {
+            return .{ .max_ms = mt, .ideal_ms = mt };
+        }
+        if (limits.infinite or limits.ponder) {
+            return .{ .max_ms = std.math.maxInt(u64), .ideal_ms = std.math.maxInt(u64) };
+        }
+        const our_time = if (side_to_move == .White) limits.wtime else limits.btime;
+        const our_inc = if (side_to_move == .White) limits.winc else limits.binc;
+        if (our_time) |time| {
+            const safe_time = time -| move_overhead;
+            const increment = our_inc orelse 0;
+            var moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else blk: {
+                if (increment == 0) break :blk @as(u64, 35);
+                if (increment < 200) break :blk @as(u64, 30);
+                break :blk @as(u64, 25);
+            };
+            if (self.tt_table.getFillPermill() > 800) {
+                moves_remaining -= 5;
+            } else if (self.tt_table.getFillPermill() < 200) {
+                moves_remaining += 5;
+            }
+            const total_time = safe_time + (increment * (moves_remaining - 1));
+            const base_time = total_time / moves_remaining;
+            var ideal_ms = @min(base_time * 9 / 10, safe_time -| 50);
+            const calculated_max = @min(ideal_ms * 3, safe_time * 4 / 10);
+            var max_ms = @max(ideal_ms, calculated_max);
+            max_ms = @min(max_ms, time);
+            ideal_ms = @min(ideal_ms, max_ms * 8 / 10);
+            return .{
+                .max_ms = @max(max_ms, 1),
+                .ideal_ms = @max(ideal_ms, 1),
+            };
+        }
         return .{ .max_ms = std.math.maxInt(u64), .ideal_ms = std.math.maxInt(u64) };
     }
-    const our_time = if (side_to_move == .White) limits.wtime else limits.btime;
-    const our_inc = if (side_to_move == .White) limits.winc else limits.binc;
-    if (our_time) |time| {
-        const safe_time = time -| overhead;
-        const increment = our_inc orelse 0;
-        const moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else 25;
-        const total_time = safe_time + (increment * (moves_remaining - 1));
-        const base_time = total_time / moves_remaining;
-        const ideal_ms = @min(base_time * 9 / 10, safe_time -| 50);
-        const calculated_max = @min(ideal_ms * 3, safe_time * 4 / 10);
-        const max_ms = @max(ideal_ms, calculated_max);
-        return .{
-            .max_ms = @max(max_ms, 1),
-            .ideal_ms = @max(ideal_ms, 1),
-        };
-    }
-
-    // otherwise infinite time
-    return .{ .max_ms = std.math.maxInt(u64), .ideal_ms = std.math.maxInt(u64) };
-}
+};

@@ -426,7 +426,6 @@ pub const Searcher = struct {
                 }
 
                 if (score <= alpha) {
-                    // beta = @divTrunc(alpha + beta, 2);
                     alpha = @max(alpha - delta, -eval.mate_score);
                     delta = @min(delta * 2, eval.mate_score);
                     window_failed = true;
@@ -669,10 +668,6 @@ pub const Searcher = struct {
         } else if (tt_hit) {
             raw_static_eval = tt_static_eval;
             static_eval = raw_static_eval + hist.getCorrection(self, color, board);
-
-        //     static_eval = tt_eval;
-        // } else if (is_null) {
-        //     static_eval = -self.eval_history[self.ply - 1];
         } else if (self.excluded_moves[self.ply].toU32() != 0) {
             raw_static_eval = self.eval_history[self.ply];
             static_eval = raw_static_eval + hist.getCorrection(self, color, board);

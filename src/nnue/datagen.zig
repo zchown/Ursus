@@ -9,7 +9,7 @@ const pawn_tt = @import("pawn_tt");
 const hist = @import("history");
 
 pub const DatagenConfig = struct {
-    num_nodes: u64 = 5000,
+    num_nodes: u64 = 10000,
 
     // 0 = run forever (interrupt with Ctrl+C)
     games_per_thread: u32 = 0,

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
 # ENGINE_BASE="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus3.31"
+ENGINE_BASE="./engines/Ursus3.32"
 # ENGINE_BASE="./../stash/stash-bot-v37.0/src/stash"          # 3431
 # # ENGINE_BASE="./releaseEngines/Ursus6.0"
 # ENGINE_BASE="./engines/Ursus3.2"
@@ -21,9 +21,8 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 # OPENINGS="openings.pgn"
 
 CONCURRENCY=10
-TC="8+0.08"
+TC="15+0.5"
 ROUNDS=100000
-TIMEMARGIN=50
 
 # SPRT settings
 # H0: 0 Elo (no improvement)
@@ -69,7 +68,7 @@ echo
 $FASTCHESS \
   -engine cmd="$ENGINE_NEW"  name=New \
   -engine cmd="$ENGINE_BASE" name=Base \
-  -each tc=$TC timemargin=$TIMEMARGIN option.Threads=1 option.Hash=256 option.SyzygyPath="../Ursus/Syzygy/3-4-5" option.SyzygyProbeDepth=1 \
+  -each tc=$TC option.Threads=1 option.Hash=256 option.SyzygyPath="../Ursus/Syzygy/3-4-5" option.SyzygyProbeDepth=1 \
   -openings file="$OPENINGS" format=epd order=random \
   -tb "../Ursus/Syzygy/3-4-5" \
   -repeat \
