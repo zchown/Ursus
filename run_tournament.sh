@@ -32,7 +32,7 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 ROUNDS=250
 CONCURRENCY=10
 
-TC="8+0.08"
+TC="4+0.04"
 
 OUTDIR="tournaments/$(date +%Y%m%d_%H%M%S)"
 PGN="$OUTDIR/games.pgn"
@@ -53,7 +53,7 @@ done
 
 $CUTECHESS \
   "${ENGINE_ARGS[@]}" \
-  -each tc=$TC option.Threads=1 option.Hash=256 \
+  -each tc=$TC option.Threads=1 option.Hash=64 \
   -openings file="$OPENINGS" format=epd order=random policy=round \
   -repeat 2 \
   -games 2 \

@@ -682,6 +682,8 @@ pub const Searcher = struct {
         self.eval_history[self.ply] = raw_static_eval;
 
         const improving: bool = !in_check and self.ply >= 2 and static_eval > self.eval_history[self.ply - 2];
+        const worstening: bool = !in_check and self.ply >= 2 and static_eval < self.eval_history[self.ply - 2];
+
 
         const has_non_pawns = board.hasNonPawnMaterial(color);
 
@@ -941,6 +943,10 @@ pub const Searcher = struct {
                 extension += 1;
             }
 
+            if (worstening) {
+                extension -= 1;
+            }
+
             self.move_history[self.ply] = move;
             if (board.getPieceFromSquare(move.start_square)) |p| {
                 self.moved_piece_history[self.ply] = .{ .piece = p, .color = board.getColorFromSquare(move.start_square).? };
@@ -979,6 +985,10 @@ pub const Searcher = struct {
                     if (improving) {
                         reduction -= 1;
                     }
+
+                    // if (worstening) {
+                    //     reduction += 1;
+                    // }
 
                     if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
                         reduction -= 1;
