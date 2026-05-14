@@ -22,19 +22,27 @@ pub const Entry = struct {
     flag: EstimationType = .None,
     depth: u8 = 0,
     age: u8 = 0,
+    in_check: bool = false,          // Was the side to move in check at this node?
+    is_pv: bool = false,             // Did this entry originate from a PV node?
+    static_eval_valid: bool = false, // Is static_eval a real NNUE result (not TB placeholder)?
 };
 
-/// Packed into 128 bits for atomic load/store:
-///
-///   bits  0-31:   hash key (upper 32 bits of zobrist)
-///   bits 32-47:   eval (i16, clamped)
-///   bits 48-63:   move (u16, compressed from u32)
-///   bits 64-79:   static_eval (i16, clamped)
-///   bits 80-81:   flag (EstimationType)
-///   bits 82-89:   depth (u8)
-///   bits 90-97:   age (u8)
-///   bits 98-127:  unused
-///
+// Packed into 128 bits for atomic load/store:
+//
+//   bits   0-31:  hash key upper (bits 32-63 of zobrist)
+//   bits  32-47:  eval (i16, clamped)
+//   bits  48-63:  move (u16, compressed from u32)
+//   bits  64-79:  static_eval (i16, clamped)
+//   bits  80-81:  flag (EstimationType, 2 bits)
+//   bits  82-89:  depth (u8)
+//   bits  90-97:  age (u8)
+//   bit   98:     in_check (1 bit)
+//   bit   99:     is_pv (1 bit)
+//   bit  100:     static_eval_valid (1 bit)
+//   bits 101-127: hash key lower (bits 0-26 of zobrist, 27 bits)
+//
+// Hash verification: bits 0-31 (upper 32) + bits 101-127 (lower 27) = 59-bit key.
+// This reduces false-positive collision probability 
 pub const PackedEntry = extern struct {
     data: u128,
 
@@ -46,8 +54,12 @@ pub const PackedEntry = extern struct {
         flag: EstimationType,
         depth: u8,
         age: u8,
+        in_check: bool,
+        is_pv: bool,
+        static_eval_valid: bool,
     ) PackedEntry {
-        const hash_key: u32 = @truncate(hash >> 32);
+        const hash_upper: u32 = @truncate(hash >> 32);
+        const hash_lower: u27 = @truncate(hash);
 
         const clamped_eval: i16 = @intCast(@max(-32768, @min(32767, eval_)));
         const eval_bits: u16 = @bitCast(clamped_eval);
@@ -56,13 +68,17 @@ pub const PackedEntry = extern struct {
         const static_bits: u16 = @bitCast(clamped_static);
 
         var packed_entry: u128 = 0;
-        packed_entry |= @as(u128, hash_key);                 // bits 0-31
-        packed_entry |= @as(u128, eval_bits) << 32;          // bits 32-47
-        packed_entry |= @as(u128, move_u16) << 48;           // bits 48-63
-        packed_entry |= @as(u128, static_bits) << 64;        // bits 64-79
-        packed_entry |= @as(u128, @intFromEnum(flag)) << 80; // bits 80-81
-        packed_entry |= @as(u128, depth) << 82;              // bits 82-89
-        packed_entry |= @as(u128, age) << 90;                // bits 90-97
+        packed_entry |= @as(u128, hash_upper);                            // bits   0-31
+        packed_entry |= @as(u128, eval_bits) << 32;                       // bits  32-47
+        packed_entry |= @as(u128, move_u16) << 48;                        // bits  48-63
+        packed_entry |= @as(u128, static_bits) << 64;                     // bits  64-79
+        packed_entry |= @as(u128, @intFromEnum(flag)) << 80;              // bits  80-81
+        packed_entry |= @as(u128, depth) << 82;                           // bits  82-89
+        packed_entry |= @as(u128, age) << 90;                             // bits  90-97
+        packed_entry |= @as(u128, @intFromBool(in_check)) << 98;          // bit   98
+        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99;             // bit   99
+        packed_entry |= @as(u128, @intFromBool(static_eval_valid)) << 100; // bit  100
+        packed_entry |= @as(u128, hash_lower) << 101;                     // bits 101-127
 
         return PackedEntry{ .data = packed_entry };
     }
@@ -79,6 +95,9 @@ pub const PackedEntry = extern struct {
         const flag_bits: u2 = @truncate(self.data >> 80);
         const depth: u8 = @truncate(self.data >> 82);
         const age: u8 = @truncate(self.data >> 90);
+        const in_check: bool = ((self.data >> 98) & 1) != 0;
+        const is_pv: bool = ((self.data >> 99) & 1) != 0;
+        const static_eval_valid: bool = ((self.data >> 100) & 1) != 0;
 
         return Entry{
             .hash = full_hash,
@@ -88,6 +107,9 @@ pub const PackedEntry = extern struct {
             .flag = @enumFromInt(flag_bits),
             .depth = depth,
             .age = age,
+            .in_check = in_check,
+            .is_pv = is_pv,
+            .static_eval_valid = static_eval_valid,
         };
     }
 
@@ -95,10 +117,14 @@ pub const PackedEntry = extern struct {
         return @truncate(self.data);
     }
 
+    // 59-bit verification: upper 32 bits of zobrist (stored in bits 0-31) plus
+    // lower 27 bits of zobrist (stored in bits 101-127).
     pub inline fn verify(self: PackedEntry, full_hash: u64) bool {
-        const stored_key: u32 = @truncate(self.data);
-        const hash_key: u32 = @truncate(full_hash >> 32);
-        return stored_key == hash_key;
+        const stored_upper: u32 = @truncate(self.data);
+        const stored_lower: u27 = @truncate(self.data >> 101);
+        const hash_upper: u32 = @truncate(full_hash >> 32);
+        const hash_lower: u27 = @truncate(full_hash);
+        return stored_upper == hash_upper and stored_lower == hash_lower;
     }
 
     pub inline fn getFlag(self: PackedEntry) EstimationType {
@@ -112,6 +138,18 @@ pub const PackedEntry = extern struct {
 
     pub inline fn getAge(self: PackedEntry) u8 {
         return @truncate(self.data >> 90);
+    }
+
+    pub inline fn getInCheck(self: PackedEntry) bool {
+        return ((self.data >> 98) & 1) != 0;
+    }
+
+    pub inline fn getIsPv(self: PackedEntry) bool {
+        return ((self.data >> 99) & 1) != 0;
+    }
+
+    pub inline fn getStaticEvalValid(self: PackedEntry) bool {
+        return ((self.data >> 100) & 1) != 0;
     }
 };
 
@@ -190,6 +228,9 @@ pub const TranspositionTable = struct {
                 entry.flag,
                 entry.depth,
                 current_age,
+                entry.in_check,
+                entry.is_pv,
+                entry.static_eval_valid,
             );
             self.items[idx].store(new_packed.data, .release);
         }
@@ -232,6 +273,9 @@ pub const TranspositionTable = struct {
             entry.flag,
             entry.depth,
             current_age,
+            entry.in_check,
+            entry.is_pv,
+            entry.static_eval_valid,
         );
 
         self.items[idx].store(packed_entry.data, .release);
@@ -254,6 +298,9 @@ pub const TranspositionTable = struct {
             expected_entry.flag,
             expected_entry.depth,
             current_age,
+            expected_entry.in_check,
+            expected_entry.is_pv,
+            expected_entry.static_eval_valid,
         );
 
         const new_packed = PackedEntry.pack(
@@ -264,6 +311,9 @@ pub const TranspositionTable = struct {
             new_entry.flag,
             new_entry.depth,
             current_age,
+            new_entry.in_check,
+            new_entry.is_pv,
+            new_entry.static_eval_valid,
         );
 
         const result = self.items[idx].cmpxchgStrong(

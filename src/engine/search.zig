@@ -160,7 +160,6 @@ pub const Searcher = struct {
 
     pub inline fn should_not_continue(self: *Searcher, factor: f32) bool {
         const thinking = @atomicLoad(bool, &self.force_think, .acquire);
-        
         // Prevent floating point overflow when time is infinite
         const scaled_ideal_ms = if (self.ideal_ms == std.math.maxInt(u64))
             std.math.maxInt(u64)
@@ -555,8 +554,6 @@ pub const Searcher = struct {
         const on_pv = comptime (node_type != NodeType.NonPV);
 
 
-        const in_check: bool = self.move_gen.isInCheck(board, color);
-
         if (depth == 0) {
             return self.qsearch(board, color, alpha, beta);
         }
@@ -573,12 +570,17 @@ pub const Searcher = struct {
 
         self.nodes += 1;
 
+        // TT lookup happens before isInCheck so we can reuse the stored in_check flag
+        // on hits, saving an expensive bitboard traversal on the common TT-hit path.
         var hash_move = mvs.EncodedMove.fromU32(0);
         var tt_hit = false;
         var tt_eval: i32 = 0;
         var tt_static_eval: i32 = 0;
         var tt_e_flag: tt.EstimationType = .None;
         var tt_depth: usize = 0;
+        var tt_in_check: bool = false;
+        var tt_is_pv: bool = false;
+        var tt_static_eval_valid: bool = false;
         const entry = self.tt_table.get(board.game_state.zobrist);
 
         if (entry) |e| {
@@ -587,6 +589,9 @@ pub const Searcher = struct {
             tt_depth = @as(usize, @intCast(e.depth));
             tt_e_flag = e.flag;
             tt_static_eval = e.static_eval;
+            tt_in_check = e.in_check;
+            tt_is_pv = e.is_pv;
+            tt_static_eval_valid = e.static_eval_valid;
 
             if (tt_eval > eval.mate_score - 256 and tt_eval <= eval.mate_score) {
                 tt_eval -= @as(i32, @intCast(self.ply));
@@ -613,6 +618,9 @@ pub const Searcher = struct {
                 }
             }
         }
+
+        // Use cached in_check from TT on hits; fall back to computing it otherwise.
+        const in_check: bool = if (tt_hit) tt_in_check else self.move_gen.isInCheck(board, color);
 
         if (!is_root and self.excluded_moves[self.ply].toU32() == 0 and depth >= tp.tb_probe_depth) {
             const tb_max = tb.largest();
@@ -665,7 +673,10 @@ pub const Searcher = struct {
         var raw_static_eval: i32 = 0;
         if (in_check) {
             static_eval = -eval.mate_score + @as(i32, @intCast(self.ply));
-        } else if (tt_hit) {
+        } else if (tt_hit and tt_static_eval_valid) {
+            // Only reuse the stored static eval when it was produced by a real
+            // NNUE call. TB entries store 0 as a placeholder, so static_eval_valid
+            // guards us against silently using that as a real evaluation.
             raw_static_eval = tt_static_eval;
             static_eval = raw_static_eval + hist.getCorrection(self, color, board);
         } else if (self.excluded_moves[self.ply].toU32() != 0) {
@@ -927,6 +938,35 @@ pub const Searcher = struct {
                         if ((is_white and rank == 6) or (!is_white and rank == 1)) {
                             extension += 1;
                         }
+
+                        // if ((is_white and rank > 4) or (!is_white and rank < 5)) {
+                        //     const file = move.end_square % 8;
+                        //     const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
+                        //     const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
+                        //     const c_idx = @intFromEnum(color);
+                        //     const opp_idx = 1 - c_idx;
+                        //
+                        //     const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
+                        //
+                        //     const is_passed = blk: {
+                        //         const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
+                        //         const forward_mask = file_mask | left_mask | right_mask;
+                        //
+                        //         const blocking_pawns = if (color == brd.Color.White) blk2: {
+                        //             const rank_mask: u64 = (@as(u64, 0xFFFFFFFFFFFFFFFF) << @intCast((rank + 1) * 8));
+                        //             break :blk2 opp_pawns & forward_mask & rank_mask;
+                        //         } else blk2: {
+                        //                 const rank_mask: u64 = if (rank > 0) (@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8)) else 0;
+                        //                 break :blk2 opp_pawns & forward_mask & rank_mask;
+                        //             };
+                        //
+                        //         break :blk blocking_pawns == 0;
+                        //     };
+                        //
+                        //     if (is_passed) {
+                        //         extension += 1;
+                        //     }
+                        // }
                     }
                 }
             }
@@ -959,12 +999,19 @@ pub const Searcher = struct {
             mvs.makeMove(board, move);
             searched_moves += 1;
 
+            const extension_limit: i32 = 4;
+
+            // if (depth <= 6) {
+            //     extension_limit = 2;
+            // } else if (depth <= 10) {
+            //     extension_limit = 3;
+            // }
 
             if (extension < 0) {
                 extension = 0;
             }
-            else if (extension > 4) {
-                extension = 4;
+            else if (extension > extension_limit) {
+                extension = extension_limit;
             }
 
             const new_depth: usize = @as(usize, @intCast(@as(i32, @intCast(depth)) + extension - 1));
@@ -1000,6 +1047,10 @@ pub const Searcher = struct {
 
                     if (cutnode) {
                         reduction += 1;
+                    }
+
+                    if (tt_is_pv) {
+                        reduction -= 1;
                     }
 
                     reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div);
@@ -1083,6 +1134,9 @@ pub const Searcher = struct {
                     .flag = tt_flag,
                     .depth = @as(u8, @intCast(depth)),
                     .age = self.tt_table.getAge(),
+                    .in_check = in_check,
+                    .is_pv = on_pv,
+                    .static_eval_valid = !in_check and self.excluded_moves[self.ply].toU32() == 0,
                 },
             );
         }
@@ -1110,14 +1164,40 @@ pub const Searcher = struct {
 
         self.nodes += 1;
 
-        const in_check: bool = self.move_gen.isInCheck(board, color);
+        var hash_move = mvs.EncodedMove.fromU32(0);
+        var qs_tt_static_eval: i32 = 0;
+        var qs_tt_static_eval_valid: bool = false;
+        var qs_tt_in_check: bool = false;
+        var qs_tt_hit: bool = false;
+        const entry = self.tt_table.get(board.game_state.zobrist);
+
+        if (entry) |e| {
+            qs_tt_hit = true;
+            hash_move = e.move;
+            qs_tt_in_check = e.in_check;
+            qs_tt_static_eval = e.static_eval;
+            qs_tt_static_eval_valid = e.static_eval_valid;
+            if (e.flag == .Exact) {
+                return e.eval;
+            } else if (e.flag == .Under and e.eval >= beta) {
+                return e.eval;
+            } else if (e.flag == .Over and e.eval <= alpha) {
+                return e.eval;
+            }
+        }
+
+        const in_check: bool = if (qs_tt_hit) qs_tt_in_check else self.move_gen.isInCheck(board, color);
 
         var best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
         var static_eval: i32 = best_score;
 
         if (!in_check) {
-            static_eval = board.evaluateNNUE();
-            static_eval += hist.getCorrection(self, color, board);
+            if (qs_tt_hit and qs_tt_static_eval_valid) {
+                static_eval = qs_tt_static_eval + hist.getCorrection(self, color, board);
+            } else {
+                static_eval = board.evaluateNNUE();
+                static_eval += hist.getCorrection(self, color, board);
+            }
 
             best_score = static_eval;
 
@@ -1134,20 +1214,6 @@ pub const Searcher = struct {
         if (!in_check) {
             if (static_eval + queen_val + tp.q_delta_margin < alpha) {
                 return alpha;
-            }
-        }
-
-        var hash_move = mvs.EncodedMove.fromU32(0);
-        const entry = self.tt_table.get(board.game_state.zobrist);
-
-        if (entry) |e| {
-            hash_move = e.move;
-            if (e.flag == .Exact) {
-                return e.eval;
-            } else if (e.flag == .Under and e.eval >= beta) {
-                return e.eval;
-            } else if (e.flag == .Over and e.eval <= alpha) {
-                return e.eval;
             }
         }
 
@@ -1207,10 +1273,6 @@ pub const Searcher = struct {
             const score = -self.qsearch(board, brd.flipColor(color), -beta, -alpha);
             self.ply -= 1;
             mvs.undoMove(board, move);
-
-            if (self.time_stop) {
-                return 0;
-            }
 
             if (score > best_score) {
                 best_score = score;
