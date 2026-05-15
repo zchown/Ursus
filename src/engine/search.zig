@@ -910,9 +910,9 @@ pub const Searcher = struct {
                 } else if (singular_beta >= beta) {
                     return singular_beta;
                 } else if (tt_eval >= beta) {
-                    extension = -1;
+                    extension = -2;
                 } else if (cutnode) {
-                    extension = -1;
+                    extension = -2;
                 }
             }
 
