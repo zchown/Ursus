@@ -935,38 +935,37 @@ pub const Searcher = struct {
                         const rank = move.end_square / 8;
                         const is_white = board.toMove() == .White;
 
-                        if ((is_white and rank == 6) or (!is_white and rank == 1)) {
-                            extension += 1;
-                        }
-
-                        // if ((is_white and rank > 4) or (!is_white and rank < 5)) {
-                        //     const file = move.end_square % 8;
-                        //     const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
-                        //     const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
-                        //     const c_idx = @intFromEnum(color);
-                        //     const opp_idx = 1 - c_idx;
-                        //
-                        //     const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
-                        //
-                        //     const is_passed = blk: {
-                        //         const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
-                        //         const forward_mask = file_mask | left_mask | right_mask;
-                        //
-                        //         const blocking_pawns = if (color == brd.Color.White) blk2: {
-                        //             const rank_mask: u64 = (@as(u64, 0xFFFFFFFFFFFFFFFF) << @intCast((rank + 1) * 8));
-                        //             break :blk2 opp_pawns & forward_mask & rank_mask;
-                        //         } else blk2: {
-                        //                 const rank_mask: u64 = if (rank > 0) (@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8)) else 0;
-                        //                 break :blk2 opp_pawns & forward_mask & rank_mask;
-                        //             };
-                        //
-                        //         break :blk blocking_pawns == 0;
-                        //     };
-                        //
-                        //     if (is_passed) {
-                        //         extension += 1;
-                        //     }
+                        // if ((is_white and rank == 6) or (!is_white and rank == 1)) {
+                            // extension += 1;
                         // }
+                        if ((is_white and rank > 5) or (!is_white and rank < 4)) {
+                            const file = move.end_square % 8;
+                            const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
+                            const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
+                            const c_idx = @intFromEnum(color);
+                            const opp_idx = 1 - c_idx;
+                        
+                            const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
+                        
+                            const is_passed = blk: {
+                                const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
+                                const forward_mask = file_mask | left_mask | right_mask;
+                        
+                                const blocking_pawns = if (color == brd.Color.White) blk2: {
+                                    const rank_mask: u64 = (@as(u64, 0xFFFFFFFFFFFFFFFF) << @intCast((rank + 1) * 8));
+                                    break :blk2 opp_pawns & forward_mask & rank_mask;
+                                } else blk2: {
+                                        const rank_mask: u64 = if (rank > 0) (@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8)) else 0;
+                                        break :blk2 opp_pawns & forward_mask & rank_mask;
+                                    };
+                        
+                                break :blk blocking_pawns == 0;
+                            };
+                        
+                            if (is_passed) {
+                                extension += 1;
+                            }
+                        }
                     }
                 }
             }
@@ -1001,12 +1000,6 @@ pub const Searcher = struct {
 
             const extension_limit: i32 = 4;
 
-            // if (depth <= 6) {
-            //     extension_limit = 2;
-            // } else if (depth <= 10) {
-            //     extension_limit = 3;
-            // }
-
             if (extension < 0) {
                 extension = 0;
             }
@@ -1032,10 +1025,6 @@ pub const Searcher = struct {
                     if (improving) {
                         reduction -= 1;
                     }
-
-                    // if (worstening) {
-                    //     reduction += 1;
-                    // }
 
                     if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
                         reduction -= 1;
