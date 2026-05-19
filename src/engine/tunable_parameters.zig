@@ -31,8 +31,8 @@ pub var lmr_div: i32 = 319;
 pub var lmr_pv_min: usize = 4;
 pub var lmr_non_pv_min: usize = 2;
 
-pub var se_double_threshold: i32 = 24;
-pub var se_triple_threshold: i32 = 21;
+pub var se_double_threshold: i32 = 35;
+pub var se_triple_threshold: i32 = 40;
 
 pub var history_div: i32 = 8252;
 

@@ -96,8 +96,6 @@ pub const Searcher = struct {
     minor_correction: [2][16384]i32 = undefined,
     capture_history: [2][7][64][7]i32 = undefined,
 
-    nmp_min_ply: usize = 0,
-
     thread_id: usize = 0,
     root_board: *brd.Board = undefined,
     silent_output: bool = false,
@@ -407,9 +405,6 @@ pub const Searcher = struct {
 
             var window_failed = false;
             while (true) {
-                // self.search_depth = @max(self.search_depth, depth);
-                self.nmp_min_ply = 0;
-
                 if (depth == outer_depth) {
                     score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.Root, false);
                 }
@@ -606,7 +601,7 @@ pub const Searcher = struct {
                 self.best_move_score = tt_eval;
             }
 
-            if (!is_null and !on_pv and !is_root and e.depth >= @as(u8, @intCast(depth))) {
+            if (!is_null and !on_pv and !is_root and self.excluded_moves[self.ply].toU32() == 0 and e.depth >= @as(u8, @intCast(depth))) {
                 switch (e.flag) {
                     .Exact => return tt_eval,
                     .Under => alpha = @max(alpha, tt_eval),
@@ -693,8 +688,7 @@ pub const Searcher = struct {
         self.eval_history[self.ply] = raw_static_eval;
 
         const improving: bool = !in_check and self.ply >= 2 and static_eval > self.eval_history[self.ply - 2];
-        const worstening: bool = !in_check and self.ply >= 2 and static_eval < self.eval_history[self.ply - 2];
-
+        // const worsening: bool = !in_check and self.ply >= 2 and static_eval < self.eval_history[self.ply - 2];
 
         const has_non_pawns = board.hasNonPawnMaterial(color);
 
@@ -747,7 +741,7 @@ pub const Searcher = struct {
                 nmp_static_eval += tp.nmp_improve;
             }
 
-            if (!is_null and depth >= 4 and self.ply >= self.nmp_min_ply and nmp_static_eval >= beta and has_non_pawns) {
+            if (!is_null and depth >= 4 and nmp_static_eval >= beta and has_non_pawns) {
                 var r = tp.nmp_base + depth / tp.nmp_depth_div;
                 // r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
                 const diff = static_eval - beta;
@@ -880,10 +874,11 @@ pub const Searcher = struct {
 
             var extension: i32 = 0;
 
+
             // Singular Extensions, also double and triple
-            if (self.ply > 0 and !is_root and self.ply < depth * 2 and depth >= 7 and
-                tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and
-            hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3 and move_list.len >= 2)
+            if (!is_root and depth >= 6 and tt_hit and entry.?.flag != tt.EstimationType.Over 
+            and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() 
+            and entry.?.depth >= depth - 3 and move_list.len >= 2)
             {
                 const margin: i32 = @as(i32, @intCast(depth)) * 2;
                 const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
@@ -899,91 +894,34 @@ pub const Searcher = struct {
                     extension = 1;
 
                     // double extension
-                    if (on_pv and singular_score < singular_beta - tp.se_double_threshold) {
+                    if (on_pv and depth >= 7 and singular_score < singular_beta - tp.se_double_threshold) {
                         extension = 2;
                     }
-
-                    // Triple extension for very singular moves
-                    if (on_pv and singular_score < singular_beta - (tp.se_double_threshold + tp.se_triple_threshold)) {
-                        extension = 3;
-                    }
-                } else if (singular_beta >= beta) {
+                } 
+                else if (singular_beta >= beta) {
                     return singular_beta;
-                } else if (tt_eval >= beta) {
-                    extension = -2;
-                } else if (cutnode) {
+                } 
+                else if (cutnode) {
+                    extension = -1;
+                }
+                else if (static_eval >= beta) {
                     extension = -2;
                 }
+
             }
 
-            // Recapture Extensions
-            if (on_pv and !is_root and self.ply < depth * 2) {
+            if (!is_root and self.ply <= depth and hash_move.capture == 0) {
                 if (is_capture and last_move.capture == 1 and move.end_square == last_move.end_square) {
                     extension += 1;
-                } else if (is_capture and self.ply >= 3 and last_last_last_move.capture == 1 and
-                    move.end_square == last_last_last_move.end_square)
-                {
+                } 
+                else if (is_capture and self.ply >= 3 and last_last_last_move.capture == 1 and
+                move.end_square == last_last_last_move.end_square) {
                     extension += 1;
                 }
-            }
-
-            // Pawn Push Extension
-            if (on_pv and !is_root and self.ply < depth * 2 and move.capture == 0) {
-                if (board.getPieceFromSquare(move.start_square)) |piece| {
-                    if (piece == .Pawn) {
-                        // Pawn to 7th rank
-                        const rank = move.end_square / 8;
-                        const is_white = board.toMove() == .White;
-
-                        // if ((is_white and rank == 6) or (!is_white and rank == 1)) {
-                            // extension += 1;
-                        // }
-                        if ((is_white and rank > 5) or (!is_white and rank < 4)) {
-                            const file = move.end_square % 8;
-                            const left_mask: u64 = if (file > 0) @as(u64, 0x0101010101010101) << @intCast(file - 1) else 0;
-                            const right_mask: u64 = if (file < 7) @as(u64, 0x0101010101010101) << @intCast(file + 1) else 0;
-                            const c_idx = @intFromEnum(color);
-                            const opp_idx = 1 - c_idx;
-                        
-                            const opp_pawns = board.piece_bb[opp_idx][@intFromEnum(brd.Pieces.Pawn)];
-                        
-                            const is_passed = blk: {
-                                const file_mask: u64 = @as(u64, 0x0101010101010101) << @intCast(file);
-                                const forward_mask = file_mask | left_mask | right_mask;
-                        
-                                const blocking_pawns = if (color == brd.Color.White) blk2: {
-                                    const rank_mask: u64 = (@as(u64, 0xFFFFFFFFFFFFFFFF) << @intCast((rank + 1) * 8));
-                                    break :blk2 opp_pawns & forward_mask & rank_mask;
-                                } else blk2: {
-                                        const rank_mask: u64 = if (rank > 0) (@as(u64, 0xFFFFFFFFFFFFFFFF) >> @intCast((8 - rank) * 8)) else 0;
-                                        break :blk2 opp_pawns & forward_mask & rank_mask;
-                                    };
-                        
-                                break :blk blocking_pawns == 0;
-                            };
-                        
-                            if (is_passed) {
-                                extension += 1;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (move.promoted_piece != 0) {
-                extension += 1;
             }
 
             if (in_check) {
                 extension += 1;
-            }
-
-            if (move_list.len == 1) {
-                extension += 1;
-            }
-
-            if (worstening) {
-                extension -= 1;
             }
 
             self.move_history[self.ply] = move;
@@ -998,16 +936,12 @@ pub const Searcher = struct {
             mvs.makeMove(board, move);
             searched_moves += 1;
 
-            const extension_limit: i32 = 4;
-
-            if (extension < 0) {
-                extension = 0;
-            }
-            else if (extension > extension_limit) {
-                extension = extension_limit;
+            var nd: i32 = @as(i32, @intCast(depth)) + extension - 1;
+            if (nd < 0) {
+                nd = 0;
             }
 
-            const new_depth: usize = @as(usize, @intCast(@as(i32, @intCast(depth)) + extension - 1));
+            const new_depth: usize = @as(usize, @intCast(nd));
 
             self.tt_table.prefetch(board.game_state.zobrist);
 
@@ -1147,6 +1081,10 @@ pub const Searcher = struct {
 
         if (self.ply >= max_ply - 1) {
             return board.evaluateNNUE();
+        }
+
+        if (self.ply > self.seldepth) {
+            self.seldepth = self.ply;
         }
 
         self.pv_length[self.ply] = 0;

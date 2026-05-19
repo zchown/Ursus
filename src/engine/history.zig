@@ -10,8 +10,6 @@ const max_ply = search.max_ply;
 const PieceColor = Searcher.PieceColor;
 
 pub fn resetHeuristics(self: *Searcher, total: bool) void {
-    self.nmp_min_ply = 0;
-
     for (0..max_ply) |i| {
         self.killer[i][0] = mvs.EncodedMove.fromU32(0);
         self.killer[i][1] = mvs.EncodedMove.fromU32(0);

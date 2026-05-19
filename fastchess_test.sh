@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-# ENGINE_BASE="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus3.35"
+# ENGINE_BASE="./engines/ext6"
+ENGINE_BASE="./engines/Ursus3.37"
 # ENGINE_BASE="./../stash/stash-bot-v37.0/src/stash"          # 3431
 # # ENGINE_BASE="./releaseEngines/Ursus6.0"
 # ENGINE_BASE="./engines/Ursus3.2"
@@ -75,9 +75,9 @@ $FASTCHESS \
   -rounds $ROUNDS \
   -concurrency $CONCURRENCY \
   -recover \
+  -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
   -resign movecount=5 score=400 \
   -draw movenumber=40 movecount=8 score=5 \
-  -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
   -ratinginterval 10 \
   -pgnout file="$PGN" \
   | tee "$LOG"
