@@ -355,6 +355,39 @@ pub const UciProtocol = struct {
         try respond("option name SyzygyProbeDepth type spin default 1 min 1 max 100");
         try respond("option name Overhead type spin default 10 min 0 max 1000");
 
+        // Tunable search parameters.
+        try respond("option name aspiration_window type spin default 22 min 5 max 100");
+        try respond("option name rfp_mul type spin default 51 min 20 max 150");
+        try respond("option name rfp_improve type spin default 55 min 20 max 150");
+        try respond("option name nmp_improve type spin default 29 min 0 max 200");
+        try respond("option name nmp_base type spin default 4 min 1 max 10");
+        try respond("option name nmp_depth_div type spin default 3 min 1 max 10");
+        try respond("option name nmp_beta_div type spin default 150 min 50 max 400");
+        try respond("option name razoring_base type spin default 299 min 100 max 600");
+        try respond("option name razoring_mul type spin default 73 min 20 max 200");
+        try respond("option name lmp_improve type spin default 219 min 50 max 500");
+        try respond("option name lmp_base type spin default 503 min 100 max 1000");
+        try respond("option name lmp_mul type spin default 185 min 50 max 500");
+        try respond("option name futility_mul type spin default 157 min 50 max 400");
+        try respond("option name q_see_min type spin default -150 min -500 max 0");
+        try respond("option name q_see_margin type spin default -41 min -200 max 0");
+        try respond("option name q_delta_margin type spin default 201 min 50 max 500");
+        try respond("option name lmr_base type spin default 428 min 100 max 800");
+        try respond("option name lmr_div type spin default 319 min 100 max 600");
+        try respond("option name lmr_pv_min type spin default 4 min 1 max 10");
+        try respond("option name lmr_non_pv_min type spin default 2 min 1 max 10");
+        try respond("option name se_double_threshold type spin default 35 min 0 max 200");
+        try respond("option name se_triple_threshold type spin default 40 min 0 max 200");
+        try respond("option name history_div type spin default 8252 min 1024 max 32768");
+        try respond("option name corr_div_bm type spin default 10 min 1 max 50");
+        try respond("option name corr_div_nobm type spin default 8 min 1 max 50");
+        try respond("option name corr_np_update_weight type spin default 178 min 32 max 512");
+        try respond("option name corr_pawn_read_weight type spin default 188 min 32 max 512");
+        try respond("option name corr_np_read_weight type spin default 122 min 32 max 512");
+        try respond("option name corr_major_read_weight type spin default 102 min 32 max 512");
+        try respond("option name corr_minor_read_weight type spin default 111 min 32 max 512");
+        try respond("option name corr_read_divisor type spin default 127393 min 16384 max 524288");
+
         try self.newGame();
 
         try respond("uciok");
@@ -446,6 +479,132 @@ pub const UciProtocol = struct {
         } else if (std.mem.eql(u8, option_name, "Overhead")) {
             if (args.len >= name_end + 2) {
                 move_overhead = try std.fmt.parseInt(u64, args[name_end + 1], 10);
+            }
+        } else if (std.mem.eql(u8, option_name, "aspiration_window")) {
+            if (args.len >= name_end + 2) {
+                tp.aspiration_window = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 5, 100);
+            }
+        } else if (std.mem.eql(u8, option_name, "rfp_mul")) {
+            if (args.len >= name_end + 2) {
+                tp.rfp_mul = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 20, 150);
+            }
+        } else if (std.mem.eql(u8, option_name, "rfp_improve")) {
+            if (args.len >= name_end + 2) {
+                tp.rfp_improve = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 20, 150);
+            }
+        } else if (std.mem.eql(u8, option_name, "nmp_improve")) {
+            if (args.len >= name_end + 2) {
+                tp.nmp_improve = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 200);
+            }
+        } else if (std.mem.eql(u8, option_name, "nmp_base")) {
+            if (args.len >= name_end + 2) {
+                tp.nmp_base = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 10));
+            }
+        } else if (std.mem.eql(u8, option_name, "nmp_depth_div")) {
+            if (args.len >= name_end + 2) {
+                tp.nmp_depth_div = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 10));
+            }
+        } else if (std.mem.eql(u8, option_name, "nmp_beta_div")) {
+            if (args.len >= name_end + 2) {
+                tp.nmp_beta_div = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 400));
+            }
+        } else if (std.mem.eql(u8, option_name, "razoring_base")) {
+            if (args.len >= name_end + 2) {
+                tp.razoring_base = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 600);
+            }
+        } else if (std.mem.eql(u8, option_name, "razoring_mul")) {
+            if (args.len >= name_end + 2) {
+                tp.razoring_mul = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 20, 200);
+            }
+        } else if (std.mem.eql(u8, option_name, "lmp_improve")) {
+            if (args.len >= name_end + 2) {
+                tp.lmp_improve = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500));
+            }
+        } else if (std.mem.eql(u8, option_name, "lmp_base")) {
+            if (args.len >= name_end + 2) {
+                tp.lmp_base = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 1000));
+            }
+        } else if (std.mem.eql(u8, option_name, "lmp_mul")) {
+            if (args.len >= name_end + 2) {
+                tp.lmp_mul = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500));
+            }
+        } else if (std.mem.eql(u8, option_name, "futility_mul")) {
+            if (args.len >= name_end + 2) {
+                tp.futility_mul = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 400);
+            }
+        } else if (std.mem.eql(u8, option_name, "q_see_min")) {
+            if (args.len >= name_end + 2) {
+                tp.q_see_min = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), -500, 0);
+            }
+        } else if (std.mem.eql(u8, option_name, "q_see_margin")) {
+            if (args.len >= name_end + 2) {
+                tp.q_see_margin = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), -200, 0);
+            }
+        } else if (std.mem.eql(u8, option_name, "q_delta_margin")) {
+            if (args.len >= name_end + 2) {
+                tp.q_delta_margin = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500);
+            }
+        } else if (std.mem.eql(u8, option_name, "lmr_base")) {
+            if (args.len >= name_end + 2) {
+                tp.lmr_base = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 800);
+                srch.quiet_lmr = srch.initQuietLMR();
+            }
+        } else if (std.mem.eql(u8, option_name, "lmr_div")) {
+            if (args.len >= name_end + 2) {
+                tp.lmr_div = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 600);
+                srch.quiet_lmr = srch.initQuietLMR();
+            }
+        } else if (std.mem.eql(u8, option_name, "lmr_pv_min")) {
+            if (args.len >= name_end + 2) {
+                tp.lmr_pv_min = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 10));
+            }
+        } else if (std.mem.eql(u8, option_name, "lmr_non_pv_min")) {
+            if (args.len >= name_end + 2) {
+                tp.lmr_non_pv_min = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 10));
+            }
+        } else if (std.mem.eql(u8, option_name, "se_double_threshold")) {
+            if (args.len >= name_end + 2) {
+                tp.se_double_threshold = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 200);
+            }
+        } else if (std.mem.eql(u8, option_name, "se_triple_threshold")) {
+            if (args.len >= name_end + 2) {
+                tp.se_triple_threshold = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 200);
+            }
+        } else if (std.mem.eql(u8, option_name, "history_div")) {
+            if (args.len >= name_end + 2) {
+                tp.history_div = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1024, 32768);
+            }
+        } else if (std.mem.eql(u8, option_name, "corr_div_bm")) {
+            if (args.len >= name_end + 2) {
+                tp.corr_div_bm = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 50);
+            }
+        } else if (std.mem.eql(u8, option_name, "corr_div_nobm")) {
+            if (args.len >= name_end + 2) {
+                tp.corr_div_nobm = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 50);
+            }
+        } else if (std.mem.eql(u8, option_name, "corr_np_update_weight")) {
+            if (args.len >= name_end + 2) {
+                tp.corr_np_update_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
+            }
+        } else if (std.mem.eql(u8, option_name, "corr_pawn_read_weight")) {
+            if (args.len >= name_end + 2) {
+                tp.corr_pawn_read_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
+            }
+        } else if (std.mem.eql(u8, option_name, "corr_np_read_weight")) {
+            if (args.len >= name_end + 2) {
+                tp.corr_np_read_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
+            }
+        } else if (std.mem.eql(u8, option_name, "corr_major_read_weight")) {
+            if (args.len >= name_end + 2) {
+                tp.corr_major_read_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
+            }
+        } else if (std.mem.eql(u8, option_name, "corr_minor_read_weight")) {
+            if (args.len >= name_end + 2) {
+                tp.corr_minor_read_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
+            }
+        } else if (std.mem.eql(u8, option_name, "corr_read_divisor")) {
+            if (args.len >= name_end + 2) {
+                tp.corr_read_divisor = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 16384, 524288);
             }
         } else {
             if (self.debug_mode) {

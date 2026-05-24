@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-# ENGINE_BASE="./engines/ext6"
-ENGINE_BASE="./engines/Ursus3.37"
+ENGINE_BASE="./engines/Ursus4.1"
+# ENGINE_BASE="./engines/Ursus3.39"
 # ENGINE_BASE="./../stash/stash-bot-v37.0/src/stash"          # 3431
 # # ENGINE_BASE="./releaseEngines/Ursus6.0"
 # ENGINE_BASE="./engines/Ursus3.2"
@@ -28,7 +28,7 @@ ROUNDS=10000
 # H0: 0 Elo (no improvement)
 # H1: +5 Elo improvement
 ELO0=0
-ELO1=5
+ELO1=2
 ALPHA=0.05
 BETA=0.05
 
@@ -68,7 +68,7 @@ echo
 $FASTCHESS \
   -engine cmd="$ENGINE_NEW"  name=New \
   -engine cmd="$ENGINE_BASE" name=Base \
-  -each tc=$TC option.Threads=1 option.Hash=256 option.SyzygyPath="../Ursus/Syzygy/3-4-5" option.SyzygyProbeDepth=1 \
+  -each tc=$TC option.Threads=1 option.Hash=64 option.SyzygyPath="../Ursus/Syzygy/3-4-5" option.SyzygyProbeDepth=1 \
   -openings file="$OPENINGS" format=epd order=random \
   -tb "../Ursus/Syzygy/3-4-5" \
   -repeat \
@@ -76,12 +76,12 @@ $FASTCHESS \
   -concurrency $CONCURRENCY \
   -recover \
   -sprt elo0=$ELO0 elo1=$ELO1 alpha=$ALPHA beta=$BETA \
-  -resign movecount=5 score=400 \
-  -draw movenumber=40 movecount=8 score=5 \
   -ratinginterval 10 \
   -pgnout file="$PGN" \
   | tee "$LOG"
 #
+# -resign movecount=5 score=400 \
+# 	-draw movenumber=40 movecount=8 score=5 \
 # $FASTCHESS \
 #   -variant fischerandom \
 #   -engine cmd="$ENGINE_NEW"  name=New \

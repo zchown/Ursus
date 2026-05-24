@@ -6,18 +6,15 @@ FASTCHESS="fastchess"
 
 ENGINES=(
   "Ursus=./zig-out/bin/Ursus"
-  "Ursus3.29=./engines/Ursus3.29"
-  "Ursus3.15=./engines/Ursus3.15"
-  "Ursus3.6=./engines/Ursus3.6"
-  "Ursus2.26=./engines/Ursus2.26"
-  "Ursus2.17=./engines/Ursus2.17"
-  # "stash37=./../stash/stash-bot-v37.0/src/stash" # 3426
-  # "stash35=./../stash/stash-bot-v35.0/src/stash-bot" # 3350
+  "Ursus3.39=./engines/Ursus3.39"
+  "Ursus4.0=./engines/Ursus4.0"
+  "stash37=./../stash/stash-bot-v37.0/src/stash" # 3426
+  "stash35=./../stash/stash-bot-v35.0/src/stash-bot" # 3350
   # "Raphael=./../Raphael/uci" # 3612
   # "Lynx=./../lynx/Lynx.Cli" # 3373
   # "Grail=./../grail-arm64" # 3336
   # "Simbelmyne=./../simbelmyne" # 3244
-  # "Odonata=./../odonata/target/release/odonata" #3352
+  "Odonata=./../odonata/target/release/odonata" #3352
   # "tcheran"="./../tcheran/target/release/engine" #3634
   # "Sirius"="./../sirius/Sirius-9.0/build/arm64/Sirius/sirius" # 3534 - On my machine its absolutely terrible for some reason
   # "Sykora=./../sykora/zig-out/bin/Sykora"
@@ -32,7 +29,7 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 ROUNDS=250
 CONCURRENCY=10
 
-TC="4+0.04"
+TC="10+0.1"
 
 OUTDIR="tournaments/$(date +%Y%m%d_%H%M%S)"
 PGN="$OUTDIR/games.pgn"
@@ -53,7 +50,7 @@ done
 
 $CUTECHESS \
   "${ENGINE_ARGS[@]}" \
-  -each tc=$TC option.Threads=1 option.Hash=64 \
+  -each tc=$TC option.Threads=1 option.Hash=256 \
   -openings file="$OPENINGS" format=epd order=random policy=round \
   -repeat 2 \
   -games 2 \

@@ -22,9 +22,9 @@ pub const Entry = struct {
     flag: EstimationType = .None,
     depth: u8 = 0,
     age: u8 = 0,
-    in_check: bool = false,          // Was the side to move in check at this node?
-    is_pv: bool = false,             // Did this entry originate from a PV node?
-    static_eval_valid: bool = false, // Is static_eval a real NNUE result (not TB placeholder)?
+    in_check: bool = false,
+    is_pv: bool = false,
+    static_eval_valid: bool = false,
 };
 
 // Packed into 128 bits for atomic load/store:
@@ -151,38 +151,66 @@ pub const PackedEntry = extern struct {
     pub inline fn getStaticEvalValid(self: PackedEntry) bool {
         return ((self.data >> 100) & 1) != 0;
     }
+
+    pub inline fn getMove(self: PackedEntry) mv.EncodedMove {
+        const move_u16: u16 = @truncate(self.data >> 48);
+        return mv.EncodedMove.fromTTKey(move_u16);
+    }
 };
 
 pub var stop_signal: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
+pub const TT_BUCKET_SLOTS = 3;
+
+pub const Bucket = struct {
+    // 3 slots * 16 bytes = 48 bytes
+    entries: [TT_BUCKET_SLOTS]std.atomic.Value(u128),
+    // 16 bytes padding forces the struct to exactly 64 bytes
+    _pad: u128, 
+
+    pub fn init() Bucket {
+        return .{
+            .entries = .{
+                std.atomic.Value(u128).init(0),
+                std.atomic.Value(u128).init(0),
+                std.atomic.Value(u128).init(0),
+            },
+            ._pad = 0,
+        };
+    }
+};
+
 pub const TranspositionTable = struct {
-    items: []std.atomic.Value(u128),
-    size: usize,
+    buckets: []Bucket,
+    num_buckets: usize,
     age: std.atomic.Value(u8),
 
     pub fn init(allocator: std.mem.Allocator, size_in_mb: usize) !TranspositionTable {
-        const raw_num_entries = (size_in_mb * mb) / @sizeOf(u128);
-        const num_entries: usize = std.math.floorPowerOfTwo(usize, raw_num_entries);
+        const raw_num_buckets = (size_in_mb * mb) / @sizeOf(Bucket);
+        const num_buckets = std.math.floorPowerOfTwo(usize, raw_num_buckets);
 
-        const items = try allocator.alloc(std.atomic.Value(u128), num_entries);
-        for (items) |*item| {
-            item.* = std.atomic.Value(u128).init(0);
+        // alignedAlloc guarantees each bucket starts exactly on a cache line boundary
+        const buckets = try allocator.alignedAlloc(Bucket, std.mem.Alignment.@"64", num_buckets);
+        for (buckets) |*b| {
+            b.* = Bucket.init();
         }
 
         return TranspositionTable{
-            .items = items,
-            .size = num_entries,
+            .buckets = buckets,
+            .num_buckets = num_buckets,
             .age = std.atomic.Value(u8).init(0),
         };
     }
 
     pub fn deinit(self: *TranspositionTable, allocator: std.mem.Allocator) void {
-        allocator.free(self.items);
+        allocator.free(self.buckets);
     }
 
     pub inline fn clear(self: *TranspositionTable) void {
-        for (self.items) |*item| {
-            item.store(0, .monotonic);
+        for (self.buckets) |*bucket| {
+            for (&bucket.entries) |*entry| {
+                entry.store(0, .monotonic);
+            }
         }
     }
 
@@ -192,7 +220,7 @@ pub const TranspositionTable = struct {
     }
 
     pub inline fn index(self: *TranspositionTable, hash: zob.ZobristKey) usize {
-        return @as(usize, hash & (@as(zob.ZobristKey, self.size) - 1));
+        return @as(usize, hash & (@as(zob.ZobristKey, self.num_buckets) - 1));
     }
 
     pub inline fn incrementAge(self: *TranspositionTable) void {
@@ -204,41 +232,10 @@ pub const TranspositionTable = struct {
         return self.age.load(.monotonic);
     }
 
-    pub inline fn set(self: *TranspositionTable, entry: Entry) void {
-        const idx = self.index(entry.hash);
-
-        const current_packed_data = self.items[idx].load(.acquire);
-        const current_packed = PackedEntry{ .data = current_packed_data };
-
-        const current_age = self.getAge();
-
-        const hash_matches = current_packed.verify(entry.hash);
-        const should_replace =
-            entry.flag == .Exact or
-            !hash_matches or
-            current_packed.getDepth() <= entry.depth + 4 or
-            current_packed.getAge() != current_age;
-
-        if (should_replace) {
-            const new_packed = PackedEntry.pack(
-                entry.hash,
-                entry.eval,
-                entry.move.toTTKey(),
-                entry.static_eval,
-                entry.flag,
-                entry.depth,
-                current_age,
-                entry.in_check,
-                entry.is_pv,
-                entry.static_eval_valid,
-            );
-            self.items[idx].store(new_packed.data, .release);
-        }
-    }
-
     pub inline fn prefetch(self: *TranspositionTable, hash: zob.ZobristKey) void {
         const idx = self.index(hash);
-        const ptr = &self.items[idx];
+        const ptr = &self.buckets[idx];
+        // Prefetching now pulls all 3 slots into L1 simultaneously
         @prefetch(ptr, .{
             .rw = .read,
             .locality = 1,
@@ -248,27 +245,85 @@ pub const TranspositionTable = struct {
 
     pub fn get(self: *TranspositionTable, hash: zob.ZobristKey) ?Entry {
         const idx = self.index(hash);
+        const bucket = &self.buckets[idx];
 
-        const packed_data = self.items[idx].load(.acquire);
-        const packed_entry = PackedEntry{ .data = packed_data };
+        for (&bucket.entries) |*atomic_entry| {
+            const packed_data = atomic_entry.load(.acquire);
+            const packed_entry = PackedEntry{ .data = packed_data };
 
-        const flag = packed_entry.getFlag();
-
-        if (packed_entry.verify(hash) and flag != .None) {
-            return packed_entry.unpack(hash);
+            if (packed_entry.getFlag() != .None and packed_entry.verify(hash)) {
+                return packed_entry.unpack(hash);
+            }
         }
 
         return null;
     }
 
     pub inline fn store(self: *TranspositionTable, entry: Entry) void {
+        // Alias for set to keep API compatibility
+        self.set(entry);
+    }
+
+    pub inline fn set(self: *TranspositionTable, entry: Entry) void {
         const idx = self.index(entry.hash);
+        const bucket = &self.buckets[idx];
         const current_age = self.getAge();
 
-        const packed_entry = PackedEntry.pack(
+        var best_move = entry.move;
+        
+        var match_idx: ?usize = null;
+        var empty_idx: ?usize = null;
+        
+        var worst_idx: usize = 0;
+        var worst_score: i32 = std.math.maxInt(i32);
+
+        // 1. Scan the bucket for a match, an empty slot, and identify the worst entry
+        for (&bucket.entries, 0..) |*atomic_entry, i| {
+            const packed_data = atomic_entry.load(.acquire);
+            const packed_entry = PackedEntry{ .data = packed_data };
+            const flag = packed_entry.getFlag();
+
+            if (flag == .None) {
+                empty_idx = i;
+                continue; // Found empty, but keep scanning for a hash match
+            }
+
+            if (packed_entry.verify(entry.hash)) {
+                match_idx = i;
+                if (best_move.isNull() and !packed_entry.getMove().isNull()) {
+                    best_move = packed_entry.getMove(); // Preserve the old best move
+                }
+                break; // Found the exact position, stop scanning
+            }
+
+            // 2. Score the entry to find the weakest link for collision handling
+            var score: i32 = packed_entry.getDepth();
+            if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
+            // const age_diff: u8 = current_age -% packed_entry.getAge();
+
+            // if (age_diff > 0) {
+            //     // Apply a tunable depth penalty per generation.
+            //     // For example, an age penalty of 12 means a Depth 30 node from the 
+            //     // previous search is treated like a Depth 18 node today. 
+            //     // It will still crush a new Depth 5 node, but will yield to a new Depth 20 node.
+            //     score -= @as(i32, age_diff) * ; 
+            // }
+            if (packed_entry.getIsPv()) score += 2;
+            if (flag == .Exact) score += 1;
+
+            if (score < worst_score) {
+                worst_score = score;
+                worst_idx = i;
+            }
+        }
+
+        // 3. Determine the write target: Match > Empty > Worst
+        const target_idx = match_idx orelse empty_idx orelse worst_idx;
+
+        const new_packed = PackedEntry.pack(
             entry.hash,
             entry.eval,
-            entry.move.toTTKey(),
+            best_move.toTTKey(),
             entry.static_eval,
             entry.flag,
             entry.depth,
@@ -278,7 +333,7 @@ pub const TranspositionTable = struct {
             entry.static_eval_valid,
         );
 
-        self.items[idx].store(packed_entry.data, .release);
+        bucket.entries[target_idx].store(new_packed.data, .release);
     }
 
     pub fn compareAndSwap(
@@ -288,6 +343,7 @@ pub const TranspositionTable = struct {
         new_entry: Entry,
     ) bool {
         const idx = self.index(hash);
+        const bucket = &self.buckets[idx];
         const current_age = self.getAge();
 
         const expected_packed = PackedEntry.pack(
@@ -316,45 +372,56 @@ pub const TranspositionTable = struct {
             new_entry.static_eval_valid,
         );
 
-        const result = self.items[idx].cmpxchgStrong(
-            expected_packed.data,
-            new_packed.data,
-            .acqRel,
-            .acquire,
-        );
+        // Find the matching expected entry in the bucket
+        for (&bucket.entries) |*atomic_entry| {
+            const current_data = atomic_entry.load(.acquire);
+            if (current_data == expected_packed.data) {
+                const result = atomic_entry.cmpxchgStrong(
+                    expected_packed.data,
+                    new_packed.data,
+                    .acqRel,
+                    .acquire,
+                );
+                return result == null;
+            }
+        }
 
-        return result == null;
+        return false;
     }
 
     pub fn getUsage(self: *TranspositionTable) struct { used: usize, total: usize } {
         var used: usize = 0;
 
-        for (self.items) |*item| {
-            const packed_data = item.load(.monotonic);
-            const packed_entry = PackedEntry{ .data = packed_data };
-            if (packed_entry.getFlag() != .None) {
-                used += 1;
+        for (self.buckets) |*bucket| {
+            for (&bucket.entries) |*item| {
+                const packed_data = item.load(.monotonic);
+                const packed_entry = PackedEntry{ .data = packed_data };
+                if (packed_entry.getFlag() != .None) {
+                    used += 1;
+                }
             }
         }
 
-        return .{ .used = used, .total = self.size };
+        return .{ .used = used, .total = self.num_buckets * TT_BUCKET_SLOTS };
     }
 
     pub fn getFillPermill(self: *const TranspositionTable) usize {
-        const sample_size = @min(1000, self.size);
+        const sample_size = @min(1000, self.num_buckets);
         var used: usize = 0;
 
         var i: usize = 0;
         while (i < sample_size) : (i += 1) {
-            const idx = (i * self.size) / sample_size;
-            const packed_data = self.items[idx].load(.monotonic);
-            const packed_entry = PackedEntry{ .data = packed_data };
-            if (packed_entry.getFlag() != .None) {
-                used += 1;
+            const idx = (i * self.num_buckets) / sample_size;
+            for (&self.buckets[idx].entries) |*item| {
+                const packed_data = item.load(.monotonic);
+                const packed_entry = PackedEntry{ .data = packed_data };
+                if (packed_entry.getFlag() != .None) {
+                    used += 1;
+                }
             }
         }
 
-        return (used * 1000) / sample_size;
+        return (used * 1000) / (sample_size * TT_BUCKET_SLOTS);
     }
 };
 
@@ -365,4 +432,8 @@ comptime {
     if (@sizeOf(PackedEntry) != 16) {
         @compileError("PackedEntry must be 16 bytes for atomic operations");
     }
+    if (@sizeOf(Bucket) != 64) {
+        @compileError("Bucket must be exactly 64 bytes to align with CPU cache lines");
+    }
 }
+

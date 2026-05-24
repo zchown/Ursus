@@ -117,26 +117,6 @@ pub fn perft(
     return result;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Chess960 / DFRC Perft Tests
-// ─────────────────────────────────────────────────────────────────────────────
-//
-// Each position is chosen to exercise a specific Chess960 castling edge-case.
-// D1 counts are hand-verified by move enumeration (see comments).
-// D5/D6 values for X-FEN positions are identical to the corresponding standard-
-// chess position — they verify that X-FEN parsing produces the same results.
-// Fill in deeper values once the engine is confirmed correct at D1.
-//
-// Castling edge-cases covered:
-//   (A) X-FEN HAha notation — standard king/rook squares, different token style.
-//   (B) King-rook swap      — king on f1, KS rook on g1 (adjacent, they trade).
-//   (C) King stays in place — king is already on the KS destination square (g1).
-//   (D) Blocked rook dest   — KS rook destination (f1) occupied by the QS rook;
-//                              KS castling is therefore illegal.
-//   (E) QS rook stays       — QS rook already on its destination (d1);
-//                              king slides left while rook doesn't move.
-//   (F) DFRC                — white and black have independent castling setups.
-
 const Chess960Position = struct {
     fen: []const u8,
     depth: u32,

@@ -228,13 +228,14 @@ pub fn updateCaptureHistory(
     other_moves: *const mvs.MoveList,
     depth: usize,
 ) void {
+    _ = board;
     const captured_piece_idx = @as(usize, @intCast(best_move.captured_piece));
 
     if (captured_piece_idx < 6) {
         const bonus = @as(i32, @intCast(@min(1024, depth * depth * 16)));
         const max_cap_hist: i32 = 16384;
 
-        var attacking_piece = board.getPieceFromSquare(best_move.start_square).?;
+        var attacking_piece: brd.Pieces = @enumFromInt(best_move.piece);
         var attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
 
         const old_value = self.capture_history[@intFromEnum(color)][attacking_piece_idx][best_move.end_square][captured_piece_idx];
@@ -247,7 +248,7 @@ pub fn updateCaptureHistory(
             if (m.capture == 1 and m.toU32() != best_move.toU32()) {
                 const cap_p_idx = @as(usize, @intCast(m.captured_piece));
 
-                attacking_piece = board.getPieceFromSquare(m.start_square).?;
+                attacking_piece = @enumFromInt(m.piece);
                 attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
 
                 if (cap_p_idx < 6) {

@@ -688,7 +688,6 @@ pub const Searcher = struct {
         self.eval_history[self.ply] = raw_static_eval;
 
         const improving: bool = !in_check and self.ply >= 2 and static_eval > self.eval_history[self.ply - 2];
-        // const worsening: bool = !in_check and self.ply >= 2 and static_eval < self.eval_history[self.ply - 2];
 
         const has_non_pawns = board.hasNonPawnMaterial(color);
 

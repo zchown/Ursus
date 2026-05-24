@@ -1,9 +1,23 @@
 const std = @import("std");
-const builtin = @import("builtin");
 const brd = @import("board");
 const moves = @import("moves");
 
-pub const num_features = 2 * brd.num_pieces * brd.num_squares; // 2 * 6 * 64 = 768
+pub const features_per_bucket = 2 * brd.num_pieces * brd.num_squares;
+
+pub const NUM_KING_BUCKETS: usize = 8;
+
+const KING_BUCKETS_BASE: [32]u8 = [_]u8{
+    0, 0, 1, 1, // rank 1
+    2, 2, 3, 3, // rank 2
+    4, 4, 5, 5, // rank 3
+    4, 4, 5, 5, // rank 4
+    6, 6, 7, 7, // rank 5
+    6, 6, 7, 7, // rank 6
+    6, 6, 7, 7, // rank 7
+    6, 6, 7, 7, // rank 8
+};
+
+pub const num_features = NUM_KING_BUCKETS * features_per_bucket;
 pub const hidden_size = 1536;
 
 const QA: i16 = 255;
@@ -12,98 +26,25 @@ const NUM_OUTPUT_BUCKETS: usize = 8;
 const EVAL_SCALE: i64 = 128;
 const cache_line = std.atomic.cache_line;
 
-const CpuTarget = enum { avx2, sse2, aarch64, fallback };
-
-const TARGET: CpuTarget = blk: {
-    const cpu = builtin.cpu;
-    switch (cpu.arch) {
-        .x86_64 => {
-            if (std.Target.x86.featureSetHas(cpu.features, .avx2)) break :blk .avx2;
-            if (std.Target.x86.featureSetHas(cpu.features, .sse2)) break :blk .sse2;
-        },
-        .aarch64 => break :blk .aarch64,
-        else => {},
-    }
-    break :blk .fallback;
-};
-
 const vec_i16_len: comptime_int = std.simd.suggestVectorLength(i16) orelse 8;
-const vec_i32_len: comptime_int = vec_i16_len / 2; // maddwd halves lane count
 const num_acc_vecs: usize = hidden_size / vec_i16_len;
 
 const I16Vec = @Vector(vec_i16_len, i16);
-const I32Vec = @Vector(vec_i32_len, i32); // exactly one native register wide
-
-inline fn maddwd(a: I16Vec, b: I16Vec) I32Vec {
-    return switch (TARGET) {
-        // AVX2: 3-operand non-destructive encoding.
-        // AT&T syntax: vpmaddwd src2, src1, dst
-        .avx2 => asm ("vpmaddwd %[b], %[a], %[ret]"
-            : [ret] "=x" (-> I32Vec),
-            : [a] "x" (a),
-              [b] "x" (b),
-        ),
-
-        // SSE2: 2-operand destructive encoding.
-        // "0" constraint ties the first input to the output register.
-        .sse2 => asm ("pmaddwd %[b], %[a]"
-            : [ret] "=x" (-> I32Vec),
-            : [a] "0" (a),
-              [b] "x" (b),
-        ),
-
-        // aarch64 should never reach here – handled in scReluAccumulate.
-        .aarch64 => unreachable,
-
-        // Portable fallback: deinterlace even/odd lanes, widen, multiply, add.
-        .fallback => blk: {
-            const a_parts = std.simd.deinterlace(2, a);
-            const b_parts = std.simd.deinterlace(2, b);
-            const lo: I32Vec = @as(I32Vec, a_parts[0]) * @as(I32Vec, b_parts[0]);
-            const hi: I32Vec = @as(I32Vec, a_parts[1]) * @as(I32Vec, b_parts[1]);
-            break :blk lo + hi;
-        },
-    };
-}
-
-//sum  +=  v[i]² * w[i]   for all i   (Lizard reordering: (v*w)*v)
-inline fn scReluAccumulate(sum: I32Vec, vw: I16Vec, v: I16Vec) I32Vec {
-    return switch (TARGET) {
-        // aarch64: smlal + smlal2 — multiply-accumulate long, lower and upper halves.
-        .aarch64 => blk: {
-            const after_lo: I32Vec = asm (
-                \\smlal %[d].4s, %[n].4h, %[m].4h
-                : [d] "=w" (-> I32Vec),
-                : [n] "w" (vw),
-                  [m] "w" (v),
-                  [_] "0" (sum),
-            );
-            break :blk asm (
-                \\smlal2 %[d].4s, %[n].8h, %[m].8h
-                : [d] "=w" (-> I32Vec),
-                : [n] "w" (vw),
-                  [m] "w" (v),
-                  [_] "0" (after_lo),
-            );
-        },
-        // All other targets: delegate to maddwd and add to sum.
-        else => sum +% maddwd(vw, v),
-    };
-}
 
 const nnue_piece_to_index = [2][6]u8{
-    [_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
-    [_]u8{ 6, 7, 8, 9, 10, 11 }, // Pawn, Knight, Bishop, Rook, Queen, King
+[_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
+[_]u8{ 6, 7, 8, 9, 10, 11 }, // Pawn, Knight, Bishop, Rook, Queen, King
 };
 
 pub const NetworkWeights = struct {
     ft_weights: [num_features][hidden_size]i16 align(cache_line),
     ft_biases: [hidden_size]i16 align(cache_line),
+
     out_weights: [NUM_OUTPUT_BUCKETS][2 * hidden_size]i16 align(cache_line),
     out_biases: [NUM_OUTPUT_BUCKETS]i16,
 };
 
-const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("nnuev2.bin").*;
+const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("quantised.bin").*;
 var net_weights: ?*const NetworkWeights = null;
 
 pub fn initWeights() void {
@@ -114,27 +55,54 @@ inline fn mirRank(sq: u8) u8 {
     return sq ^ 56;
 }
 
+inline fn mirFile(sq: u8) u8 {
+    return sq ^ 7;
+}
+
+inline fn shouldMirror(king_sq: u8) bool {
+    return (king_sq & 7) >= 4;
+}
+
+inline fn perspectiveKingBucket(view: brd.Color, view_king_sq: u8) usize {
+    var sq: u8 = if (view == .White) view_king_sq else mirRank(view_king_sq);
+    if (shouldMirror(view_king_sq)) sq = mirFile(sq);
+    const file: usize = @intCast(sq & 0b111);
+    const rank: usize = @intCast(sq >> 3);
+    return KING_BUCKETS_BASE[rank * 4 + file];
+}
+
+inline fn perspectiveSlotId(view: brd.Color, view_king_sq: u8) usize {
+    const mirror_bit: usize = if (shouldMirror(view_king_sq)) 1 else 0;
+    const bucket = perspectiveKingBucket(view, view_king_sq);
+    return mirror_bit * NUM_KING_BUCKETS + bucket;
+}
+
+pub const NUM_FINNY_SLOTS: usize = 2 * NUM_KING_BUCKETS;
+
 pub fn featureIndex(
-    view: brd.Color,
-    piece_color: brd.Color,
-    piece_type: brd.Pieces,
-    square: u8,
+view: brd.Color,
+view_king_sq: u8,
+piece_color: brd.Color,
+piece_type: brd.Pieces,
+square: u8,
 ) usize {
-    const oriented_sq: usize = if (view == .White) square else mirRank(square);
+    var oriented_sq: u8 = if (view == .White) square else mirRank(square);
+    if (shouldMirror(view_king_sq)) {
+        oriented_sq = mirFile(oriented_sq);
+    }
     const is_own: usize = if (view == piece_color) 0 else 1;
     const piece_idx = @intFromEnum(piece_type);
     const piece_offset = nnue_piece_to_index[is_own][piece_idx];
-    return oriented_sq + (@as(usize, piece_offset) * 64);
+    const base_idx: usize = @as(usize, oriented_sq) + (@as(usize, piece_offset) * 64);
+
+    const bucket = perspectiveKingBucket(view, view_king_sq);
+    return bucket * features_per_bucket + base_idx;
 }
 
 fn materialBucket(board: *const brd.Board) usize {
-    var occupied: u64 = 0;
-    inline for (0..brd.num_colors) |ci| {
-        for (std.meta.tags(brd.Pieces)) |piece| {
-            if (piece == .None) continue;
-            occupied |= board.piece_bb[ci][@intFromEnum(piece)];
-        }
-    }
+    // OPTIMIZATION: Use color_bb to eliminate the nested inline loop.
+    // Assuming board.color_bb is indexed by 0 for White and 1 for Black.
+    const occupied: u64 = board.color_bb[0] | board.color_bb[1];
     const piece_count: usize = @popCount(occupied);
     return @min((piece_count -| 2) / 4, NUM_OUTPUT_BUCKETS - 1);
 }
@@ -196,12 +164,19 @@ pub const Accumulator = struct {
         for (0..num_acc_vecs) |i| dst[i] +%= src[i];
     }
 
+    pub fn deactivateFeature(self: *Accumulator, feature_idx: usize) void {
+        if (net_weights == null) return;
+        const dst = self.vecs();
+        const src = weightVecs(feature_idx);
+        for (0..num_acc_vecs) |i| dst[i] -%= src[i];
+    }
+
     fn addSubCopy(
-        noalias self: *Accumulator,
-        noalias parent: *const Accumulator,
-        add_feat: usize,
-        sub_feat: usize,
-    ) void {
+    noalias self: *Accumulator,
+    noalias parent: *const Accumulator,
+    add_feat: usize,
+    sub_feat: usize,
+) void {
         const dst = self.vecs();
         const src = parent.constVecs();
         const add_w = weightVecs(add_feat);
@@ -212,12 +187,12 @@ pub const Accumulator = struct {
     }
 
     fn addSubSubCopy(
-        noalias self: *Accumulator,
-        noalias parent: *const Accumulator,
-        add_feat: usize,
-        sub1_feat: usize,
-        sub2_feat: usize,
-    ) void {
+    noalias self: *Accumulator,
+    noalias parent: *const Accumulator,
+    add_feat: usize,
+    sub1_feat: usize,
+    sub2_feat: usize,
+) void {
         const dst = self.vecs();
         const src = parent.constVecs();
         const add_w = weightVecs(add_feat);
@@ -229,13 +204,13 @@ pub const Accumulator = struct {
     }
 
     fn addAddSubSubCopy(
-        noalias self: *Accumulator,
-        noalias parent: *const Accumulator,
-        add1_feat: usize,
-        add2_feat: usize,
-        sub1_feat: usize,
-        sub2_feat: usize,
-    ) void {
+    noalias self: *Accumulator,
+    noalias parent: *const Accumulator,
+    add1_feat: usize,
+    add2_feat: usize,
+    sub1_feat: usize,
+    sub2_feat: usize,
+) void {
         const dst = self.vecs();
         const src = parent.constVecs();
         const add1_w = weightVecs(add1_feat);
@@ -248,61 +223,96 @@ pub const Accumulator = struct {
     }
 };
 
-fn applyLazyDelta(
-    noalias state: *NNUEState,
-    noalias parent: *const NNUEState,
+fn applyLazyDeltaForPerspective(
+noalias state: *NNUEState,
+noalias parent: *const NNUEState,
+view_idx: usize,
 ) void {
     const dirty = &state.dirty;
+    const view: brd.Color = @enumFromInt(view_idx);
+    const king_sq = state.king_squares[view_idx];
 
     if (dirty.num_adds == 1 and dirty.num_subs == 1) {
-        inline for (0..brd.num_colors) |vi| {
-            const view: brd.Color = @enumFromInt(vi);
-            const add_idx = featureIndex(view, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
-            const sub_idx = featureIndex(view, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
-            state.accumulators[vi].addSubCopy(&parent.accumulators[vi], add_idx, sub_idx);
-        }
+        const add_idx = featureIndex(view, king_sq, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
+        const sub_idx = featureIndex(view, king_sq, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
+        state.accumulators[view_idx].addSubCopy(&parent.accumulators[view_idx], add_idx, sub_idx);
     } else if (dirty.num_adds == 1 and dirty.num_subs == 2) {
-        inline for (0..brd.num_colors) |vi| {
-            const view: brd.Color = @enumFromInt(vi);
-            const add_idx = featureIndex(view, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
-            const sub1_idx = featureIndex(view, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
-            const sub2_idx = featureIndex(view, dirty.subs[1].piece_color, dirty.subs[1].piece_type, dirty.subs[1].square);
-            state.accumulators[vi].addSubSubCopy(&parent.accumulators[vi], add_idx, sub1_idx, sub2_idx);
-        }
+        const add_idx = featureIndex(view, king_sq, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
+        const sub1_idx = featureIndex(view, king_sq, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
+        const sub2_idx = featureIndex(view, king_sq, dirty.subs[1].piece_color, dirty.subs[1].piece_type, dirty.subs[1].square);
+        state.accumulators[view_idx].addSubSubCopy(&parent.accumulators[view_idx], add_idx, sub1_idx, sub2_idx);
     } else if (dirty.num_adds == 2 and dirty.num_subs == 2) {
-        inline for (0..brd.num_colors) |vi| {
-            const view: brd.Color = @enumFromInt(vi);
-            const add1_idx = featureIndex(view, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
-            const add2_idx = featureIndex(view, dirty.adds[1].piece_color, dirty.adds[1].piece_type, dirty.adds[1].square);
-            const sub1_idx = featureIndex(view, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
-            const sub2_idx = featureIndex(view, dirty.subs[1].piece_color, dirty.subs[1].piece_type, dirty.subs[1].square);
-            state.accumulators[vi].addAddSubSubCopy(&parent.accumulators[vi], add1_idx, add2_idx, sub1_idx, sub2_idx);
-        }
+        const add1_idx = featureIndex(view, king_sq, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
+        const add2_idx = featureIndex(view, king_sq, dirty.adds[1].piece_color, dirty.adds[1].piece_type, dirty.adds[1].square);
+        const sub1_idx = featureIndex(view, king_sq, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
+        const sub2_idx = featureIndex(view, king_sq, dirty.subs[1].piece_color, dirty.subs[1].piece_type, dirty.subs[1].square);
+        state.accumulators[view_idx].addAddSubSubCopy(&parent.accumulators[view_idx], add1_idx, add2_idx, sub1_idx, sub2_idx);
     } else {
-        state.accumulators = parent.accumulators;
+        state.accumulators[view_idx] = parent.accumulators[view_idx];
     }
 }
 
 pub const NNUEState = struct {
     accumulators: [brd.num_colors]Accumulator,
+    king_squares: [brd.num_colors]u8,
     dirty: DirtyPieces,
-    computed: bool,
+    needs_refresh: [brd.num_colors]bool,
+    computed: [brd.num_colors]bool,
 
     pub fn init() NNUEState {
         return .{
             .accumulators = [_]Accumulator{Accumulator.init()} ** brd.num_colors,
+            .king_squares = [_]u8{0} ** brd.num_colors,
             .dirty = .{},
-            .computed = false,
+            .needs_refresh = [_]bool{false} ** brd.num_colors,
+            .computed = [_]bool{false} ** brd.num_colors,
         };
+    }
+};
+
+pub const FinnyEntry = struct {
+    accumulator: Accumulator,
+    pieces: [brd.num_colors][brd.num_pieces]u64,
+
+    pub fn reset(self: *FinnyEntry) void {
+        self.accumulator.initFromBias();
+        for (0..brd.num_colors) |c| {
+            for (0..brd.num_pieces) |p| {
+                self.pieces[c][p] = 0;
+            }
+        }
+    }
+};
+
+pub const FinnyTable = struct {
+    entries: [brd.num_colors][NUM_FINNY_SLOTS]FinnyEntry,
+
+    pub fn init() FinnyTable {
+        var ft: FinnyTable = undefined;
+        ft.reset();
+        return ft;
+    }
+
+    pub fn reset(self: *FinnyTable) void {
+        for (0..brd.num_colors) |c| {
+            for (0..NUM_FINNY_SLOTS) |s| {
+                self.entries[c][s].reset();
+            }
+        }
     }
 };
 
 pub const NNUEStack = struct {
     states: [brd.max_game_moves + 1]NNUEState,
+    finny: FinnyTable,
     current: usize,
 
     pub fn init() NNUEStack {
-        return .{ .states = undefined, .current = 0 };
+        return .{
+            .states = undefined,
+            .finny = FinnyTable.init(),
+            .current = 0,
+        };
     }
 
     pub inline fn top(self: *NNUEStack) *NNUEState {
@@ -310,11 +320,11 @@ pub const NNUEStack = struct {
     }
 
     pub inline fn push(self: *NNUEStack) void {
-        self.ensureComputed(self.current);
         const next = self.current + 1;
-        self.states[next].accumulators = self.states[self.current].accumulators;
+        self.states[next].king_squares = self.states[self.current].king_squares;
         self.states[next].dirty = .{};
-        self.states[next].computed = true;
+        self.states[next].needs_refresh = [_]bool{false} ** brd.num_colors;
+        self.states[next].computed = [_]bool{false} ** brd.num_colors;
         self.current = next;
     }
 
@@ -323,12 +333,13 @@ pub const NNUEStack = struct {
     }
 
     pub fn pushAndUpdate(
-        self: *NNUEStack,
-        board: *const brd.Board,
-        move_data: moves.EncodedMove,
-    ) void {
+    self: *NNUEStack,
+    board: *const brd.Board,
+    move_data: moves.EncodedMove,
+) void {
         const next = self.current + 1;
         var dirty = DirtyPieces{};
+        const parent = &self.states[self.current];
 
         const moving_color = board.toMove();
         const opp_color = moving_color.opposite();
@@ -338,28 +349,25 @@ pub const NNUEStack = struct {
 
         if (move_data.castling == 1) {
             const rook_from: u8 = if (to_sq > from_sq)
-                (if (moving_color == .White) @as(u8, 7) else @as(u8, 63))
-            else
-                (if (moving_color == .White) @as(u8, 0) else @as(u8, 56));
+            (if (moving_color == .White) @as(u8, 7) else @as(u8, 63))
+                else
+            (if (moving_color == .White) @as(u8, 0) else @as(u8, 56));
             const rook_to: u8 = if (to_sq > from_sq)
-                (if (moving_color == .White) @as(u8, 5) else @as(u8, 61))
-            else
-                (if (moving_color == .White) @as(u8, 3) else @as(u8, 59));
-
+            (if (moving_color == .White) @as(u8, 5) else @as(u8, 61))
+                else
+            (if (moving_color == .White) @as(u8, 3) else @as(u8, 59));
             dirty.addPiece(moving_color, .King, to_sq);
             dirty.addPiece(moving_color, .Rook, rook_to);
             dirty.subPiece(moving_color, .King, from_sq);
             dirty.subPiece(moving_color, .Rook, rook_from);
         } else if (move_data.en_passant == 1) {
             const ep_pawn_sq: u8 =
-                if (moving_color == .White) to_sq - 8 else to_sq + 8;
-
+            if (moving_color == .White) to_sq - 8 else to_sq + 8;
             dirty.addPiece(moving_color, .Pawn, to_sq);
             dirty.subPiece(moving_color, .Pawn, from_sq);
             dirty.subPiece(opp_color, .Pawn, ep_pawn_sq);
         } else if (move_data.promoted_piece != 0) {
             const promoted_type: brd.Pieces = @enumFromInt(move_data.promoted_piece);
-
             dirty.subPiece(moving_color, .Pawn, from_sq);
             if (move_data.capture == 1) {
                 const captured_type: brd.Pieces = @enumFromInt(move_data.captured_piece);
@@ -375,31 +383,77 @@ pub const NNUEStack = struct {
             dirty.subPiece(moving_color, piece_type, from_sq);
         }
 
+        var new_king_sqs = parent.king_squares;
+        var i: u8 = 0;
+        while (i < dirty.num_adds) : (i += 1) {
+            const a = dirty.adds[i];
+            if (a.piece_type == .King) {
+                new_king_sqs[@intFromEnum(a.piece_color)] = a.square;
+            }
+        }
+
+        var needs_refresh = [_]bool{false} ** brd.num_colors;
+        inline for (0..brd.num_colors) |c| {
+            const view = @as(brd.Color, @enumFromInt(c));
+            const old_slot = perspectiveSlotId(view, parent.king_squares[c]);
+            const new_slot = perspectiveSlotId(view, new_king_sqs[c]);
+            if (old_slot != new_slot) {
+                needs_refresh[c] = true;
+            }
+        }
+
         self.states[next].dirty = dirty;
-        self.states[next].computed = false;
+        self.states[next].king_squares = new_king_sqs;
+        self.states[next].needs_refresh = needs_refresh;
+        self.states[next].computed = [_]bool{false} ** brd.num_colors;
         self.current = next;
     }
 
-    fn ensureComputed(self: *NNUEStack, target: usize) void {
-        if (self.states[target].computed) return;
+    fn ensureComputed(self: *NNUEStack, target: usize, board: *const brd.Board) void {
         if (net_weights == null) return;
+        inline for (0..brd.num_colors) |c| {
+            if (!self.states[target].computed[c]) {
+                var first_dirty = target;
+                while (first_dirty > 0 and !self.states[first_dirty - 1].computed[c]) {
+                    first_dirty -= 1;
+                }
 
-        var first_dirty = target;
-        while (!self.states[first_dirty - 1].computed) {
-            first_dirty -= 1;
-        }
+                var has_refresh = false;
+                var k = first_dirty;
+                while (k <= target) : (k += 1) {
+                    if (self.states[k].needs_refresh[c]) {
+                        has_refresh = true;
+                        break;
+                    }
+                }
 
-        var i = first_dirty;
-        while (i <= target) : (i += 1) {
-            applyLazyDelta(&self.states[i], &self.states[i - 1]);
-            self.states[i].computed = true;
+                if (has_refresh) {
+                    std.debug.assert(target == self.current);
+                    refreshPerspectiveCached(
+                    board,
+                    &self.states[target],
+                    &self.finny,
+                    @as(brd.Color, @enumFromInt(c)),
+                );
+                } else {
+                    var j = first_dirty;
+                    while (j <= target) : (j += 1) {
+                        applyLazyDeltaForPerspective(&self.states[j], &self.states[j - 1], c);
+                        self.states[j].computed[c] = true;
+                    }
+                }
+            }
         }
     }
 };
 
-pub fn refreshAccumulator(board: *const brd.Board, state: *NNUEState) void {
-    state.accumulators[0].initFromBias();
-    state.accumulators[1].initFromBias();
+fn refreshPerspective(board: *const brd.Board, state: *NNUEState, view: brd.Color) void {
+    const c = @intFromEnum(view);
+    const king_bb = board.piece_bb[c][@intFromEnum(brd.Pieces.King)];
+    const view_king_sq: u8 = @intCast(@ctz(king_bb));
+    state.king_squares[c] = view_king_sq;
+
+    state.accumulators[c].initFromBias();
 
     for (std.meta.tags(brd.Color)) |piece_color| {
         const ci = @intFromEnum(piece_color);
@@ -409,74 +463,138 @@ pub fn refreshAccumulator(board: *const brd.Board, state: *NNUEState) void {
             var bb = board.piece_bb[ci][pi];
             while (bb != 0) {
                 const sq: u8 = @intCast(@ctz(bb));
-                state.accumulators[@intFromEnum(brd.Color.White)].activateFeature(
-                    featureIndex(.White, piece_color, piece, sq),
-                );
-                state.accumulators[@intFromEnum(brd.Color.Black)].activateFeature(
-                    featureIndex(.Black, piece_color, piece, sq),
-                );
+                state.accumulators[c].activateFeature(
+                featureIndex(view, view_king_sq, piece_color, piece, sq),
+            );
                 bb &= bb - 1;
             }
         }
     }
 
+    state.needs_refresh[c] = false;
+    state.computed[c] = true;
+}
+
+fn refreshPerspectiveCached(
+board: *const brd.Board,
+state: *NNUEState,
+finny: *FinnyTable,
+view: brd.Color,
+) void {
+    if (net_weights == null) return;
+    const c = @intFromEnum(view);
+
+    const king_bb = board.piece_bb[c][@intFromEnum(brd.Pieces.King)];
+    const view_king_sq: u8 = @intCast(@ctz(king_bb));
+    state.king_squares[c] = view_king_sq;
+    const slot = perspectiveSlotId(view, view_king_sq);
+    const entry = &finny.entries[c][slot];
+
+    for (std.meta.tags(brd.Color)) |piece_color| {
+        const ci = @intFromEnum(piece_color);
+        for (std.meta.tags(brd.Pieces)) |piece| {
+            if (piece == .None) continue;
+            const pi = @intFromEnum(piece);
+
+            const current_bb = board.piece_bb[ci][pi];
+            const cached_bb = entry.pieces[ci][pi];
+            if (current_bb == cached_bb) continue;
+
+            var added = current_bb & ~cached_bb;
+            while (added != 0) {
+                const sq: u8 = @intCast(@ctz(added));
+                entry.accumulator.activateFeature(
+                featureIndex(view, view_king_sq, piece_color, piece, sq),
+            );
+                added &= added - 1;
+            }
+
+            var removed = cached_bb & ~current_bb;
+            while (removed != 0) {
+                const sq: u8 = @intCast(@ctz(removed));
+                entry.accumulator.deactivateFeature(
+                featureIndex(view, view_king_sq, piece_color, piece, sq),
+            );
+                removed &= removed - 1;
+            }
+
+            entry.pieces[ci][pi] = current_bb;
+        }
+    }
+
+    state.accumulators[c] = entry.accumulator;
+    state.needs_refresh[c] = false;
+    state.computed[c] = true;
+}
+
+pub fn refreshAccumulator(board: *const brd.Board, state: *NNUEState) void {
+    refreshPerspective(board, state, .White);
+    refreshPerspective(board, state, .Black);
     state.dirty = .{};
-    state.computed = true;
+}
+
+pub fn refreshStack(stack: *NNUEStack, board: *const brd.Board) void {
+    refreshPerspectiveCached(board, &stack.states[stack.current], &stack.finny, .White);
+    refreshPerspectiveCached(board, &stack.states[stack.current], &stack.finny, .Black);
+    stack.states[stack.current].dirty = .{};
 }
 
 pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Board) i32 {
     const w = net_weights orelse return 0;
-
-    stack.ensureComputed(stack.current);
+    stack.ensureComputed(stack.current, board);
 
     const state = stack.top();
     const bucket = materialBucket(board);
     const stm: usize = @intFromEnum(side_to_move);
     const nstm: usize = 1 - stm;
 
-    const zero_vec: I16Vec = @splat(0);
+    const zero: I16Vec = @splat(0);
     const qa_vec: I16Vec = @splat(QA);
-
-    const stm_acc = state.accumulators[stm].constVecs();
-    const nstm_acc = state.accumulators[nstm].constVecs();
-
+    const stm_acc: *const [hidden_size]i16 = &state.accumulators[stm].vals;
+    const nstm_acc: *const [hidden_size]i16 = &state.accumulators[nstm].vals;
     const bucket_weights = &w.out_weights[bucket];
-    const stm_weights: *const [num_acc_vecs]I16Vec =
-        @ptrCast(@alignCast(bucket_weights[0..hidden_size]));
-    const nstm_weights: *const [num_acc_vecs]I16Vec =
-        @ptrCast(@alignCast(bucket_weights[hidden_size .. 2 * hidden_size]));
+    var sum: i64 = 0;
 
-    const ACC_COUNT = comptime std.math.gcd(4, num_acc_vecs);
-    var sums: [ACC_COUNT]I32Vec = @splat(@as(I32Vec, @splat(0)));
+    const Wide = @Vector(vec_i16_len, i32);
 
-    var i: usize = 0;
-    while (i < num_acc_vecs) {
-        inline for (0..ACC_COUNT) |a| {
-            const vi = i + a;
+{
+        var sum_vec_stm: Wide = @splat(0);
+        var i: usize = 0;
+        while (i < hidden_size) : (i += vec_i16_len) {
+            const v_raw: I16Vec = stm_acc[i..][0..vec_i16_len].*;
+            const w_lane: I16Vec = bucket_weights[i..][0..vec_i16_len].*;
+            const v: I16Vec = @min(@max(v_raw, zero), qa_vec);
 
-            const stm_v  = @min(@max(stm_acc[vi],  zero_vec), qa_vec);
-            const nstm_v = @min(@max(nstm_acc[vi], zero_vec), qa_vec);
+            const v_i32: Wide = v;
+            const w_i32: Wide = w_lane;
+            const prod: Wide = (v_i32 *% w_i32) *% v_i32;
 
-            const stm_vw  = stm_v  *% stm_weights[vi];
-            const nstm_vw = nstm_v *% nstm_weights[vi];
-
-            sums[a] = scReluAccumulate(sums[a], stm_vw,  stm_v);
-            sums[a] = scReluAccumulate(sums[a], nstm_vw, nstm_v);
+            sum_vec_stm +%= prod;
         }
-        i += ACC_COUNT;
+        sum += @reduce(.Add, sum_vec_stm);
     }
 
-    var total_vec = sums[0];
-    inline for (1..ACC_COUNT) |a| total_vec += sums[a];
-    const total_i32 = @reduce(.Add, total_vec);
+{
+        var sum_vec_nstm: Wide = @splat(0);
+        var i: usize = 0;
+        while (i < hidden_size) : (i += vec_i16_len) {
+            const v_raw: I16Vec = nstm_acc[i..][0..vec_i16_len].*;
+            const w_lane: I16Vec = bucket_weights[hidden_size + i ..][0..vec_i16_len].*;
+            const v: I16Vec = @min(@max(v_raw, zero), qa_vec);
 
-    const total: i64 = total_i32;
-    const qa_qb: i64 = @as(i64, QA) * @as(i64, QB);
+            const v_i32: Wide = v;
+            const w_i32: Wide = w_lane;
+            const prod: Wide = (v_i32 *% w_i32) *% v_i32;
 
-    var output: i64 = @divTrunc(total, @as(i64, QA));
+            sum_vec_nstm +%= prod;
+        }
+        sum += @reduce(.Add, sum_vec_nstm);
+    }
+
+    var output: i64 = @divTrunc(sum, @as(i64, QA));
     output += @as(i64, w.out_biases[bucket]);
     output *= EVAL_SCALE;
-    output = @divTrunc(output, qa_qb);
+    output = @divTrunc(output, @as(i64, QA) * @as(i64, QB));
 
     return @intCast(output);
 }

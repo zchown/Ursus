@@ -157,6 +157,15 @@ pub const Board = struct {
         };
     }
 
+    pub fn initInPlace(self: *Board) void {
+        self.piece_bb = std.mem.zeroes(@TypeOf(self.piece_bb));
+        self.color_bb = std.mem.zeroes(@TypeOf(self.color_bb));
+        self.game_state = GameState.init();
+        self.history = History.init();
+        self.nnue_stack.current = 0;
+        self.nnue_stack.finny.reset();
+    }
+
     pub fn printBoard(self: *Board) void {
         const piece_chars: [num_colors][num_pieces]u8 = [num_colors][num_pieces]u8{
             [_]u8{ 'P', 'N', 'B', 'R', 'Q', 'K' },
@@ -573,6 +582,7 @@ pub inline fn clearBit(bb: *Bitboard, square: Square) void {
 pub inline fn setBit(bb: *Bitboard, square: Square) void {
     bb.* |= (1 << square);
 }
+
 
 pub inline fn popBit(bb: *Bitboard, sq: Square) void {
     if (getBit(bb.*, sq)) {

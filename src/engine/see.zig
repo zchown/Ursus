@@ -21,7 +21,7 @@ fn seeSwap(
     color_: brd.Color,
     initial_gain: i32,
 ) i32 {
-    var gain: [32]i32 = @splat(0);
+    var gain: [32]i32 = undefined;
     var depth: usize = 0;
 
     var from_sq = attacker_sq;
@@ -30,8 +30,15 @@ fn seeSwap(
 
     gain[0] = initial_gain;
 
+    const wp = board.piece_bb[@intFromEnum(brd.Color.White)];
+    const bp = board.piece_bb[@intFromEnum(brd.Color.Black)];
+    const bq = wp[@intFromEnum(brd.Pieces.Bishop)] | bp[@intFromEnum(brd.Pieces.Bishop)] |
+        wp[@intFromEnum(brd.Pieces.Queen)] | bp[@intFromEnum(brd.Pieces.Queen)];
+    const rq = wp[@intFromEnum(brd.Pieces.Rook)] | bp[@intFromEnum(brd.Pieces.Rook)] |
+        wp[@intFromEnum(brd.Pieces.Queen)] | bp[@intFromEnum(brd.Pieces.Queen)];
+
     var occupied = board.occupancy();
-    var attackers = getAllAttackers(board, move_gen, target_sq, occupied);
+    var attackers = getAllAttackers(board, move_gen, target_sq, occupied, bq, rq);
 
     while (true) {
         depth += 1;
@@ -39,17 +46,15 @@ fn seeSwap(
 
         gain[depth] = see_values[@intFromEnum(piece)] - gain[depth - 1];
 
-        // Pruning: if both sides can't improve, stop early
         if (@max(-gain[depth - 1], gain[depth]) < 0) break;
 
         occupied ^= (@as(u64, 1) << @intCast(from_sq));
 
-        // Discover x-ray attackers behind the piece we just removed
         if (piece == .Pawn or piece == .Bishop or piece == .Queen) {
-            attackers |= getBishopXrays(board, move_gen, target_sq, occupied);
+            attackers |= move_gen.getBishopAttacks(target_sq, occupied) & bq;
         }
         if (piece == .Rook or piece == .Queen) {
-            attackers |= getRookXrays(board, move_gen, target_sq, occupied);
+            attackers |= move_gen.getRookAttacks(target_sq, occupied) & rq;
         }
 
         attackers &= occupied;
@@ -58,6 +63,9 @@ fn seeSwap(
 
         const next_attacker = getLeastValuableAttacker(board, attackers, color);
         if (next_attacker) |na| {
+            if (na.piece == .King and (attackers & board.color_bb[@intFromEnum(brd.flipColor(color))]) != 0) {
+                break;
+            }
             from_sq = na.square;
             piece = na.piece;
         } else {
@@ -74,10 +82,9 @@ fn seeSwap(
 }
 
 pub fn seeCapture(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove) i32 {
-    const attacker = board.getPieceFromSquare(move.start_square) orelse return 0;
-    const attacker_color = board.getColorFromSquare(move.start_square) orelse return 0;
+    const attacker: brd.Pieces = @enumFromInt(move.piece);
+    const attacker_color: brd.Color = board.toMove();
 
-    // En passant: captured pawn is not on end_square
     if (move.en_passant == 1) {
         return seeSwap(
             board,
@@ -90,7 +97,8 @@ pub fn seeCapture(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
         );
     }
 
-    const target_piece = board.getPieceFromSquare(move.end_square) orelse return 0;
+    if (move.capture == 0) return 0;
+    const target_piece: brd.Pieces = @enumFromInt(move.captured_piece);
 
     return seeSwap(
         board,
@@ -104,10 +112,9 @@ pub fn seeCapture(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
 }
 
 pub fn seeMove(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove) i32 {
-    const attacker = board.getPieceFromSquare(move.start_square) orelse return 0;
-    const attacker_color = board.getColorFromSquare(move.start_square) orelse return 0;
+    const attacker: brd.Pieces = @enumFromInt(move.piece);
+    const attacker_color: brd.Color = board.toMove();
 
-    // En passant
     if (move.en_passant == 1) {
         return seeSwap(
             board,
@@ -120,8 +127,8 @@ pub fn seeMove(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove)
         );
     }
 
-    // Capture: initial gain = value of captured piece
-    const target_piece = board.getPieceFromSquare(move.end_square);
+    const target_piece: ?brd.Pieces = if (move.capture == 1) @enumFromInt(move.captured_piece) else null;
+
     if (target_piece) |tp| {
         return seeSwap(
             board,
@@ -149,24 +156,21 @@ pub fn seeAtLeast(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
     const from = @as(usize, move.start_square);
     const to = @as(usize, move.end_square);
 
-    const attacker = board.getPieceFromSquare(from) orelse return false;
+    const attacker: brd.Pieces = @enumFromInt(move.piece);
 
-    // Step 1: After our initial capture/move, are we above threshold?
-    var swap: i32 = 0;
-    if (move.en_passant == 1) {
-        swap = see_values[@intFromEnum(brd.Pieces.Pawn)] - threshold;
-    } else if (board.getPieceFromSquare(to)) |tp| {
-        swap = see_values[@intFromEnum(tp)] - threshold;
-    } else {
-        swap = -threshold; // quiet move: gained nothing
-    }
+    var swap: i32 = blk: {
+        if (move.en_passant == 1) break :blk see_values[@intFromEnum(brd.Pieces.Pawn)] - threshold;
+        if (move.capture == 1) {
+            const captured: brd.Pieces = @enumFromInt(move.captured_piece);
+            break :blk see_values[@intFromEnum(captured)] - threshold;
+        }
+        break :blk -threshold;
+    };
     if (swap < 0) return false;
 
-    // Step 2: Even if opponent recaptures our piece, do we still meet threshold?
     swap = see_values[@intFromEnum(attacker)] - swap;
     if (swap <= 0) return true;
 
-    // Step 3: Need to run the swap loop
     var occ = board.occupancy();
     occ ^= (@as(u64, 1) << @intCast(from));
     occ ^= (@as(u64, 1) << @intCast(to));
@@ -174,11 +178,18 @@ pub fn seeAtLeast(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
         occ ^= (@as(u64, 1) << @intCast(to ^ 8));
     }
 
-    var attackers = getAllAttackers(board, move_gen, to, occ) & occ;
+    const wp = board.piece_bb[@intFromEnum(brd.Color.White)];
+    const bp = board.piece_bb[@intFromEnum(brd.Color.Black)];
+    const bq = wp[@intFromEnum(brd.Pieces.Bishop)] | bp[@intFromEnum(brd.Pieces.Bishop)] |
+        wp[@intFromEnum(brd.Pieces.Queen)] | bp[@intFromEnum(brd.Pieces.Queen)];
+    const rq = wp[@intFromEnum(brd.Pieces.Rook)] | bp[@intFromEnum(brd.Pieces.Rook)] |
+        wp[@intFromEnum(brd.Pieces.Queen)] | bp[@intFromEnum(brd.Pieces.Queen)];
 
-    var stm = brd.flipColor(board.getColorFromSquare(from) orelse return false);
+    var attackers = getAllAttackers(board, move_gen, to, occ, bq, rq) & occ;
 
-    var res: i32 = 1; // 1 = threshold met, 0 = not met
+    var stm = brd.flipColor(board.toMove());
+
+    var res: i32 = 1;
 
     while (true) {
         const stm_attackers = attackers & board.color_bb[@intFromEnum(stm)];
@@ -188,16 +199,20 @@ pub fn seeAtLeast(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
 
         const na = getLeastValuableAttacker(board, stm_attackers, stm) orelse break;
 
+        if (na.piece == .King and (attackers & board.color_bb[@intFromEnum(brd.flipColor(stm))]) != 0) {
+            break;
+        }
+
         swap = see_values[@intFromEnum(na.piece)] - swap;
         if (swap < res) break;
 
         occ ^= (@as(u64, 1) << @intCast(na.square));
 
         if (na.piece == .Pawn or na.piece == .Bishop or na.piece == .Queen) {
-            attackers |= getBishopXrays(board, move_gen, to, occ);
+            attackers |= move_gen.getBishopAttacks(to, occ) & bq;
         }
         if (na.piece == .Rook or na.piece == .Queen) {
-            attackers |= getRookXrays(board, move_gen, to, occ);
+            attackers |= move_gen.getRookAttacks(to, occ) & rq;
         }
         attackers &= occ;
 
@@ -245,62 +260,20 @@ fn getLeastValuableAttacker(board: *brd.Board, attackers: u64, color: brd.Color)
     return null;
 }
 
-fn getAllAttackers(board: *brd.Board, move_gen: *mvs.MoveGen, sq: usize, occupied: u64) u64 {
+fn getAllAttackers(board: *brd.Board, move_gen: *mvs.MoveGen, sq: usize, occupied: u64, bq: u64, rq: u64) u64 {
+    const wp = board.piece_bb[@intFromEnum(brd.Color.White)];
+    const bp = board.piece_bb[@intFromEnum(brd.Color.Black)];
+
     var attackers: u64 = 0;
 
-    const white_pawn_attacks = if (sq >= 16)
-        ((@as(u64, 1) << @intCast(sq - 7)) & ~@as(u64, 0x0101010101010101)) | // left diagonal
-            ((@as(u64, 1) << @intCast(sq - 9)) & ~@as(u64, 0x8080808080808080)) // right diagonal
-    else
-        0;
+    attackers |= move_gen.pawns[@as(u64, @intFromEnum(brd.Color.Black)) * 64 + sq] & wp[@intFromEnum(brd.Pieces.Pawn)];
+    attackers |= move_gen.pawns[@as(u64, @intFromEnum(brd.Color.White)) * 64 + sq] & bp[@intFromEnum(brd.Pieces.Pawn)];
 
-    const black_pawn_attacks = if (sq < 48)
-        ((@as(u64, 1) << @intCast(sq + 7)) & ~@as(u64, 0x8080808080808080)) | // left diagonal
-            ((@as(u64, 1) << @intCast(sq + 9)) & ~@as(u64, 0x0101010101010101)) // right diagonal
-    else
-        0;
+    attackers |= move_gen.knights[sq] & (wp[@intFromEnum(brd.Pieces.Knight)] | bp[@intFromEnum(brd.Pieces.Knight)]);
+    attackers |= move_gen.kings[sq] & (wp[@intFromEnum(brd.Pieces.King)] | bp[@intFromEnum(brd.Pieces.King)]);
 
-    attackers |= white_pawn_attacks & board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Pawn)];
-    attackers |= black_pawn_attacks & board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Pawn)];
-
-    // Knight attackers
-    const knight_attacks = move_gen.knights[sq];
-    attackers |= knight_attacks & (board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Knight)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Knight)]);
-
-    // King attackers
-    const king_attacks = move_gen.kings[sq];
-    attackers |= king_attacks & (board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.King)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.King)]);
-
-    // Sliding piece attackers
-    const bishop_attacks = move_gen.getBishopAttacks(sq, occupied);
-    attackers |= bishop_attacks & (board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Bishop)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Bishop)] |
-        board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Queen)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Queen)]);
-
-    const rook_attacks = move_gen.getRookAttacks(sq, occupied);
-    attackers |= rook_attacks & (board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Rook)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Rook)] |
-        board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Queen)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Queen)]);
+    attackers |= move_gen.getBishopAttacks(sq, occupied) & bq;
+    attackers |= move_gen.getRookAttacks(sq, occupied) & rq;
 
     return attackers;
-}
-
-fn getBishopXrays(board: *brd.Board, move_gen: *mvs.MoveGen, sq: usize, occupied: u64) u64 {
-    const bishop_attacks = move_gen.getBishopAttacks(sq, occupied);
-    return bishop_attacks & (board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Bishop)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Bishop)] |
-        board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Queen)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Queen)]);
-}
-
-fn getRookXrays(board: *brd.Board, move_gen: *mvs.MoveGen, sq: usize, occupied: u64) u64 {
-    const rook_attacks = move_gen.getRookAttacks(sq, occupied);
-    return rook_attacks & (board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Rook)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Rook)] |
-        board.piece_bb[@intFromEnum(brd.Color.White)][@intFromEnum(brd.Pieces.Queen)] |
-        board.piece_bb[@intFromEnum(brd.Color.Black)][@intFromEnum(brd.Pieces.Queen)]);
 }

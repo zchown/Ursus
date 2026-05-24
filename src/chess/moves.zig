@@ -179,6 +179,10 @@ pub const EncodedMove = packed struct(u32) {
 
         std.debug.print("\n", .{});
     }
+
+    pub inline fn isNull(self: EncodedMove) bool {
+        return self.toU32() == 0;
+    }
 };
 
 pub const MoveList = struct {
