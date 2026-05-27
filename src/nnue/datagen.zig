@@ -13,7 +13,7 @@ pub const DatagenConfig = struct {
     games_per_thread: u32 = 0,
     num_threads: u32 = 10,
     random_plies: u32 = 10,
-    adjudication_score: i32 = 500,
+    adjudication_score: i32 = 400,
     adjudication_count: u32 = 4,
     draw_adjudication_score: i32 = 5,
     draw_adjudication_count: u32 = 8,
@@ -331,7 +331,8 @@ board: *brd.Board,
     }
 
     if (board.isDraw(0)) return false;
-{
+
+    if (book == null) {
         searcher.soft_max_nodes = 2 * config.num_nodes;
         _ = searcher.iterativeDeepening(board, null) catch return false;
         const opening_eval = searcher.best_move_score;
@@ -353,27 +354,6 @@ board: *brd.Board,
             break;
         }
 
-        var move_list = searcher.move_gen.generateMoves(board, false);
-        var has_legal = false;
-        for (move_list.items[0..move_list.len]) |move_data| {
-            mvs.makeMove(board, move_data);
-            if (!searcher.move_gen.isInCheck(board, board.justMoved())) {
-                has_legal = true;
-            }
-            mvs.undoMove(board, move_data);
-            if (has_legal) break;
-        }
-
-        if (!has_legal) {
-            const in_check = searcher.move_gen.isInCheck(board, board.toMove());
-            if (in_check) {
-                result = if (board.toMove() == .White) .BlackWin else .WhiteWin;
-            } else {
-                result = .Draw;
-            }
-            break;
-        }
-
         searcher.stop = false;
         searcher.is_searching = true;
         searcher.time_stop = false;
@@ -386,7 +366,7 @@ board: *brd.Board,
 
         tt.stop_signal.store(false, .release);
 
-        const jitter_range: i64 = @intCast(config.num_nodes / 5);
+        const jitter_range: i64 = @intCast(config.num_nodes / 10);
         var random_offset: i64 = 0;
         if (jitter_range > 0) {
             random_offset = @as(i64, @intCast(rng.next() % @as(u64, @intCast(jitter_range * 2)))) - jitter_range;
@@ -398,7 +378,15 @@ board: *brd.Board,
         const score = search_result.score;
         const best_move = search_result.move;
 
-        if (best_move.toU32() == 0) break;
+        if (best_move.toU32() == 0) {
+            // No legal moves: checkmate or stalemate.
+            const in_check = searcher.move_gen.isInCheck(board, board.toMove());
+            result = if (in_check)
+                (if (board.toMove() == .White) .BlackWin else .WhiteWin)
+            else
+                .Draw;
+            break;
+        }
 
         const white_score: i16 = blk: {
             const clamped = std.math.clamp(score, -32000, 32000);

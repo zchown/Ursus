@@ -21,14 +21,14 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 # OPENINGS="openings.pgn"
 
 CONCURRENCY=10
-TC="8+0.08"
+TC="4+0.04"
 ROUNDS=10000
 
 # SPRT settings
 # H0: 0 Elo (no improvement)
 # H1: +5 Elo improvement
-ELO0=0
-ELO1=2
+ELO0=-5
+ELO1=0
 ALPHA=0.05
 BETA=0.05
 

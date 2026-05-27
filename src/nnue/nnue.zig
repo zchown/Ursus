@@ -100,8 +100,6 @@ square: u8,
 }
 
 fn materialBucket(board: *const brd.Board) usize {
-    // OPTIMIZATION: Use color_bb to eliminate the nested inline loop.
-    // Assuming board.color_bb is indexed by 0 for White and 1 for Black.
     const occupied: u64 = board.color_bb[0] | board.color_bb[1];
     const piece_count: usize = @popCount(occupied);
     return @min((piece_count -| 2) / 4, NUM_OUTPUT_BUCKETS - 1);
@@ -553,45 +551,26 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Bo
     const stm_acc: *const [hidden_size]i16 = &state.accumulators[stm].vals;
     const nstm_acc: *const [hidden_size]i16 = &state.accumulators[nstm].vals;
     const bucket_weights = &w.out_weights[bucket];
-    var sum: i64 = 0;
 
     const Wide = @Vector(vec_i16_len, i32);
+    var sum_stm: Wide = @splat(0);
+    var sum_nstm: Wide = @splat(0);
 
-{
-        var sum_vec_stm: Wide = @splat(0);
-        var i: usize = 0;
-        while (i < hidden_size) : (i += vec_i16_len) {
-            const v_raw: I16Vec = stm_acc[i..][0..vec_i16_len].*;
-            const w_lane: I16Vec = bucket_weights[i..][0..vec_i16_len].*;
-            const v: I16Vec = @min(@max(v_raw, zero), qa_vec);
+    var i: usize = 0;
+    while (i < hidden_size) : (i += vec_i16_len) {
+        const v_stm: I16Vec = @min(@max(@as(I16Vec, stm_acc[i..][0..vec_i16_len].*), zero), qa_vec);
+        const v_stm_i32: Wide = v_stm;
+        const w_stm_i32: Wide = @as(I16Vec, bucket_weights[i..][0..vec_i16_len].*);
+        sum_stm +%= (v_stm_i32 *% v_stm_i32) *% w_stm_i32;
 
-            const v_i32: Wide = v;
-            const w_i32: Wide = w_lane;
-            const prod: Wide = (v_i32 *% w_i32) *% v_i32;
-
-            sum_vec_stm +%= prod;
-        }
-        sum += @reduce(.Add, sum_vec_stm);
+        const v_nstm: I16Vec = @min(@max(@as(I16Vec, nstm_acc[i..][0..vec_i16_len].*), zero), qa_vec);
+        const v_nstm_i32: Wide = v_nstm;
+        const w_nstm_i32: Wide = @as(I16Vec, bucket_weights[hidden_size + i ..][0..vec_i16_len].*);
+        sum_nstm +%= (v_nstm_i32 *% v_nstm_i32) *% w_nstm_i32;
     }
 
-{
-        var sum_vec_nstm: Wide = @splat(0);
-        var i: usize = 0;
-        while (i < hidden_size) : (i += vec_i16_len) {
-            const v_raw: I16Vec = nstm_acc[i..][0..vec_i16_len].*;
-            const w_lane: I16Vec = bucket_weights[hidden_size + i ..][0..vec_i16_len].*;
-            const v: I16Vec = @min(@max(v_raw, zero), qa_vec);
-
-            const v_i32: Wide = v;
-            const w_i32: Wide = w_lane;
-            const prod: Wide = (v_i32 *% w_i32) *% v_i32;
-
-            sum_vec_nstm +%= prod;
-        }
-        sum += @reduce(.Add, sum_vec_nstm);
-    }
-
-    var output: i64 = @divTrunc(sum, @as(i64, QA));
+    var output: i64 = @as(i64, @reduce(.Add, sum_stm)) + @as(i64, @reduce(.Add, sum_nstm));
+    output = @divTrunc(output, @as(i64, QA));
     output += @as(i64, w.out_biases[bucket]);
     output *= EVAL_SCALE;
     output = @divTrunc(output, @as(i64, QA) * @as(i64, QB));

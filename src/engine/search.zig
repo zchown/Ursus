@@ -149,25 +149,39 @@ pub const Searcher = struct {
     }
 
     pub inline fn should_stop(self: *Searcher) bool {
+        if (self.stop) return true;
+        if (self.search_depth <= self.min_depth) return false;
+        // Soft node cap applies to every thread. SMP helpers never set soft_max_nodes
+        // so this is a no-op for them; datagen workers (which are solo searchers) use
+        // this to cap mid-depth overshoot without needing thread_id == 0.
+        if (self.soft_max_nodes) |soft_limit| {
+            if (self.nodes >= soft_limit) return true;
+        }
+        // Time and hard node limit are main-thread only in SMP.
         const thinking = @atomicLoad(bool, &self.force_think, .acquire);
-        return self.stop or
-            (self.thread_id == 0 and self.search_depth > self.min_depth and
-                ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
-                    (!thinking and self.timer.read() / std.time.ns_per_ms >= self.max_ms)));
+        return self.thread_id == 0 and
+            ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
+                (!thinking and self.timer.read() / std.time.ns_per_ms >= self.max_ms));
     }
 
     pub inline fn should_not_continue(self: *Searcher, factor: f32) bool {
+        if (self.stop) return true;
+        if (self.search_depth <= self.min_depth) return false;
+        // Same soft node cap as should_stop — catches the between-depth case for
+        // any thread, keeping datagen workers from starting an unnecessary depth.
+        if (self.soft_max_nodes) |soft_limit| {
+            if (self.nodes >= soft_limit) return true;
+        }
+        // Time and hard node limit are main-thread only in SMP.
         const thinking = @atomicLoad(bool, &self.force_think, .acquire);
         // Prevent floating point overflow when time is infinite
         const scaled_ideal_ms = if (self.ideal_ms == std.math.maxInt(u64))
             std.math.maxInt(u64)
         else
             @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor));
-
-        return self.stop or
-            (self.thread_id == 0 and self.search_depth > self.min_depth and
-                ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
-                    (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, scaled_ideal_ms))));
+        return self.thread_id == 0 and
+            ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
+                (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, scaled_ideal_ms)));
     }
 
     const ThreadContext = struct {
