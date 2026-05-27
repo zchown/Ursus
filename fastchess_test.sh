@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
-ENGINE_BASE="./engines/Ursus4.1"
+ENGINE_BASE="./engines/Ursus4.3"
 # ENGINE_BASE="./engines/Ursus3.39"
 # ENGINE_BASE="./../stash/stash-bot-v37.0/src/stash"          # 3431
 # # ENGINE_BASE="./releaseEngines/Ursus6.0"

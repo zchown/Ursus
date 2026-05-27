@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const brd = @import("board");
 const moves = @import("moves");
 
@@ -26,10 +27,85 @@ const NUM_OUTPUT_BUCKETS: usize = 8;
 const EVAL_SCALE: i64 = 128;
 const cache_line = std.atomic.cache_line;
 
+const CpuTarget = enum { avx2, sse2, aarch64, fallback };
+
+const TARGET: CpuTarget = blk: {
+    const cpu = builtin.cpu;
+    switch (cpu.arch) {
+        .x86_64 => {
+            if (std.Target.x86.featureSetHas(cpu.features, .avx2)) break :blk .avx2;
+            if (std.Target.x86.featureSetHas(cpu.features, .sse2)) break :blk .sse2;
+        },
+        .aarch64 => break :blk .aarch64,
+        else => {},
+    }
+    break :blk .fallback;
+};
+
 const vec_i16_len: comptime_int = std.simd.suggestVectorLength(i16) orelse 8;
+const vec_i32_len: comptime_int = vec_i16_len / 2; // maddwd halves lane count
 const num_acc_vecs: usize = hidden_size / vec_i16_len;
 
 const I16Vec = @Vector(vec_i16_len, i16);
+const I32Vec = @Vector(vec_i32_len, i32); // exactly one native register wide
+
+inline fn maddwd(a: I16Vec, b: I16Vec) I32Vec {
+    return switch (TARGET) {
+        // AVX2: 3-operand non-destructive encoding.
+        // AT&T syntax: vpmaddwd src2, src1, dst
+        .avx2 => asm ("vpmaddwd %[b], %[a], %[ret]"
+        : [ret] "=x" (-> I32Vec),
+        : [a] "x" (a),
+    [b] "x" (b),
+    ),
+
+        // SSE2: 2-operand destructive encoding.
+        // "0" constraint ties the first input to the output register.
+        .sse2 => asm ("pmaddwd %[b], %[a]"
+        : [ret] "=x" (-> I32Vec),
+        : [a] "0" (a),
+    [b] "x" (b),
+    ),
+
+        // aarch64 should never reach here – handled in scReluAccumulate.
+        .aarch64 => unreachable,
+
+        // Portable fallback: deinterlace even/odd lanes, widen, multiply, add.
+        .fallback => blk: {
+            const a_parts = std.simd.deinterlace(2, a);
+            const b_parts = std.simd.deinterlace(2, b);
+            const lo: I32Vec = @as(I32Vec, a_parts[0]) * @as(I32Vec, b_parts[0]);
+            const hi: I32Vec = @as(I32Vec, a_parts[1]) * @as(I32Vec, b_parts[1]);
+            break :blk lo + hi;
+        },
+    };
+}
+
+// sum += v² * w   for all i   (Lizard reordering: (v*w)*v)
+inline fn scReluAccumulate(sum: I32Vec, vw: I16Vec, v: I16Vec) I32Vec {
+    return switch (TARGET) {
+        // aarch64: smlal + smlal2 — multiply-accumulate long, lower and upper halves.
+        .aarch64 => blk: {
+            const after_lo: I32Vec = asm (
+            \\smlal %[d].4s, %[n].4h, %[m].4h
+            : [d] "=w" (-> I32Vec),
+            : [n] "w" (vw),
+        [m] "w" (v),
+        [_] "0" (sum),
+        );
+            break :blk asm (
+            \\smlal2 %[d].4s, %[n].8h, %[m].8h
+            : [d] "=w" (-> I32Vec),
+            : [n] "w" (vw),
+        [m] "w" (v),
+        [_] "0" (after_lo),
+        );
+        },
+        // All other targets: delegate to maddwd and add to sum.
+        else => sum +% maddwd(vw, v),
+    };
+}
+
 
 const nnue_piece_to_index = [2][6]u8{
 [_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
@@ -159,14 +235,18 @@ pub const Accumulator = struct {
         if (net_weights == null) return;
         const dst = self.vecs();
         const src = weightVecs(feature_idx);
-        for (0..num_acc_vecs) |i| dst[i] +%= src[i];
+        inline for (0..num_acc_vecs) |i| {
+            dst[i] +%= src[i];
+        }
     }
 
     pub fn deactivateFeature(self: *Accumulator, feature_idx: usize) void {
         if (net_weights == null) return;
         const dst = self.vecs();
         const src = weightVecs(feature_idx);
-        for (0..num_acc_vecs) |i| dst[i] -%= src[i];
+        inline for (0..num_acc_vecs) |i| {
+            dst[i] -%= src[i];
+        }
     }
 
     fn addSubCopy(
@@ -179,7 +259,8 @@ pub const Accumulator = struct {
         const src = parent.constVecs();
         const add_w = weightVecs(add_feat);
         const sub_w = weightVecs(sub_feat);
-        for (0..num_acc_vecs) |i| {
+
+        inline for (0..num_acc_vecs) |i| {
             dst[i] = src[i] +% add_w[i] -% sub_w[i];
         }
     }
@@ -196,7 +277,8 @@ pub const Accumulator = struct {
         const add_w = weightVecs(add_feat);
         const sub1_w = weightVecs(sub1_feat);
         const sub2_w = weightVecs(sub2_feat);
-        for (0..num_acc_vecs) |i| {
+
+        inline for (0..num_acc_vecs) |i| {
             dst[i] = src[i] +% add_w[i] -% sub1_w[i] -% sub2_w[i];
         }
     }
@@ -215,7 +297,8 @@ pub const Accumulator = struct {
         const add2_w = weightVecs(add2_feat);
         const sub1_w = weightVecs(sub1_feat);
         const sub2_w = weightVecs(sub2_feat);
-        for (0..num_acc_vecs) |i| {
+
+        inline for (0..num_acc_vecs) |i| {
             dst[i] = src[i] +% add1_w[i] +% add2_w[i] -% sub1_w[i] -% sub2_w[i];
         }
     }
@@ -546,34 +629,49 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Bo
     const stm: usize = @intFromEnum(side_to_move);
     const nstm: usize = 1 - stm;
 
-    const zero: I16Vec = @splat(0);
+    const zero_vec: I16Vec = @splat(0);
     const qa_vec: I16Vec = @splat(QA);
-    const stm_acc: *const [hidden_size]i16 = &state.accumulators[stm].vals;
-    const nstm_acc: *const [hidden_size]i16 = &state.accumulators[nstm].vals;
-    const bucket_weights = &w.out_weights[bucket];
 
-    const Wide = @Vector(vec_i16_len, i32);
-    var sum_stm: Wide = @splat(0);
-    var sum_nstm: Wide = @splat(0);
+    const stm_acc = state.accumulators[stm].constVecs();
+    const nstm_acc = state.accumulators[nstm].constVecs();
+
+    const bucket_weights = &w.out_weights[bucket];
+    const stm_weights: *const [num_acc_vecs]I16Vec =
+    @ptrCast(@alignCast(bucket_weights[0..hidden_size]));
+    const nstm_weights: *const [num_acc_vecs]I16Vec =
+    @ptrCast(@alignCast(bucket_weights[hidden_size .. 2 * hidden_size]));
+
+    const ACC_COUNT = comptime std.math.gcd(4, num_acc_vecs);
+    var sums: [ACC_COUNT]I32Vec = @splat(@as(I32Vec, @splat(0)));
 
     var i: usize = 0;
-    while (i < hidden_size) : (i += vec_i16_len) {
-        const v_stm: I16Vec = @min(@max(@as(I16Vec, stm_acc[i..][0..vec_i16_len].*), zero), qa_vec);
-        const v_stm_i32: Wide = v_stm;
-        const w_stm_i32: Wide = @as(I16Vec, bucket_weights[i..][0..vec_i16_len].*);
-        sum_stm +%= (v_stm_i32 *% v_stm_i32) *% w_stm_i32;
+    while (i < num_acc_vecs) {
+        inline for (0..ACC_COUNT) |a| {
+            const vi = i + a;
 
-        const v_nstm: I16Vec = @min(@max(@as(I16Vec, nstm_acc[i..][0..vec_i16_len].*), zero), qa_vec);
-        const v_nstm_i32: Wide = v_nstm;
-        const w_nstm_i32: Wide = @as(I16Vec, bucket_weights[hidden_size + i ..][0..vec_i16_len].*);
-        sum_nstm +%= (v_nstm_i32 *% v_nstm_i32) *% w_nstm_i32;
+            const stm_v  = @min(@max(stm_acc[vi],  zero_vec), qa_vec);
+            const nstm_v = @min(@max(nstm_acc[vi], zero_vec), qa_vec);
+
+            const stm_vw  = stm_v  *% stm_weights[vi];
+            const nstm_vw = nstm_v *% nstm_weights[vi];
+
+            sums[a] = scReluAccumulate(sums[a], stm_vw,  stm_v);
+            sums[a] = scReluAccumulate(sums[a], nstm_vw, nstm_v);
+        }
+        i += ACC_COUNT;
     }
 
-    var output: i64 = @as(i64, @reduce(.Add, sum_stm)) + @as(i64, @reduce(.Add, sum_nstm));
-    output = @divTrunc(output, @as(i64, QA));
+    var total_vec = sums[0];
+    inline for (1..ACC_COUNT) |a| total_vec += sums[a];
+    const total_i32 = @reduce(.Add, total_vec);
+
+    const total: i64 = total_i32;
+    const qa_qb: i64 = @as(i64, QA) * @as(i64, QB);
+
+    var output: i64 = @divTrunc(total, @as(i64, QA));
     output += @as(i64, w.out_biases[bucket]);
     output *= EVAL_SCALE;
-    output = @divTrunc(output, @as(i64, QA) * @as(i64, QB));
+    output = @divTrunc(output, qa_qb);
 
     return @intCast(output);
 }

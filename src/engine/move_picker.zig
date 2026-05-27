@@ -94,24 +94,21 @@ pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList
 }
 
 pub fn getNextBest(move_list: *mvs.MoveList, evals: *[218]ScoredMove, start_index: usize) mvs.EncodedMove {
+    var best_idx = start_index;
     var j = start_index + 1;
-    if (start_index == 0) {
-        while (j < move_list.len) : (j += 1) {
-            if (evals[start_index].score < evals[j].score) {
-                std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[j]);
-                std.mem.swap(ScoredMove, &evals[start_index], &evals[j]);
-                if (evals[start_index].score == score_hash) {
-                    break; 
-                }
-            }
-        }
-    } else {
-        while (j < move_list.len) : (j += 1) {
-            if (evals[start_index].score < evals[j].score) {
-                std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[j]);
-                std.mem.swap(ScoredMove, &evals[start_index], &evals[j]);
-            }
+    
+    // Find the index of the absolute best move remaining
+    while (j < move_list.len) : (j += 1) {
+        if (evals[j].score > evals[best_idx].score) {
+            best_idx = j;
         }
     }
+
+    // Only swap memory ONCE, and only if we found a better move further down
+    if (best_idx != start_index) {
+        std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[best_idx]);
+        std.mem.swap(ScoredMove, &evals[start_index], &evals[best_idx]);
+    }
+
     return move_list.items[start_index];
 }

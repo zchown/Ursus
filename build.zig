@@ -122,6 +122,8 @@ pub fn build(b: *std.Build) void {
         .use_llvm = true,
     });
     exe.linkLibC();
+    // exe.root_module.omit_frame_pointer = false;
+    // exe.root_module.strip = false;
 
     board_module.addImport("zobrist", zobrist_module);
     board_module.addImport("moves", moves_module);

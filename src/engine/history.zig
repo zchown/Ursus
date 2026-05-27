@@ -10,66 +10,41 @@ const max_ply = search.max_ply;
 const PieceColor = Searcher.PieceColor;
 
 pub fn resetHeuristics(self: *Searcher, total: bool) void {
-    for (0..max_ply) |i| {
-        self.killer[i][0] = mvs.EncodedMove.fromU32(0);
-        self.killer[i][1] = mvs.EncodedMove.fromU32(0);
-        self.excluded_moves[i] = mvs.EncodedMove.fromU32(0);
+    // 1. Bulk reset simple arrays using @memset
+    @memset(std.mem.asBytes(&self.killer), 0);
+    @memset(std.mem.asBytes(&self.pv_length), 0);
+    @memset(std.mem.asBytes(&self.eval_history), 0);
+    @memset(std.mem.asBytes(&self.move_history), 0);
+    @memset(std.mem.asBytes(&self.moved_piece_history), 0);
+    @memset(std.mem.asBytes(&self.excluded_moves), 0);
 
-        for (0..max_ply) |j| {
-            self.pv[i][j] = mvs.EncodedMove.fromU32(0);
-        }
-        self.pv_length[i] = 0;
-        self.eval_history[i] = 0;
-        self.move_history[i] = mvs.EncodedMove.fromU32(0);
-        self.moved_piece_history[i] = PieceColor{ .piece = .None, .color = .White };
-    }
-
-    for (0..2) |c| {
-        if (total) {
-            @memset(&self.correction[c], 0);
-            @memset(&self.np_white_correction[c], 0);
-            @memset(&self.np_black_correction[c], 0);
-            @memset(&self.major_correction[c], 0);
-            @memset(&self.minor_correction[c], 0);
-        } 
-    }
-
-    for (0..64) |j| {
-        for (0..7) |a| {
-            for (0..7) |t| {
-                for (0..2) |c| {
-                    if (total) {
-                        self.capture_history[c][a][j][t] = 0;
-                    } else {
-                        self.capture_history[c][a][j][t] = @divTrunc(self.capture_history[c][a][j][t], 8);
-                    }
-                }
-            }
-        }
-
-        for (0..64) |k| {
-            for (0..2) |c| {
-                if (total) {
-                    self.history[c][j][k] = 0;
-                } else {
-                    self.history[c][j][k] = @divTrunc(self.history[c][j][k] * 3, 4) + 64;
-                }
-                self.counter_moves[c][j][k] = mvs.EncodedMove.fromU32(0);
-            }
-        }
+    if (total) {
+        @memset(std.mem.asBytes(&self.correction), 0);
+        @memset(std.mem.asBytes(&self.np_white_correction), 0);
+        @memset(std.mem.asBytes(&self.np_black_correction), 0);
+        @memset(std.mem.asBytes(&self.major_correction), 0);
+        @memset(std.mem.asBytes(&self.minor_correction), 0);
     }
 
     if (total) {
+        @memset(std.mem.asBytes(&self.capture_history), 0);
+        @memset(std.mem.asBytes(&self.history), 0);
         @memset(std.mem.asBytes(self.continuation), 0);
-    } else {
-        for (0..12) |l| {
-            for (0..64) |j| {
-                for (0..64) |k| {
-                    for (0..64) |m| {
-                        self.continuation[l][j][k][m] = @divTrunc(self.continuation[l][j][k][m] * 3, 4);
-                    }
-                }
-            }
+    }
+    else {
+        const hist_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.history));
+        for (hist_flat) |*entry| {
+            entry.* = entry.* - (entry.* >> 2) + 64;
+        }
+
+        const cap_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.capture_history));
+        for (cap_flat) |*entry| {
+            entry.* -= (entry.* >> 2);
+        }
+
+        const cont_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(self.continuation));
+        for (cont_flat) |*entry| {
+            entry.* -= (entry.* >> 2);
         }
     }
 }
@@ -98,7 +73,7 @@ pub fn updateCorrection(
     const err = best_score - static_eval;
     const depth_i32 = @as(i32, @intCast(depth));
 
-    // Pawn correction — original EMA with depth-scaled weight
+    // Pawn correction
     const pawn_weight: i32 = @min(128, depth_i32 * 16);
     const pawn_entry = &self.correction[@as(usize, @intFromEnum(color))][@as(usize, @intCast(corr_idx))];
     pawn_entry.* = std.math.clamp(
@@ -158,10 +133,7 @@ pub fn getCorrection(self: *Searcher, color: brd.Color, board: *brd.Board) i32 {
         minor_val * tp.corr_minor_read_weight;
 
 
-    // const combined = @divTrunc(pawn_val + npw_val + npb_val, 512);
-    // return combined;
     return @divTrunc(combined, tp.corr_read_divisor);
-    //
 }
 
 pub fn updateQuietHistory(
