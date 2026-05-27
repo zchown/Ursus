@@ -151,13 +151,9 @@ pub const Searcher = struct {
     pub inline fn should_stop(self: *Searcher) bool {
         if (self.stop) return true;
         if (self.search_depth <= self.min_depth) return false;
-        // Soft node cap applies to every thread. SMP helpers never set soft_max_nodes
-        // so this is a no-op for them; datagen workers (which are solo searchers) use
-        // this to cap mid-depth overshoot without needing thread_id == 0.
         if (self.soft_max_nodes) |soft_limit| {
             if (self.nodes >= soft_limit) return true;
         }
-        // Time and hard node limit are main-thread only in SMP.
         const thinking = @atomicLoad(bool, &self.force_think, .acquire);
         return self.thread_id == 0 and
             ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
@@ -167,14 +163,10 @@ pub const Searcher = struct {
     pub inline fn should_not_continue(self: *Searcher, factor: f32) bool {
         if (self.stop) return true;
         if (self.search_depth <= self.min_depth) return false;
-        // Same soft node cap as should_stop — catches the between-depth case for
-        // any thread, keeping datagen workers from starting an unnecessary depth.
         if (self.soft_max_nodes) |soft_limit| {
             if (self.nodes >= soft_limit) return true;
         }
-        // Time and hard node limit are main-thread only in SMP.
         const thinking = @atomicLoad(bool, &self.force_think, .acquire);
-        // Prevent floating point overflow when time is infinite
         const scaled_ideal_ms = if (self.ideal_ms == std.math.maxInt(u64))
             std.math.maxInt(u64)
         else
@@ -213,7 +205,6 @@ pub const Searcher = struct {
         // Create helper searchers (thread 0 is the main searcher)
         var i: usize = 1;
         while (i < num_threads) : (i += 1) {
-            // var helper = Searcher.init();
             var helper = Searcher{};
             helper.initInPlace();
             helper.chess960 = chess960;
@@ -421,11 +412,9 @@ pub const Searcher = struct {
             while (true) {
                 if (depth == outer_depth) {
                     score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.Root, false);
-                }
-                else {
+                } else {
                     score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.PV, false);
                 }
-
 
                 if (self.time_stop or self.should_stop()) {
                     self.time_stop = true;
@@ -539,13 +528,11 @@ pub const Searcher = struct {
         var beta = beta_;
         var depth = depth_;
 
-
         if (self.nodes & 2047 == 0 and self.should_stop()) {
             self.time_stop = true;
             tt.stop_signal.store(true, .release);
             return 0;
         }
-
 
         self.pv_length[self.ply] = 0;
 
@@ -561,7 +548,6 @@ pub const Searcher = struct {
 
         const is_root = comptime (node_type == NodeType.Root);
         const on_pv = comptime (node_type != NodeType.NonPV);
-
 
         if (depth == 0) {
             return self.qsearch(board, color, alpha, beta);
@@ -884,15 +870,10 @@ pub const Searcher = struct {
                 }
             }
 
-
             var extension: i32 = 0;
 
-
             // Singular Extensions, also double and triple
-            if (!is_root and depth >= 6 and tt_hit and entry.?.flag != tt.EstimationType.Over 
-            and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() 
-            and entry.?.depth >= depth - 3 and move_list.len >= 2)
-            {
+            if (!is_root and depth >= 6 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3 and move_list.len >= 2) {
                 const margin: i32 = @as(i32, @intCast(depth)) * 2;
                 const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
 
@@ -910,25 +891,21 @@ pub const Searcher = struct {
                     if (on_pv and depth >= 7 and singular_score < singular_beta - tp.se_double_threshold) {
                         extension = 2;
                     }
-                } 
-                else if (singular_beta >= beta) {
+                } else if (singular_beta >= beta) {
                     return singular_beta;
-                } 
-                else if (cutnode) {
+                } else if (cutnode) {
                     extension = -1;
-                }
-                else if (static_eval >= beta) {
+                } else if (static_eval >= beta) {
                     extension = -2;
                 }
-
             }
 
             if (!is_root and self.ply <= depth and hash_move.capture == 0) {
                 if (is_capture and last_move.capture == 1 and move.end_square == last_move.end_square) {
                     extension += 1;
-                } 
-                else if (is_capture and self.ply >= 3 and last_last_last_move.capture == 1 and
-                move.end_square == last_last_last_move.end_square) {
+                } else if (is_capture and self.ply >= 3 and last_last_last_move.capture == 1 and
+                    move.end_square == last_last_last_move.end_square)
+                {
                     extension += 1;
                 }
             }
@@ -1180,7 +1157,7 @@ pub const Searcher = struct {
             const move = mp.getNextBest(&move_list, &eval_list, i);
 
             if (move.capture == 1) {
-                const see_value = see.seeCapture(board, self.move_gen, move);
+                const see_value = eval_list[i].see_val;
 
                 if (see_value < tp.q_see_min) {
                     continue;
@@ -1190,9 +1167,9 @@ pub const Searcher = struct {
                 captured_piece_value = see.see_values[@as(usize, @intCast(move.captured_piece)) + 1];
 
                 if (see_value < tp.q_see_margin and
-                captured_piece_value < 300 and
-                static_eval + see_value + captured_piece_value + tp.q_delta_margin < alpha)
-            {
+                    captured_piece_value < 300 and
+                    static_eval + see_value + captured_piece_value + tp.q_delta_margin < alpha)
+                {
                     continue;
                 }
             }
@@ -1244,9 +1221,9 @@ pub const Searcher = struct {
                 }
 
                 const pawn_pushes_exist = if (color == .White)
-                ((pawn_bb << 8) & ~occupied) != 0
-                    else
-                ((pawn_bb >> 8) & ~occupied) != 0;
+                    ((pawn_bb << 8) & ~occupied) != 0
+                else
+                    ((pawn_bb >> 8) & ~occupied) != 0;
 
                 if (!pawn_pushes_exist) {
                     const all_moves = self.move_gen.generateMoves(board, false);
@@ -1274,7 +1251,6 @@ pub const Searcher = struct {
             return std.fmt.bufPrint(buf, "score cp {d}", .{score}) catch "score cp 0";
         }
     }
-
 
     pub fn printInfo(self: *Searcher, nodes: u64, tb_hits: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
         const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
