@@ -32,18 +32,18 @@ const GameResult = enum(u8) {
 
 const ViriMove = packed struct {
     move_data: u16,
-    eval_score: i16, 
+    eval_score: i16,
 };
 
 const ViriHeader = packed struct {
     occupancy: u64,
-    pieces: u128, 
-    ep_and_stm: u8, 
+    pieces: u128,
+    ep_and_stm: u8,
     halfmove_clock: u8,
     fullmove_clock: u16,
-    score: i16, 
-    outcome: u8, 
-    extra: u8, 
+    score: i16,
+    outcome: u8,
+    extra: u8,
 };
 
 const max_moves_per_game = 512;
@@ -59,6 +59,12 @@ const ViriGame = struct {
             .moves = undefined,
             .move_count = 0,
         };
+    }
+
+    fn resetInPlace(self: *ViriGame) void {
+        self.header = std.mem.zeroes(ViriHeader);
+        self.move_count = 0;
+        // moves doesn't need touching — only [0..move_count] is ever read
     }
 
     fn setStartingBoard(self: *ViriGame, board: *const brd.Board) void {
@@ -85,14 +91,14 @@ const ViriGame = struct {
 
         const ep_sq: u8 = if (board.game_state.en_passant_square) |ep|
             @intCast(ep)
-            else
+        else
             64;
         const stm_bit: u8 = if (board.game_state.side_to_move == .Black) 0x80 else 0;
 
         self.header.ep_and_stm = stm_bit | ep_sq;
         self.header.halfmove_clock = @intCast(@min(255, board.game_state.halfmove_clock));
         self.header.fullmove_clock = @intCast(board.game_state.fullmove_number);
-        self.header.score = 0; 
+        self.header.score = 0;
         self.header.outcome = 0;
         self.header.extra = 0;
     }
@@ -111,7 +117,7 @@ const ViriGame = struct {
     }
 
     fn writeToFile(self: *const ViriGame, file: std.fs.File) !void {
-        // Safe, strongly typed byte-slice conversion 
+        // Safe, strongly typed byte-slice conversion
         try file.writeAll(std.mem.asBytes(&self.header));
         try file.writeAll(std.mem.sliceAsBytes(self.moves[0..self.move_count]));
         const null_term = [_]u8{ 0, 0, 0, 0 };
@@ -125,7 +131,7 @@ fn encodePieceAt(board: *const brd.Board, sq: u6) u8 {
         for (0..brd.num_pieces) |pi| {
             if (board.piece_bb[ci][pi] & mask != 0) {
                 var nibble: u8 = @intCast(pi);
-                if (ci == 1) nibble += 8; 
+                if (ci == 1) nibble += 8;
 
                 if (pi == @intFromEnum(brd.Pieces.Rook)) {
                     if (isCastlingRook(board, sq, @enumFromInt(ci))) {
@@ -144,14 +150,14 @@ fn isCastlingRook(board: *const brd.Board, sq: u6, color: brd.Color) bool {
     const cr = gs.castling_rights;
     if (color == .White) {
         if ((cr & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) and
-        @as(usize, sq) == gs.rookSquare(.White, false)) return true;
+            @as(usize, sq) == gs.rookSquare(.White, false)) return true;
         if ((cr & @intFromEnum(brd.CastleRights.WhiteKingside) != 0) and
-        @as(usize, sq) == gs.rookSquare(.White, true)) return true;
+            @as(usize, sq) == gs.rookSquare(.White, true)) return true;
     } else {
         if ((cr & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) and
-        @as(usize, sq) == gs.rookSquare(.Black, false)) return true;
+            @as(usize, sq) == gs.rookSquare(.Black, false)) return true;
         if ((cr & @intFromEnum(brd.CastleRights.BlackKingside) != 0) and
-        @as(usize, sq) == gs.rookSquare(.Black, true)) return true;
+            @as(usize, sq) == gs.rookSquare(.Black, true)) return true;
     }
     return false;
 }
@@ -164,7 +170,7 @@ fn encodeViriMove(move_data: mvs.EncodedMove, board: *const brd.Board) u16 {
     if (move_data.castling == 1) {
         flag = 0b10_00;
         const moving_color = board.game_state.side_to_move;
-        const kingside = (move_data.end_square % 8) == 6; 
+        const kingside = (move_data.end_square % 8) == 6;
         to = @intCast(board.game_state.rookSquare(moving_color, kingside));
     } else if (move_data.en_passant == 1) {
         flag = 0b01_00;
@@ -281,19 +287,14 @@ const Rng = struct {
 pub var stop_signal = std.atomic.Value(bool).init(false);
 
 fn playSingleGame(
-searcher: *srch.Searcher,
-rng: *Rng,
-config: *const DatagenConfig,
-game: *ViriGame,
-book: ?*const OpeningBook,
-board: *brd.Board,
+    searcher: *srch.Searcher,
+    rng: *Rng,
+    config: *const DatagenConfig,
+    game: *ViriGame,
+    book: ?*const OpeningBook,
+    board: *brd.Board,
 ) bool {
-    game.* = ViriGame.init();
-    // Reset the board IN PLACE. Do NOT do `board.* = brd.Board.init();` —
-    // a Board now embeds NNUEStack ([1021+1]NNUEState ≈ 6 MB at hidden_size 1536),
-    // and constructing one by value puts ~6 MB on the stack. Combined with other
-    // by-value Board ops on the search path that overflows the worker stack.
-    // NOTE: requires `pub fn initInPlace(self: *Board) void` to exist in board.zig.
+    game.resetInPlace();
     board.initInPlace();
 
     if (book) |b| {
@@ -442,7 +443,7 @@ fn workerThread(ctx: *ThreadContext) void {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    var thread_tt = tt.TranspositionTable.init(allocator, 32) catch |err| {
+    var thread_tt = tt.TranspositionTable.init(allocator, 16) catch |err| {
         std.debug.print("Thread {d}: Failed to allocate TT: {}\n", .{ ctx.thread_id, err });
         return;
     };
@@ -469,11 +470,11 @@ fn workerThread(ctx: *ThreadContext) void {
     var path_buf: [256]u8 = undefined;
     const path = std.fmt.bufPrint(&path_buf, "{s}.thread{d}", .{ ctx.config.output_path, ctx.thread_id }) catch return;
     const file = std.fs.cwd().openFile(path, .{ .mode = .write_only }) catch
-    std.fs.cwd().createFile(path, .{}) catch |err|
-{
-        std.debug.print("Thread {d}: Failed to open output file: {}\n", .{ ctx.thread_id, err });
-        return;
-    };
+        std.fs.cwd().createFile(path, .{}) catch |err|
+        {
+            std.debug.print("Thread {d}: Failed to open output file: {}\n", .{ ctx.thread_id, err });
+            return;
+        };
     file.seekFromEnd(0) catch {};
     defer file.close();
 
@@ -493,7 +494,7 @@ fn workerThread(ctx: *ThreadContext) void {
     while (!stop_signal.load(.acquire)) {
         if (!unlimited and total_games >= ctx.config.games_per_thread) break;
 
-        searcher.tt_table.reset();
+        searcher.tt_table.setAge(0);
 
         const current_game = &game_buffer[buf_count];
 
@@ -585,10 +586,10 @@ pub fn run(config: DatagenConfig) !void {
 
     if (config.opening_book_path) |book_path| {
         maybe_book = OpeningBook.load(std.heap.c_allocator, book_path) catch |err|
-        blk: {
-            std.debug.print("Warning: failed to load opening book '{s}': {} — falling back to random plies\n", .{ book_path, err });
-            break :blk null;
-        };
+            blk: {
+                std.debug.print("Warning: failed to load opening book '{s}': {} — falling back to random plies\n", .{ book_path, err });
+                break :blk null;
+            };
     } else {
         std.debug.print("No opening book specified — using {d} random plies\n", .{config.random_plies});
     }
@@ -665,7 +666,7 @@ pub fn run(config: DatagenConfig) !void {
             total_games,
             total_positions,
             total_positions / 1_000_000_000,
-        (total_positions % 1_000_000_000) / 100_000_000,
+            (total_positions % 1_000_000_000) / 100_000_000,
             pos_per_sec,
         });
         if (stop_signal.load(.acquire)) all_done = true;
@@ -710,7 +711,7 @@ fn printSummary(session_games: u64, session_positions: u64, total_games: u64, to
         total_games,
         total_positions,
         total_positions / 1_000_000_000,
-    (total_positions % 1_000_000_000) / 100_000_000,
+        (total_positions % 1_000_000_000) / 100_000_000,
     });
     std.debug.print("Time:      {d}m {d}s\n", .{ mins, secs });
     std.debug.print("Speed:     {d} games/s, {d} pos/s\n", .{
@@ -718,7 +719,7 @@ fn printSummary(session_games: u64, session_positions: u64, total_games: u64, to
         session_positions / safe_s,
     });
     if (session_games > 0) {
-        std.debug.print("Avg:       {d} positions/game\n", .{ session_positions / session_games });
+        std.debug.print("Avg:       {d} positions/game\n", .{session_positions / session_games});
     }
 }
 

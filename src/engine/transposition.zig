@@ -228,6 +228,10 @@ pub const TranspositionTable = struct {
         self.age.store(old_age +% 1, .monotonic);
     }
 
+    pub inline fn setAge(self: *TranspositionTable, new_age: u8) void {
+        self.age.store(new_age, .monotonic);
+    }
+
     pub inline fn getAge(self: *TranspositionTable) u8 {
         return self.age.load(.monotonic);
     }
