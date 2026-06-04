@@ -476,7 +476,7 @@ fn workerThread(ctx: *ThreadContext) void {
     searcher.thread_id = ctx.thread_id;
     defer searcher.deinit();
 
-    var rng = Rng.init(@as(u64, ctx.thread_id) * 6364136223846793005 +% @as(u64, @intCast(std.time.milliTimestamp())));
+    var rng = Rng.init(@as(u64, ctx.thread_id) *% 6364136223846793005 +% @as(u64, @intCast(std.time.milliTimestamp())));
 
     var path_buf: [256]u8 = undefined;
     const path = std.fmt.bufPrint(&path_buf, "{s}.thread{d}", .{ ctx.config.output_path, ctx.thread_id }) catch return;

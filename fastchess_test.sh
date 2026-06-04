@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ENGINE_NEW="./zig-out/bin/Ursus"
+# ENGINE_NEW="./zig-out/bin/Ursus"
 ENGINE_BASE="./engines/Ursus4.3"
 # ENGINE_BASE="./engines/Ursus3.39"
 # ENGINE_BASE="./../stash/stash-bot-v37.0/src/stash"          # 3431
@@ -21,14 +22,14 @@ OPENINGS="openings/UHO_Lichess_4852_v1.epd"
 # OPENINGS="openings.pgn"
 
 CONCURRENCY=10
-TC="8+0.08"
+TC="2+0.02"
 ROUNDS=10000
 
 # SPRT settings
 # H0: 0 Elo (no improvement)
 # H1: +5 Elo improvement
-ELO0=-5
-ELO1=0
+ELO0=0
+ELO1=5
 ALPHA=0.05
 BETA=0.05
 

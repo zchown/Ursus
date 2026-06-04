@@ -425,7 +425,7 @@ pub const TranspositionTable = struct {
             }
         }
 
-        return (used * 1000) / (sample_size * TT_BUCKET_SLOTS);
+        return (used * 1000) / (sample_size * 1);
     }
 };
 

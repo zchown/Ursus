@@ -141,6 +141,7 @@ pub const History = struct {
 };
 
 pub const Board = struct {
+    mailbox: [num_squares] Piece,
     piece_bb: [num_colors][num_pieces]Bitboard,
     color_bb: [num_colors]Bitboard,
     game_state: GameState,
@@ -149,6 +150,7 @@ pub const Board = struct {
 
     pub fn init() Board {
         return .{
+            .mailbox = std.mem.zeroes([num_squares]Piece),
             .piece_bb = std.mem.zeroes([num_colors][num_pieces]Bitboard),
             .color_bb = std.mem.zeroes([num_colors]Bitboard),
             .game_state = GameState.init(),
@@ -158,6 +160,7 @@ pub const Board = struct {
     }
 
     pub fn initInPlace(self: *Board) void {
+        self.mailbox = std.mem.zeroes(@TypeOf(self.mailbox));
         self.piece_bb = std.mem.zeroes(@TypeOf(self.piece_bb));
         self.color_bb = std.mem.zeroes(@TypeOf(self.color_bb));
         self.game_state = GameState.init();
@@ -240,6 +243,7 @@ pub const Board = struct {
         const color_idx = @intFromEnum(color);
         const piece_idx = @intFromEnum(piece);
         const mask = ~(@as(Bitboard, 1) << @intCast(square));
+        self.mailbox[square] = .{ .color = Color.White, .piece = Pieces.None, .square = square };
         self.piece_bb[color_idx][piece_idx] &= mask;
         self.color_bb[color_idx] &= mask;
         self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
@@ -269,6 +273,7 @@ pub const Board = struct {
         const color_idx = @intFromEnum(color);
         const piece_idx = @intFromEnum(piece);
         const mask = @as(Bitboard, 1) << @intCast(square);
+        self.mailbox[square] = .{ .color = color, .piece = piece, .square = square };
         self.piece_bb[color_idx][piece_idx] |= mask;
         self.color_bb[color_idx] |= mask;
         self.game_state.zobrist ^= zob.ZobristKeys.pieceKeys(color, piece, square);
@@ -337,13 +342,6 @@ pub const Board = struct {
         };
     }
 
-    // pub fn copyFrom(self: *Board, other: *Board) void {
-    //     self.piece_bb = other.piece_bb;
-    //     self.color_bb = other.color_bb;
-    //     self.game_state = other.game_state;
-    //     self.history = other.history;
-    //     self.nnue_stack = other.nnue_stack;
-    // }
     pub fn copyFrom(self: *Board, other: *Board) void {
         const dest = std.mem.asBytes(self);
         const src = std.mem.asBytes(other);
@@ -380,31 +378,39 @@ pub const Board = struct {
     }
 
     pub fn getPieceFromSquare(self: *const Board, square: Square) ?Pieces {
-        for (std.meta.tags(Color)) |color| {
-            const color_idx = @intFromEnum(color);
-            for (std.meta.tags(Pieces)) |piece| {
-                if (piece == Pieces.None) continue;
-                const piece_idx = @intFromEnum(piece);
-                if ((self.piece_bb[color_idx][piece_idx] & (@as(Bitboard, 1) << @intCast(square))) != 0) {
-                    return piece;
-                }
-            }
+        if ((self.mailbox[square].piece) != Pieces.None) {
+            return self.mailbox[square].piece;
         }
         return null;
+        // for (std.meta.tags(Color)) |color| {
+        //     const color_idx = @intFromEnum(color);
+        //     for (std.meta.tags(Pieces)) |piece| {
+        //         if (piece == Pieces.None) continue;
+        //         const piece_idx = @intFromEnum(piece);
+        //         if ((self.piece_bb[color_idx][piece_idx] & (@as(Bitboard, 1) << @intCast(square))) != 0) {
+        //             return piece;
+        //         }
+        //     }
+        // }
+        // return null;
     }
 
     pub fn getColorFromSquare(self: *const Board, square: Square) ?Color {
-        for (std.meta.tags(Color)) |color| {
-            const color_idx = @intFromEnum(color);
-            for (std.meta.tags(Pieces)) |piece| {
-                if (piece == Pieces.None) continue;
-                const piece_idx = @intFromEnum(piece);
-                if ((self.piece_bb[color_idx][piece_idx] & (@as(Bitboard, 1) << @intCast(square))) != 0) {
-                    return color;
-                }
-            }
+        if ((self.mailbox[square].piece) != Pieces.None) {
+            return self.mailbox[square].color;
         }
         return null;
+        // for (std.meta.tags(Color)) |color| {
+        //     const color_idx = @intFromEnum(color);
+        //     for (std.meta.tags(Pieces)) |piece| {
+        //         if (piece == Pieces.None) continue;
+        //         const piece_idx = @intFromEnum(piece);
+        //         if ((self.piece_bb[color_idx][piece_idx] & (@as(Bitboard, 1) << @intCast(square))) != 0) {
+        //             return color;
+        //         }
+        //     }
+        // }
+        // return null;
     }
 
     pub fn reinitZobrist(self: *Board) void {

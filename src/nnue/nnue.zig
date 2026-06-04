@@ -107,6 +107,10 @@ inline fn scReluAccumulate(sum: I32Vec, vw: I16Vec, v: I16Vec) I32Vec {
 }
 
 
+inline fn mulHigh(a: I16Vec, b: I16Vec) I16Vec {
+    return a *% b;
+}
+
 const nnue_piece_to_index = [2][6]u8{
 [_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
 [_]u8{ 6, 7, 8, 9, 10, 11 }, // Pawn, Knight, Bishop, Rook, Queen, King
@@ -120,7 +124,7 @@ pub const NetworkWeights = struct {
     out_biases: [NUM_OUTPUT_BUCKETS]i16,
 };
 
-const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("quantised2.bin").*;
+const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("quantised.bin").*;
 var net_weights: ?*const NetworkWeights = null;
 
 pub fn initWeights() void {
@@ -235,6 +239,12 @@ pub const Accumulator = struct {
         if (net_weights == null) return;
         const dst = self.vecs();
         const src = weightVecs(feature_idx);
+        if (TARGET == .aarch64) {
+            asm volatile ("prfm pldl1keep, [%[p], #128]"
+                :
+                : [p] "r" (@as([*]const u8, @ptrCast(src))),
+            );
+        }
         inline for (0..num_acc_vecs) |i| {
             dst[i] +%= src[i];
         }
@@ -244,6 +254,12 @@ pub const Accumulator = struct {
         if (net_weights == null) return;
         const dst = self.vecs();
         const src = weightVecs(feature_idx);
+        if (TARGET == .aarch64) {
+            asm volatile ("prfm pldl1keep, [%[p], #128]"
+                :
+                : [p] "r" (@as([*]const u8, @ptrCast(src))),
+            );
+        }
         inline for (0..num_acc_vecs) |i| {
             dst[i] -%= src[i];
         }
@@ -641,7 +657,7 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Bo
     const nstm_weights: *const [num_acc_vecs]I16Vec =
     @ptrCast(@alignCast(bucket_weights[hidden_size .. 2 * hidden_size]));
 
-    const ACC_COUNT = comptime std.math.gcd(4, num_acc_vecs);
+    const ACC_COUNT = comptime if (TARGET == .aarch64) 4 else std.math.gcd(4, num_acc_vecs);
     var sums: [ACC_COUNT]I32Vec = @splat(@as(I32Vec, @splat(0)));
 
     var i: usize = 0;
@@ -652,8 +668,8 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Bo
             const stm_v  = @min(@max(stm_acc[vi],  zero_vec), qa_vec);
             const nstm_v = @min(@max(nstm_acc[vi], zero_vec), qa_vec);
 
-            const stm_vw  = stm_v  *% stm_weights[vi];
-            const nstm_vw = nstm_v *% nstm_weights[vi];
+            const stm_vw  = mulHigh(stm_v,  stm_weights[vi]);
+            const nstm_vw = mulHigh(nstm_v, nstm_weights[vi]);
 
             sums[a] = scReluAccumulate(sums[a], stm_vw,  stm_v);
             sums[a] = scReluAccumulate(sums[a], nstm_vw, nstm_v);

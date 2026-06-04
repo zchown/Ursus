@@ -18,6 +18,7 @@ openings/
 *.vf
 datagen/
 datagen2/
+dfrcdata/
 scripts/
 deps/
 
