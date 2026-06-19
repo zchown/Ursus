@@ -19,10 +19,11 @@ FASTCHESS="fastchess"
 
 # OPENINGS="8moves_v3.pgn"
 OPENINGS="openings/UHO_Lichess_4852_v1.epd"
+# OPENINGS="frdfrc.epd"
 # OPENINGS="openings.pgn"
 
 CONCURRENCY=10
-TC="2+0.02"
+TC="8+0.08"
 ROUNDS=10000
 
 # SPRT settings
@@ -69,7 +70,7 @@ echo
 $FASTCHESS \
   -engine cmd="$ENGINE_NEW"  name=New \
   -engine cmd="$ENGINE_BASE" name=Base \
-  -each tc=$TC option.Threads=1 option.Hash=64 option.SyzygyPath="../Ursus/Syzygy/3-4-5" option.SyzygyProbeDepth=1 \
+  -each tc=$TC option.Threads=1 option.Hash=64 \
   -openings file="$OPENINGS" format=epd order=random \
   -tb "../Ursus/Syzygy/3-4-5" \
   -repeat \

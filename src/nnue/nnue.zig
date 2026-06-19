@@ -5,17 +5,17 @@ const moves = @import("moves");
 
 pub const features_per_bucket = 2 * brd.num_pieces * brd.num_squares;
 
-pub const NUM_KING_BUCKETS: usize = 8;
+pub const NUM_KING_BUCKETS: usize = 10;
 
 const KING_BUCKETS_BASE: [32]u8 = [_]u8{
-    0, 0, 1, 1, // rank 1
-    2, 2, 3, 3, // rank 2
-    4, 4, 5, 5, // rank 3
-    4, 4, 5, 5, // rank 4
-    6, 6, 7, 7, // rank 5
-    6, 6, 7, 7, // rank 6
-    6, 6, 7, 7, // rank 7
-    6, 6, 7, 7, // rank 8
+    0, 1, 2, 3,
+    4, 4, 5, 5,
+    6, 6, 6, 6,
+    7, 7, 7, 7,
+    8, 8, 8, 8,
+    8, 8, 8, 8,
+    9, 9, 9, 9,
+    9, 9, 9, 9,
 };
 
 pub const num_features = NUM_KING_BUCKETS * features_per_bucket;
@@ -124,7 +124,7 @@ pub const NetworkWeights = struct {
     out_biases: [NUM_OUTPUT_BUCKETS]i16,
 };
 
-const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("quantised.bin").*;
+const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("quantised10bucket.bin").*;
 var net_weights: ?*const NetworkWeights = null;
 
 pub fn initWeights() void {

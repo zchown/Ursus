@@ -339,6 +339,7 @@ pub const Board = struct {
             .game_state = self.game_state,
             .history = self.history,
             .nnue_stack = self.nnue_stack,
+            .mailbox = self.mailbox,
         };
     }
 
