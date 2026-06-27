@@ -44,7 +44,7 @@ pub const SearchResult = struct {
     pv_length: usize,
 };
 
-pub var search_helpers: std.ArrayList(Searcher) = undefined;
+pub var search_helpers: std.ArrayList(*Searcher) = undefined;
 
 pub var threads: std.ArrayList(std.Thread) = undefined;
 
@@ -108,34 +108,6 @@ pub const Searcher = struct {
         color: brd.Color,
     };
 
-    pub fn init() Searcher {
-        var s = Searcher{
-            .timer = std.time.Timer.start() catch {
-                std.debug.panic("Failed to start timer", .{});
-            },
-            .move_gen = std.heap.c_allocator.create(mvs.MoveGen) catch {
-                std.debug.panic("Failed to allocate move generator", .{});
-            },
-            .continuation = std.heap.c_allocator.create([12][64][64][64]i32) catch {
-                std.debug.panic("Failed to allocate continuation table", .{});
-            },
-        };
-
-        s.move_gen.init();
-
-        hist.resetHeuristics(&s, true);
-
-        search_helpers = std.ArrayList(Searcher).initCapacity(std.heap.c_allocator, 4) catch {
-            std.debug.panic("Failed to initialize search helpers", .{});
-        };
-
-        threads = std.ArrayList(std.Thread).initCapacity(std.heap.c_allocator, 4) catch {
-            std.debug.panic("Failed to initialize threads array", .{});
-        };
-
-        return s;
-    }
-
     pub fn initInPlace(self: *Searcher) void {
         self.timer = std.time.Timer.start() catch unreachable;
         self.move_gen = std.heap.c_allocator.create(mvs.MoveGen) catch unreachable;
@@ -146,6 +118,7 @@ pub const Searcher = struct {
 
     pub fn deinit(self: *Searcher) void {
         std.heap.c_allocator.destroy(self.continuation);
+        std.heap.c_allocator.destroy(self.move_gen);
     }
 
     pub inline fn should_stop(self: *Searcher) bool {
@@ -193,8 +166,9 @@ pub const Searcher = struct {
             return; // No helpers needed for single-threaded search
         }
 
-        for (search_helpers.items) |*helper| {
+        for (search_helpers.items) |helper| {
             helper.deinit();
+            std.heap.c_allocator.destroy(helper);
         }
         search_helpers.clearRetainingCapacity();
         threads.clearRetainingCapacity();
@@ -205,13 +179,14 @@ pub const Searcher = struct {
         // Create helper searchers (thread 0 is the main searcher)
         var i: usize = 1;
         while (i < num_threads) : (i += 1) {
-            var helper = Searcher{};
-            helper.initInPlace();
-            helper.chess960 = chess960;
-            helper.thread_id = i;
-            helper.silent_output = true; // not used but for future
-            helper.tt_table = shared_tt;
-            try search_helpers.append(std.heap.c_allocator, helper);
+            const helper_ptr = try std.heap.c_allocator.create(Searcher);
+            helper_ptr.* = .{};
+            helper_ptr.initInPlace();
+            helper_ptr.chess960 = chess960;
+            helper_ptr.thread_id = i;
+            helper_ptr.silent_output = true;
+            helper_ptr.tt_table = shared_tt;
+            try search_helpers.append(std.heap.c_allocator, helper_ptr);
         }
     }
 
@@ -233,7 +208,7 @@ pub const Searcher = struct {
 
         main_searcher.root_board = board;
 
-        for (search_helpers.items) |*helper| {
+        for (search_helpers.items) |helper| {
             var board_copy: *brd.Board = try std.heap.c_allocator.create(brd.Board);
             board_copy.copyFrom(board);
 
@@ -263,6 +238,7 @@ pub const Searcher = struct {
         for (threads.items) |thread| {
             thread.join();
         }
+        threads.clearRetainingCapacity();
 
         for (search_helpers.items) |helper| {
             std.heap.c_allocator.destroy(helper.root_board);
@@ -272,7 +248,7 @@ pub const Searcher = struct {
     pub fn stopAllThreads() void {
         tt.stop_signal.store(true, .release);
 
-        for (search_helpers.items) |*helper| {
+        for (search_helpers.items) |helper| {
             helper.stop = true;
             helper.time_stop = true;
         }
@@ -312,15 +288,14 @@ pub const Searcher = struct {
     }
 
     pub fn deinitThreading() void {
-        stopAllThreads();
-        waitForHelpers();
 
-        for (search_helpers.items) |*helper| {
+        for (search_helpers.items) |helper| {
             helper.deinit();
+            std.heap.c_allocator.destroy(helper);
         }
 
-        search_helpers.deinit();
-        threads.deinit();
+        search_helpers.deinit(std.heap.c_allocator);
+        threads.deinit(std.heap.c_allocator);
     }
 
     pub fn iterativeDeepening(self: *Searcher, board: *brd.Board, max_depth: ?u8) !SearchResult {
@@ -371,7 +346,10 @@ pub const Searcher = struct {
             }
 
             self.is_searching = false;
-            self.tt_table.incrementAge();
+
+            if (self.thread_id == 0) {
+                self.tt_table.incrementAge();
+            }
 
             return SearchResult{
                 .move = root_probe.move,

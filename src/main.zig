@@ -9,6 +9,7 @@ pub fn main() !void {
     // try perft.runPerftTest();
 
     const engine = try uci.UciProtocol.init(gpa.allocator());
+    defer engine.deinit();
 
     var stdin_buf: [4096 * 2]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buf);

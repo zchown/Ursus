@@ -136,18 +136,21 @@ pub const UciProtocol = struct {
         protocol.board.game_state = brd.GameState.init();
         protocol.hash_size_mb = 64;
 
-        srch.search_helpers = try std.ArrayList(srch.Searcher).initCapacity(a, 0);
-        srch.threads = try std.ArrayList(std.Thread).initCapacity(a, 1);
+        srch.search_helpers = .empty;
+        srch.threads = .empty;
 
         const searcher_ptr = try a.create(srch.Searcher);
+        errdefer a.destroy(searcher_ptr);
+
         searcher_ptr.* = srch.Searcher{};
         searcher_ptr.initInPlace();
+        errdefer searcher_ptr.deinit();
+
         protocol.searcher = searcher_ptr;
 
         nnue.initWeights();
 
         protocol.tt_table = try tt.TranspositionTable.init(a, protocol.hash_size_mb);
-
         searcher_ptr.tt_table = &protocol.tt_table;
 
         return protocol;
@@ -155,9 +158,13 @@ pub const UciProtocol = struct {
 
     pub fn deinit(self: *UciProtocol) void {
         self.stopSearch();
+        srch.Searcher.deinitThreading();
         tb.deinit();
         self.searcher.deinit();
+        self.allocator.destroy(self.searcher);
         self.tt_table.deinit(self.allocator);
+        const a = self.allocator;
+        a.destroy(self);
     }
 
     pub fn receiveCommand(self: *UciProtocol, command: []const u8) !void {
@@ -242,7 +249,7 @@ pub const UciProtocol = struct {
 
         @atomicStore(bool, &self.searcher.force_think, false, .release);
 
-        for (srch.search_helpers.items) |*helper| {
+        for (srch.search_helpers.items) |helper| {
             @atomicStore(bool, &helper.force_think, false, .release);
         }
 
