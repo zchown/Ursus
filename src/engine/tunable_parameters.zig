@@ -48,3 +48,8 @@ pub var corr_minor_read_weight: i32 = 117;
 pub var corr_read_divisor: i32 = 156991;
 
 pub var tb_probe_depth: usize = 1;
+
+pub var probcut_margin: i32 = 259;
+pub var probcut_improve: i32 = 1046;
+pub var probcut_min_see: i32 = 206;
+

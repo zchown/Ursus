@@ -9,6 +9,11 @@ pub const ScoredMove = struct {
     see_val: i32,
 };
 
+pub const MoveWithSee = struct {
+    move: mvs.EncodedMove,
+    see_val: i32,
+};
+
 const score_hash: i32 = 2_000_000_000;
 const score_winning_capture: i32 = 1_000_000;
 const score_promotion: i32 = 950_000;
@@ -111,4 +116,26 @@ pub fn getNextBest(move_list: *mvs.MoveList, evals: *[218]ScoredMove, start_inde
     }
 
     return move_list.items[start_index];
+}
+
+pub fn getNextBestWithSee(move_list: *mvs.MoveList, evals: *[218]ScoredMove, start_index: usize) MoveWithSee {
+    var best_idx = start_index;
+    var j = start_index + 1;
+    
+    // Find the index of the absolute best move remaining
+    while (j < move_list.len) : (j += 1) {
+        if (evals[j].score > evals[best_idx].score) {
+            best_idx = j;
+        }
+    }
+
+    if (best_idx != start_index) {
+        std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[best_idx]);
+        std.mem.swap(ScoredMove, &evals[start_index], &evals[best_idx]);
+    }
+
+    return MoveWithSee{
+        .move = move_list.items[start_index],
+        .see_val = evals[start_index].see_val,
+    };
 }

@@ -394,6 +394,9 @@ pub const UciProtocol = struct {
         try respond("option name corr_major_read_weight type spin default 102 min 32 max 512");
         try respond("option name corr_minor_read_weight type spin default 111 min 32 max 512");
         try respond("option name corr_read_divisor type spin default 127393 min 16384 max 524288");
+        try respond("option name probcut_margin type spin default 250 min 0 max 1000");
+        try respond("option name probcut_improve type spin default 1050 min 0 max 2000");
+        try respond("option name probcut_min_see type spin default 150 min 0 max 500");
 
         try self.newGame();
 
@@ -612,6 +615,18 @@ pub const UciProtocol = struct {
         } else if (std.mem.eql(u8, option_name, "corr_read_divisor")) {
             if (args.len >= name_end + 2) {
                 tp.corr_read_divisor = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 16384, 524288);
+            }
+        } else if (std.mem.eql(u8, option_name, "probcut_margin")) {
+            if (args.len >= name_end + 2) {
+                tp.probcut_margin = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 1000);
+            }
+        } else if (std.mem.eql(u8, option_name, "probcut_improve")) {
+            if (args.len >= name_end + 2) {
+                tp.probcut_improve = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 2000);
+            }
+        } else if (std.mem.eql(u8, option_name, "probcut_min_see")) {
+            if (args.len >= name_end + 2) {
+                tp.probcut_min_see = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 500);
             }
         } else {
             if (self.debug_mode) {
