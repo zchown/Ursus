@@ -208,16 +208,18 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("perft", perft_module);
     exe.root_module.addImport("datagen", datagen_module);
 
+    const fathom_dep = b.dependency("fathom", .{});
+
     const fathom_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
     fathom_mod.addCSourceFile(.{
-        .file = b.path("deps/Fathom/src/tbprobe.c"),
+        .file = fathom_dep.path("src/tbprobe.c"),
         .flags = &.{ "-std=c11", "-O3", "-DNDEBUG" },
     });
-    fathom_mod.addIncludePath(b.path("deps/Fathom/src"));
+    fathom_mod.addIncludePath(fathom_dep.path("src"));
 
     const fathom = b.addLibrary(.{
         .name = "fathom",
@@ -231,19 +233,19 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
-    tb_mod.addCSourceFile(.{
-        .file = b.path("deps/Fathom/src/tbprobe.c"),
-        .flags = &.{ "-std=c11", "-O3", "-DNDEBUG" },
-    });
-    tb_mod.addIncludePath(b.path("deps/Fathom/src"));
+    tb_mod.addIncludePath(fathom_dep.path("src"));
+    tb_mod.linkLibrary(fathom);
     tb_mod.addImport("board", board_module);
     tb_mod.addImport("moves", moves_module);
 
     search_module.addImport("tb", tb_mod);
     uci_module.addImport("tb", tb_mod);
 
-    exe.root_module.linkLibrary(fathom);
-    exe.root_module.addIncludePath(b.path("deps/Fathom/src"));
+    tb_mod.addImport("board", board_module);
+    tb_mod.addImport("moves", moves_module);
+
+    search_module.addImport("tb", tb_mod);
+    uci_module.addImport("tb", tb_mod);
 
     b.installArtifact(exe);
 
