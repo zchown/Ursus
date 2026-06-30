@@ -289,11 +289,6 @@ book: ?*const OpeningBook,
 board: *brd.Board,
 ) bool {
     game.* = ViriGame.init();
-    // Reset the board IN PLACE. Do NOT do `board.* = brd.Board.init();` —
-    // a Board now embeds NNUEStack ([1021+1]NNUEState ≈ 6 MB at hidden_size 1536),
-    // and constructing one by value puts ~6 MB on the stack. Combined with other
-    // by-value Board ops on the search path that overflows the worker stack.
-    // NOTE: requires `pub fn initInPlace(self: *Board) void` to exist in board.zig.
     board.initInPlace();
 
     if (book) |b| {

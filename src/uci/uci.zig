@@ -14,6 +14,8 @@ const tb = @import("tb");
 
 var move_overhead: u64 = 15;
 
+pub const EXPECTED_BENCH_NODES: u64 = 4232113;
+
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
     btime: ?u64 = null,
@@ -223,6 +225,8 @@ pub const UciProtocol = struct {
             try self.handlePerft(args);
         } else if (std.mem.eql(u8, commandName, "bench")) {
             try self.handleBench(args);
+        } else if (std.mem.eql(u8, commandName, "bench-expected")) {
+            try respond(try std.fmt.allocPrint(self.allocator, "{d}", .{EXPECTED_BENCH_NODES}));
         } else {
             if (self.debug_mode) {
                 try respond("Unknown command");
