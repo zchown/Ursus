@@ -1,9 +1,6 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
-
+fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
     const board_module = b.createModule(.{
         .root_source_file = b.path("src/chess/board.zig"),
         .target = target,
@@ -247,6 +244,14 @@ pub fn build(b: *std.Build) void {
     search_module.addImport("tb", tb_mod);
     uci_module.addImport("tb", tb_mod);
 
+    return exe;
+}
+
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    const exe = buildExe(b, target, optimize);
     b.installArtifact(exe);
 
     const exe_options = b.addOptions();
@@ -258,5 +263,91 @@ pub fn build(b: *std.Build) void {
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
         run_cmd.addArgs(args);
+    }
+
+    addReleaseStep(b, buildExe);
+}
+
+const ReleaseTarget = struct {
+    name: []const u8,
+    query: std.Target.Query,
+};
+
+const release_targets = [_]ReleaseTarget{
+    .{
+        .name = "ursus-linux-x86_64-avx2",
+        .query = .{
+            .cpu_arch = .x86_64,
+            .os_tag = .linux,
+            .abi = .gnu,
+            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64_v3 },
+        },
+    },
+    .{
+        .name = "ursus-linux-x86_64-sse2",
+        .query = .{
+            .cpu_arch = .x86_64,
+            .os_tag = .linux,
+            .abi = .gnu,
+            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64 },
+            .cpu_features_add = std.Target.x86.featureSet(&.{.cx16}),
+        },
+    },
+    .{
+        .name = "ursus-linux-aarch64",
+        .query = .{
+            .cpu_arch = .aarch64,
+            .os_tag = .linux,
+            .abi = .gnu,
+        },
+    },
+    .{
+        .name = "ursus-windows-x86_64-avx2.exe",
+        .query = .{
+            .cpu_arch = .x86_64,
+            .os_tag = .windows,
+            .abi = .gnu,
+            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64_v3 },
+        },
+    },
+    .{
+        .name = "ursus-windows-x86_64-sse2.exe",
+        .query = .{
+            .cpu_arch = .x86_64,
+            .os_tag = .windows,
+            .abi = .gnu,
+            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64 },
+            .cpu_features_add = std.Target.x86.featureSet(&.{.cx16}),
+        },
+    },
+    .{
+        .name = "ursus-macos-x86_64-avx2",
+        .query = .{
+            .cpu_arch = .x86_64,
+            .os_tag = .macos,
+            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64_v3 },
+        },
+    },
+    .{
+        .name = "ursus-macos-aarch64",
+        .query = .{
+            .cpu_arch = .aarch64,
+            .os_tag = .macos,
+        },
+    },
+};
+
+pub fn addReleaseStep(b: *std.Build, builde: anytype) void {
+    const release_step = b.step("release", "Build all release binaries");
+
+    for (release_targets) |rt| {
+        const target = b.resolveTargetQuery(rt.query);
+        const exe = builde(b, target, .ReleaseFast);
+
+        const install = b.addInstallArtifact(exe, .{
+            .dest_dir = .{ .override = .{ .custom = "release" } },
+            .dest_sub_path = rt.name,
+        });
+        release_step.dependOn(&install.step);
     }
 }

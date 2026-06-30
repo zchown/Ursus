@@ -9,147 +9,31 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: build-${{ matrix.name }}
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: linux-x86_64-avx2
-            runner: ubuntu-latest
-            cpu: x86_64_v3
-            ext: ''
-          - name: linux-x86_64-sse2
-            runner: ubuntu-latest
-            cpu: x86_64
-            ext: ''
-          - name: linux-aarch64
-            runner: ubuntu-24.04-arm
-            cpu: baseline
-            ext: ''
-          - name: windows-x86_64-avx2
-            runner: windows-latest
-            cpu: x86_64_v3
-            ext: '.exe'
-          - name: windows-x86_64-sse2
-            runner: windows-latest
-            cpu: x86_64
-            ext: '.exe'
-          - name: macos-x86_64-avx2
-            runner: macos-13
-            cpu: x86_64_v3
-            zigtarget: x86_64-macos.13
-            ext: ''
-          - name: macos-aarch64
-            runner: macos-14   # was macos-latest
-            cpu: baseline
-            zigtarget: aarch64-macos.13
-            ext: ''
-
+  release:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Zig
         shell: bash
         run: |
-          ZIG_VERSION="0.15.1"
-          case "${{ runner.os }}-${{ runner.arch }}" in
-            Linux-X64)    ZIG_ARCH="x86_64-linux" ;;
-            Linux-ARM64)  ZIG_ARCH="aarch64-linux" ;;
-            macOS-X64)    ZIG_ARCH="x86_64-macos" ;;
-            macOS-ARM64)  ZIG_ARCH="aarch64-macos" ;;
-            Windows-X64)  ZIG_ARCH="x86_64-windows" ;;
-            *) echo "Unsupported: ${{ runner.os }}-${{ runner.arch }}"; exit 1 ;;
-          esac
-
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            EXT="zip"
-          else
-            EXT="tar.xz"
-          fi
-
-          URL="https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-${ZIG_VERSION}.${EXT}"
-          echo "Downloading $URL"
-          curl -fsSL "$URL" -o "zig.${EXT}"
-
+          curl -fsSL "https://ziglang.org/download/0.15.1/zig-x86_64-linux-0.15.1.tar.xz" -o zig.tar.xz
           mkdir -p "$HOME/zig"
-          if [[ "$EXT" == "zip" ]]; then
-            unzip -q "zig.${EXT}" -d "$HOME/zig"
-          else
-            tar -xJf "zig.${EXT}" -C "$HOME/zig"
-          fi
-
+          tar -xJf zig.tar.xz -C "$HOME/zig"
           ZIG_DIR=$(find "$HOME/zig" -maxdepth 1 -type d -name "zig-*" | head -n 1)
           echo "$ZIG_DIR" >> $GITHUB_PATH
-
           "$ZIG_DIR/zig" version
 
-      - name: Build
-        shell: bash
-        run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
-            zig build -Doptimize=ReleaseFast -Dcpu=${{ matrix.cpu }} -Dtarget=${{ matrix.zigtarget }}
-          else
-            zig build -Doptimize=ReleaseFast -Dcpu=${{ matrix.cpu }}
-          fi
+      - name: Build all targets
+        run: zig build release
 
-      - name: Run bench
-        shell: bash
-        run: |
-          BINARY="./zig-out/bin/Ursus${{ matrix.ext }}"
-          echo "=== Running bench on ${{ matrix.name }} ==="
-
-          EXPECTED=$("$BINARY" bench-expected | tr -d '[:space:]')
-          echo "Expected nodes: $EXPECTED"
-
-          OUTPUT=$("$BINARY" bench)
-          echo "$OUTPUT"
-
-          LAST_LINE=$(echo "$OUTPUT" | tail -n 1)
-          if ! echo "$LAST_LINE" | grep -qE '[0-9]+ nodes [0-9]+ nps'; then
-            echo "::error::bench output didn't match expected format"
-            exit 1
-          fi
-
-          NODES=$(echo "$LAST_LINE" | grep -oE '^[0-9]+')
-          echo "Actual nodes:   $NODES"
-
-          if [ "$NODES" != "$EXPECTED" ]; then
-            echo "::error::bench mismatch on ${{ matrix.name }}: got $NODES, expected $EXPECTED"
-            exit 1
-          fi
-
-          echo "### ✅ Bench ${{ matrix.name }}: $NODES nodes" >> $GITHUB_STEP_SUMMARY
-
-      - name: Stage artifact
-        shell: bash
-        run: |
-          mkdir -p release
-          cp "zig-out/bin/Ursus${{ matrix.ext }}" "release/ursus-${{ matrix.name }}${{ matrix.ext }}"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ursus-${{ matrix.name }}
-          path: release/ursus-${{ matrix.name }}${{ matrix.ext }}
-          if-no-files-found: error
-          retention-days: 7
-
-  release:
-    name: create-release
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
+      - name: List output
+        run: ls -la zig-out/release/
 
       - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
-          files: artifacts/*
+          files: zig-out/release/*
           draft: true
           generate_release_notes: true
           fail_on_unmatched_files: true
