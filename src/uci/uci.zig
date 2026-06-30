@@ -671,8 +671,6 @@ pub const UciProtocol = struct {
         self.is_searching = false;
     }
 
-    
-
     fn handleBench(self: *UciProtocol, args: [][]const u8) !void {
         const depth: u32 = if (args.len >= 1) std.fmt.parseInt(u32, args[0], 10) catch 13 else 13;
 

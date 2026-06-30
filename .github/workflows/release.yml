@@ -22,7 +22,7 @@ jobs:
             ext: ''
           - name: linux-x86_64-sse2
             runner: ubuntu-latest
-            cpu: x86_64
+            cpu: x86_64+cx16
             ext: ''
           - name: linux-aarch64
             runner: ubuntu-24.04-arm
@@ -34,21 +34,27 @@ jobs:
             ext: '.exe'
           - name: windows-x86_64-sse2
             runner: windows-latest
-            cpu: x86_64
+            cpu: x86_64+cx16
             ext: '.exe'
           - name: macos-x86_64-avx2
-            runner: macos-13   # last Intel runner
+            runner: macos-13
             cpu: x86_64_v3
             ext: ''
           - name: macos-aarch64
-            runner: macos-latest  # Apple Silicon
+            runner: macos-latest
             cpu: baseline
             ext: ''
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Zig
+      - name: Setup macOS SDK
+        if: runner.os == 'macOS'
+        shell: bash
+        run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
+
+      - name: Install Zig (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           ZIG_VERSION="0.15.1"
@@ -57,33 +63,29 @@ jobs:
             Linux-ARM64)  ZIG_ARCH="aarch64-linux" ;;
             macOS-X64)    ZIG_ARCH="x86_64-macos" ;;
             macOS-ARM64)  ZIG_ARCH="aarch64-macos" ;;
-            Windows-X64)  ZIG_ARCH="x86_64-windows" ;;
-            *) echo "Unsupported: ${{ runner.os }}-${{ runner.arch }}"; exit 1 ;;
+            *) echo "Unsupported"; exit 1 ;;
           esac
-
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            EXT="zip"
-          else
-            EXT="tar.xz"
-          fi
-
-          URL="https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-${ZIG_VERSION}.${EXT}"
-          echo "Downloading $URL"
-          curl -fsSL "$URL" -o "zig.${EXT}"
-
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-${ZIG_VERSION}.tar.xz" -o zig.tar.xz
           mkdir -p "$HOME/zig"
-          if [[ "$EXT" == "zip" ]]; then
-            unzip -q "zig.${EXT}" -d "$HOME/zig"
-          else
-            tar -xJf "zig.${EXT}" -C "$HOME/zig"
-          fi
-
+          tar -xJf zig.tar.xz -C "$HOME/zig"
           ZIG_DIR=$(find "$HOME/zig" -maxdepth 1 -type d -name "zig-*" | head -n 1)
           echo "$ZIG_DIR" >> $GITHUB_PATH
-
           "$ZIG_DIR/zig" version
 
+      - name: Install Zig (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ZIG_VERSION = "0.15.1"
+          $URL = "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-windows-$ZIG_VERSION.zip"
+          Invoke-WebRequest -Uri $URL -OutFile zig.zip
+          Expand-Archive -Path zig.zip -DestinationPath "$env:USERPROFILE\zig"
+          $ZIG_DIR = (Get-ChildItem -Path "$env:USERPROFILE\zig" -Directory -Filter "zig-*" | Select-Object -First 1).FullName
+          Add-Content -Path $env:GITHUB_PATH -Value $ZIG_DIR
+          & "$ZIG_DIR\zig.exe" version
+
       - name: Build
+        shell: bash
         run: zig build -Doptimize=ReleaseFast -Dcpu=${{ matrix.cpu }}
 
       - name: Run bench

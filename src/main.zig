@@ -5,11 +5,26 @@ const perft = @import("perft");
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
 
-    // try perft.runPerftTest();
-
-    const engine = try uci.UciProtocol.init(gpa.allocator());
+    const engine = try uci.UciProtocol.init(allocator);
     defer engine.deinit();
+
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    if (args.len >= 2) {
+        const cmd = args[1];
+        if (std.mem.eql(u8, cmd, "bench") or std.mem.eql(u8, cmd, "bench-expected")) {
+            engine.receiveCommand("uci") catch |err| {
+                std.debug.print("Command error: {} on: uci\n", .{ err });
+            };
+            const cmd_line = try std.mem.join(allocator, " ", args[1..]);
+            defer allocator.free(cmd_line);
+            try engine.receiveCommand(cmd_line);
+            return;
+        }
+    }
 
     var stdin_buf: [4096 * 2]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buf);
