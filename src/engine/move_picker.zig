@@ -102,14 +102,12 @@ pub fn getNextBest(move_list: *mvs.MoveList, evals: *[218]ScoredMove, start_inde
     var best_idx = start_index;
     var j = start_index + 1;
     
-    // Find the index of the absolute best move remaining
     while (j < move_list.len) : (j += 1) {
         if (evals[j].score > evals[best_idx].score) {
             best_idx = j;
         }
     }
 
-    // Only swap memory ONCE, and only if we found a better move further down
     if (best_idx != start_index) {
         std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[best_idx]);
         std.mem.swap(ScoredMove, &evals[start_index], &evals[best_idx]);
@@ -121,8 +119,7 @@ pub fn getNextBest(move_list: *mvs.MoveList, evals: *[218]ScoredMove, start_inde
 pub fn getNextBestWithSee(move_list: *mvs.MoveList, evals: *[218]ScoredMove, start_index: usize) MoveWithSee {
     var best_idx = start_index;
     var j = start_index + 1;
-    
-    // Find the index of the absolute best move remaining
+
     while (j < move_list.len) : (j += 1) {
         if (evals[j].score > evals[best_idx].score) {
             best_idx = j;

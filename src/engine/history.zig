@@ -10,7 +10,6 @@ const max_ply = search.max_ply;
 const PieceColor = Searcher.PieceColor;
 
 pub fn resetHeuristics(self: *Searcher, total: bool) void {
-    // 1. Bulk reset simple arrays using @memset
     @memset(std.mem.asBytes(&self.killer), 0);
     @memset(std.mem.asBytes(&self.pv_length), 0);
     @memset(std.mem.asBytes(&self.eval_history), 0);

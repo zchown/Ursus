@@ -91,7 +91,6 @@ pub const GameState = struct {
         return toReturn;
     }
 
-    /// Returns the square of a castling rook given color and kingside/queenside.
     pub inline fn rookSquare(self: GameState, color: Color, kingside: bool) Square {
         const rank: usize = if (color == Color.White) 0 else 56;
         const file: usize = if (kingside)
@@ -101,13 +100,11 @@ pub const GameState = struct {
         return rank + file;
     }
 
-    /// Returns the castled king destination square (g-file for KS, c-file for QS).
     pub inline fn kingCastleDest(color: Color, kingside: bool) Square {
         const rank: usize = if (color == Color.White) 0 else 56;
         return if (kingside) rank + 6 else rank + 2;
     }
 
-    /// Returns the castled rook destination square (f-file for KS, d-file for QS).
     pub inline fn rookCastleDest(color: Color, kingside: bool) Square {
         const rank: usize = if (color == Color.White) 0 else 56;
         return if (kingside) rank + 5 else rank + 3;
@@ -383,17 +380,6 @@ pub const Board = struct {
             return self.mailbox[square].piece;
         }
         return null;
-        // for (std.meta.tags(Color)) |color| {
-        //     const color_idx = @intFromEnum(color);
-        //     for (std.meta.tags(Pieces)) |piece| {
-        //         if (piece == Pieces.None) continue;
-        //         const piece_idx = @intFromEnum(piece);
-        //         if ((self.piece_bb[color_idx][piece_idx] & (@as(Bitboard, 1) << @intCast(square))) != 0) {
-        //             return piece;
-        //         }
-        //     }
-        // }
-        // return null;
     }
 
     pub fn getColorFromSquare(self: *const Board, square: Square) ?Color {
@@ -401,17 +387,6 @@ pub const Board = struct {
             return self.mailbox[square].color;
         }
         return null;
-        // for (std.meta.tags(Color)) |color| {
-        //     const color_idx = @intFromEnum(color);
-        //     for (std.meta.tags(Pieces)) |piece| {
-        //         if (piece == Pieces.None) continue;
-        //         const piece_idx = @intFromEnum(piece);
-        //         if ((self.piece_bb[color_idx][piece_idx] & (@as(Bitboard, 1) << @intCast(square))) != 0) {
-        //             return color;
-        //         }
-        //     }
-        // }
-        // return null;
     }
 
     pub fn reinitZobrist(self: *Board) void {
@@ -499,21 +474,17 @@ pub const Board = struct {
         const white_queens = @popCount(self.piece_bb[@intFromEnum(Color.White)][@intFromEnum(Pieces.Queen)]);
         const black_queens = @popCount(self.piece_bb[@intFromEnum(Color.Black)][@intFromEnum(Pieces.Queen)]);
 
-        // If any pawns, rooks, or queens exist, there's sufficient material
         if (white_pawns > 0 or black_pawns > 0) return false;
         if (white_rooks > 0 or black_rooks > 0) return false;
         if (white_queens > 0 or black_queens > 0) return false;
 
-        // Count total minor pieces
         const white_minors = white_knights + white_bishops;
         const black_minors = black_knights + black_bishops;
 
-        // King vs King
         if (white_minors == 0 and black_minors == 0) {
             return true;
         }
 
-        // King + minor vs King
         if (white_minors == 1 and black_minors == 0) {
             return true;
         }
@@ -521,11 +492,9 @@ pub const Board = struct {
             return true;
         }
 
-        // King + Bishop vs King + Bishop (same colored bishops)
         if (white_bishops == 1 and black_bishops == 1 and
             white_knights == 0 and black_knights == 0)
         {
-            // Check if bishops are on same color squares
             const white_bishop_bb = self.piece_bb[@intFromEnum(Color.White)][@intFromEnum(Pieces.Bishop)];
             const black_bishop_bb = self.piece_bb[@intFromEnum(Color.Black)][@intFromEnum(Pieces.Bishop)];
 

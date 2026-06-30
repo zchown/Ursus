@@ -264,7 +264,6 @@ pub const TranspositionTable = struct {
     }
 
     pub inline fn store(self: *TranspositionTable, entry: Entry) void {
-        // Alias for set to keep API compatibility
         self.set(entry);
     }
 
@@ -289,29 +288,20 @@ pub const TranspositionTable = struct {
 
             if (flag == .None) {
                 empty_idx = i;
-                continue; // Found empty, but keep scanning for a hash match
+                continue;
             }
 
             if (packed_entry.verify(entry.hash)) {
                 match_idx = i;
                 if (best_move.isNull() and !packed_entry.getMove().isNull()) {
-                    best_move = packed_entry.getMove(); // Preserve the old best move
+                    best_move = packed_entry.getMove();
                 }
-                break; // Found the exact position, stop scanning
+                break;
             }
 
             // 2. Score the entry to find the weakest link for collision handling
             var score: i32 = packed_entry.getDepth();
             if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
-            // const age_diff: u8 = current_age -% packed_entry.getAge();
-
-            // if (age_diff > 0) {
-            //     // Apply a tunable depth penalty per generation.
-            //     // For example, an age penalty of 12 means a Depth 30 node from the 
-            //     // previous search is treated like a Depth 18 node today. 
-            //     // It will still crush a new Depth 5 node, but will yield to a new Depth 20 node.
-            //     score -= @as(i32, age_diff) * ; 
-            // }
             if (packed_entry.getIsPv()) score += 2;
             if (flag == .Exact) score += 1;
 
