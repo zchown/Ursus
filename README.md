@@ -2,6 +2,19 @@
 
 Ursus is a UCI-compatible chess engine written in [Zig](https://ziglang.org/). It uses a bitboard-based board representation, alpha-beta search with many search optimizations, and uses a NNUE for evaluation.
 
+Esitmated ELO: ~3470
+
+Estimation based on match played against Stash v37.
+
+--------------------------------------------------
+Results of Ursus vs Stash37 (60+0.6, 1t, 64MB, UHO_Lichess_4852_v1.epd):
+Elo: 53.76 +/- 9.70, nElo: 85.80 +/- 15.23
+LOS: 100.00 %, DrawRatio: 43.90 %, PairsRatio: 2.72
+Games: 2000, Wins: 801, Losses: 494, Draws: 705, Points: 1153.5 (57.67 %)
+Ptnml(0-2): [27, 124, 439, 335, 75], WL/DD Ratio: 2.57
+--------------------------------------------------
+
+
 Available to play on lichess: [`Ursus_bot`](https://lichess.org/@/Ursus_bot)
 
 It is playing on an old Intel NUC with a Intel® Core™ i5-4250U configured for 2 threads and a hash size of 1GB.
@@ -9,6 +22,7 @@ It is playing on an old Intel NUC with a Intel® Core™ i5-4250U configured for
 [![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=bullet)](https://lichess.org/@/Ursus_bot/perf/bullet)
 [![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=blitz)](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=blitz)
 [![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=rapid)](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=rapid)
+
 
 ---
 

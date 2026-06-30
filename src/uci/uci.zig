@@ -12,7 +12,7 @@ const perft = @import("perft");
 const tp = @import("tunable_parameters");
 const tb = @import("tb");
 
-var move_overhead: u64 = 10;
+var move_overhead: u64 = 15;
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
