@@ -16,9 +16,7 @@ pub fn main() !void {
     if (args.len >= 2) {
         const cmd = args[1];
         if (std.mem.eql(u8, cmd, "bench") or std.mem.eql(u8, cmd, "bench-expected")) {
-            engine.receiveCommand("uci") catch |err| {
-                std.debug.print("Command error: {} on: uci\n", .{ err });
-            };
+            try engine.newGame();
             const cmd_line = try std.mem.join(allocator, " ", args[1..]);
             defer allocator.free(cmd_line);
             try engine.receiveCommand(cmd_line);

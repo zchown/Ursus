@@ -118,8 +118,8 @@ pub const UciProtocol = struct {
     should_quit: bool = false,
     is_searching: bool = false,
     chess960: bool = false,
-    hash_size_mb: u32 = 256,
-    threads: usize = 1,
+    hash_size_mb: u32 = 512,
+    threads: usize = 8,
     searcher: *srch.Searcher,
     tt_table: tt.TranspositionTable = undefined,
 
@@ -657,7 +657,7 @@ pub const UciProtocol = struct {
         try stdout.flush();
     }
 
-    fn newGame(self: *UciProtocol) !void {
+    pub fn newGame(self: *UciProtocol) !void {
         self.tt_table.reset();
 
 
