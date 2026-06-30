@@ -52,4 +52,3 @@ pub var tb_probe_depth: usize = 1;
 pub var probcut_margin: i32 = 259;
 pub var probcut_improve: i32 = 1046;
 pub var probcut_min_see: i32 = 206;
-
