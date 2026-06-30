@@ -48,9 +48,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: mlugg/setup-zig@v2.2.1
-        with:
-          version: 0.15.1
+      - name: Install Zig
+        shell: bash
+        run: |
+          ZIG_VERSION="0.15.1"
+          case "${{ runner.os }}-${{ runner.arch }}" in
+            Linux-X64)    ZIG_ARCH="x86_64-linux" ;;
+            Linux-ARM64)  ZIG_ARCH="aarch64-linux" ;;
+            macOS-X64)    ZIG_ARCH="x86_64-macos" ;;
+            macOS-ARM64)  ZIG_ARCH="aarch64-macos" ;;
+            Windows-X64)  ZIG_ARCH="x86_64-windows" ;;
+            *) echo "Unsupported: ${{ runner.os }}-${{ runner.arch }}"; exit 1 ;;
+          esac
+
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            EXT="zip"
+          else
+            EXT="tar.xz"
+          fi
+
+          URL="https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-${ZIG_VERSION}.${EXT}"
+          echo "Downloading $URL"
+          curl -fsSL "$URL" -o "zig.${EXT}"
+
+          mkdir -p "$HOME/zig"
+          if [[ "$EXT" == "zip" ]]; then
+            unzip -q "zig.${EXT}" -d "$HOME/zig"
+          else
+            tar -xJf "zig.${EXT}" -C "$HOME/zig"
+          fi
+
+          ZIG_DIR=$(find "$HOME/zig" -maxdepth 1 -type d -name "zig-*" | head -n 1)
+          echo "$ZIG_DIR" >> $GITHUB_PATH
+
+          "$ZIG_DIR/zig" version
 
       - name: Build
         run: zig build -Doptimize=ReleaseFast -Dcpu=${{ matrix.cpu }}
