@@ -783,24 +783,22 @@ pub const Searcher = struct {
             probcut_beta += (tp.probcut_improve - 1000);
         }
 
-        const probcut_depth = @max(depth - 3, 1);
 
         if (cutnode and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].toU32() == 0) {
+            const probcut_depth = depth - 3;
             for (0..move_count) |i| {
                 const move_see = mp.getNextBestWithSee(&move_list, &eval_moves, i);
                 const move = move_see.move;
                 const see_score = move_see.see_val;
 
                 if (move.capture == 0) {
-                    if (move.toU32() != hash_move.toU32()) {
+                    if (!move.matchesTTKey(hash_move)) {
                         break;
                     }
                 }
                 else if (see_score < tp.probcut_min_see) {
                     break;
                 }
-
-
 
                 self.move_history[self.ply] = move;
                 var moved_piece = PieceColor{
@@ -855,7 +853,8 @@ pub const Searcher = struct {
 
         for (0..move_count) |i| {
             var move = mp.getNextBest(&move_list, &eval_moves, i);
-            if (move.toU32() == self.excluded_moves[self.ply].toU32()) {
+
+            if (move.matchesTTKey(self.excluded_moves[self.ply])) {
                 continue;
             }
 
@@ -924,7 +923,7 @@ pub const Searcher = struct {
             var extension: i32 = 0;
 
             // Singular Extensions, also double and triple
-            if (!is_root and depth >= 6 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3 and move_list.len >= 2) {
+            if (!is_root and depth >= 6 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and move.matchesTTKey(hash_move) and entry.?.depth >= depth - 3 and move_list.len >= 2) {
                 const margin: i32 = @as(i32, @intCast(depth)) * 2;
                 const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
 
