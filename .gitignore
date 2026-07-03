@@ -3,6 +3,7 @@ zig-cache/
 zig-out/
 .zig-cache/
 
+notes.typ
 fastchess_test.sh
 gauntlet.sh
 run_tournament.sh
