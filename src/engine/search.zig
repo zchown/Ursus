@@ -28,6 +28,22 @@ pub fn initQuietLMR() [64][64]i32 {
     return table;
 }
 
+pub var noisy_lmr: [64][64]i32 = undefined;
+
+pub fn initNoisyLMR() [64][64]i32 {
+    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base)) / 100.0;
+    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_div)) / 100.0;
+    var table: [64][64]i32 = undefined;
+    for (0..64) |d| {
+        for (0..64) |m| {
+            const df: f32 = @floatFromInt(@max(d, 1));
+            const mf: f32 = @floatFromInt(@max(m, 1));
+            table[d][m] = @intFromFloat(lmr_base_f + @log(df) * @log(mf) / lmr_div_f);
+        }
+    }
+    return table;
+}
+
 pub const NodeType = enum {
     Root,
     PV,
@@ -993,8 +1009,11 @@ pub const Searcher = struct {
             if (on_pv and searched_moves == 1) {
                 score = -self.negamax(board, brd.flipColor(color), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
-                if (!in_check and depth >= 3 and i >= min_lmr_move) {
-                    var reduction: i32 = quiet_lmr[@min(depth, 63)][@min(quiet_count, 63)];
+                if (!in_check and depth >= 3 and searched_moves > min_lmr_move) {
+                    var reduction: i32 = if (is_capture)
+                        noisy_lmr[@min(depth, 63)][@min(searched_moves, 63)]
+                    else
+                        quiet_lmr[@min(depth, 63)][@min(searched_moves, 63)];
 
                     if (improving) {
                         reduction -= 1;
@@ -1016,7 +1035,9 @@ pub const Searcher = struct {
                         reduction -= 1;
                     }
 
-                    reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div);
+                    if (!is_capture) {
+                        reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div);
+                    }
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth + 1))));
 
@@ -1024,7 +1045,7 @@ pub const Searcher = struct {
 
                     do_full_search = score > alpha and reduced_depth < new_depth;
                 } else {
-                    do_full_search = !on_pv or i > 0;
+                    do_full_search = !on_pv or searched_moves > 1;
                 }
 
                 if (do_full_search) {

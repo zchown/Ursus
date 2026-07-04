@@ -25,11 +25,14 @@ pub var q_see_min: i32 = -144;
 pub var q_see_margin: i32 = -45;
 pub var q_delta_margin: i32 = 213;
 
-pub var lmr_base: i32 = 338;
-pub var lmr_div: i32 = 339;
+pub var lmr_base: i32 = 75;
+pub var lmr_div: i32 = 225;
 
-pub var lmr_pv_min: usize = 6;
-pub var lmr_non_pv_min: usize = 3;
+pub var lmr_noisy_base: i32 = -20;
+pub var lmr_noisy_div: i32 = 250;
+
+pub var lmr_pv_min: usize = 3;
+pub var lmr_non_pv_min: usize = 1;
 
 pub var se_double_threshold: i32 = 27;
 pub var se_triple_threshold: i32 = 46;
