@@ -495,13 +495,22 @@ pub const Searcher = struct {
 
         // Guard against null moves
         if (self.best_move.toU32() == 0) {
+            var hash_move = mvs.EncodedMove.fromU32(0);
             if (self.tt_table.get(board.game_state.zobrist)) |e| {
-                self.best_move = e.move;
+                hash_move = e.move;
             }
             if (self.best_move.toU32() == 0) {
                 const move_list = self.move_gen.generateMoves(board, false);
                 if (move_list.len > 0) {
                     self.best_move = move_list.items[0];
+                }
+
+                for (0..move_list.len) |i| {
+                    const move = move_list.items[i];
+                    if (move.matchesTTKey(hash_move)) {
+                        self.best_move = move;
+                        break;
+                    }
                 }
             }
         }
