@@ -1257,12 +1257,11 @@ pub const Searcher = struct {
                     continue;
                 }
 
-                var captured_piece_value: i32 = 0;
-                captured_piece_value = see.see_values[@as(usize, @intCast(move.captured_piece)) + 1];
+                // var captured_piece_value: i32 = 0;
+                // captured_piece_value = see.see_values[@as(usize, @intCast(move.captured_piece))];
 
                 if (see_value < tp.q_see_margin and
-                    captured_piece_value < 300 and
-                    static_eval + see_value + captured_piece_value + tp.q_delta_margin < alpha)
+                    static_eval + see_value + tp.q_delta_margin < alpha)
                 {
                     continue;
                 }
