@@ -28,6 +28,22 @@ pub fn initQuietLMR() [64][64]i32 {
     return table;
 }
 
+pub var noisy_lmr: [64][64]i32 = undefined;
+
+pub fn initNoisyLMR() [64][64]i32 {
+    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_base)) / 100.0;
+    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_div)) / 100.0;
+    var table: [64][64]i32 = undefined;
+    for (0..64) |d| {
+        for (0..64) |m| {
+            const df: f32 = @floatFromInt(@max(d, 1));
+            const mf: f32 = @floatFromInt(@max(m, 1));
+            table[d][m] = @intFromFloat(lmr_base_f + @log(df) * @log(mf) / lmr_div_f);
+        }
+    }
+    return table;
+}
+
 pub const NodeType = enum {
     Root,
     PV,
@@ -479,13 +495,22 @@ pub const Searcher = struct {
 
         // Guard against null moves
         if (self.best_move.toU32() == 0) {
+            var hash_move = mvs.EncodedMove.fromU32(0);
             if (self.tt_table.get(board.game_state.zobrist)) |e| {
-                self.best_move = e.move;
+                hash_move = e.move;
             }
             if (self.best_move.toU32() == 0) {
                 const move_list = self.move_gen.generateMoves(board, false);
                 if (move_list.len > 0) {
                     self.best_move = move_list.items[0];
+                }
+
+                for (0..move_list.len) |i| {
+                    const move = move_list.items[i];
+                    if (move.matchesTTKey(hash_move)) {
+                        self.best_move = move;
+                        break;
+                    }
                 }
             }
         }
@@ -783,24 +808,22 @@ pub const Searcher = struct {
             probcut_beta += (tp.probcut_improve - 1000);
         }
 
-        const probcut_depth = @max(depth - 3, 1);
 
         if (cutnode and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].toU32() == 0) {
+            const probcut_depth = depth - 3;
             for (0..move_count) |i| {
                 const move_see = mp.getNextBestWithSee(&move_list, &eval_moves, i);
                 const move = move_see.move;
                 const see_score = move_see.see_val;
 
                 if (move.capture == 0) {
-                    if (move.toU32() != hash_move.toU32()) {
+                    if (!move.matchesTTKey(hash_move)) {
                         break;
                     }
                 }
                 else if (see_score < tp.probcut_min_see) {
                     break;
                 }
-
-
 
                 self.move_history[self.ply] = move;
                 var moved_piece = PieceColor{
@@ -855,7 +878,8 @@ pub const Searcher = struct {
 
         for (0..move_count) |i| {
             var move = mp.getNextBest(&move_list, &eval_moves, i);
-            if (move.toU32() == self.excluded_moves[self.ply].toU32()) {
+
+            if (move.matchesTTKey(self.excluded_moves[self.ply])) {
                 continue;
             }
 
@@ -880,10 +904,8 @@ pub const Searcher = struct {
             }
 
             if (!is_capture) {
-                quiet_moves.addEncodedMove(move);
                 quiet_count += 1;
             } else {
-                other_moves.addEncodedMove(move);
                 other_count += 1;
             }
 
@@ -921,35 +943,41 @@ pub const Searcher = struct {
                 }
             }
 
+            if (!is_capture) {
+                quiet_moves.addEncodedMove(move);
+            } else {
+                other_moves.addEncodedMove(move);
+            }
+
             var extension: i32 = 0;
 
             // Singular Extensions, also double and triple
-            if (!is_root and depth >= 6 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and hash_move.toU32() == move.toU32() and entry.?.depth >= depth - 3 and move_list.len >= 2) {
-                const margin: i32 = @as(i32, @intCast(depth)) * 2;
-                const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
-
-                self.excluded_moves[self.ply] = hash_move;
-
-                const r = @divTrunc(@as(i32, @intCast(depth)) - 1, 2);
-                const singular_depth = @max(r, 1);
-                const singular_score = self.negamax(board, color, singular_depth, singular_beta - 1, singular_beta, false, NodeType.NonPV, cutnode);
-                self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
-
-                if (singular_score < singular_beta) {
-                    extension = 1;
-
-                    // double extension
-                    if (on_pv and depth >= 7 and singular_score < singular_beta - tp.se_double_threshold) {
-                        extension = 2;
-                    }
-                } else if (singular_beta >= beta) {
-                    return singular_beta;
-                } else if (cutnode) {
-                    extension = -1;
-                } else if (static_eval >= beta) {
-                    extension = -2;
-                }
-            }
+            // if (!is_root and depth >= 6 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and move.matchesTTKey(hash_move) and entry.?.depth >= depth - 3 and move_list.len >= 2) {
+            //     const margin: i32 = @as(i32, @intCast(depth)) * 2;
+            //     const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
+            //
+            //     self.excluded_moves[self.ply] = hash_move;
+            //
+            //     const r = @divTrunc(@as(i32, @intCast(depth)) - 1, 2);
+            //     const singular_depth = @max(r, 1);
+            //     const singular_score = self.negamax(board, color, singular_depth, singular_beta - 1, singular_beta, false, NodeType.NonPV, cutnode);
+            //     self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
+            //
+            //     if (singular_score < singular_beta) {
+            //         extension = 1;
+            //
+            //         // double extension
+            //         if (on_pv and depth >= 7 and singular_score < singular_beta - tp.se_double_threshold) {
+            //             extension = 2;
+            //         }
+            //     } else if (singular_beta >= beta) {
+            //         return singular_beta;
+            //     } else if (cutnode) {
+            //         extension = -1;
+            //     } else if (static_eval >= beta) {
+            //         extension = -2;
+            //     }
+            // }
 
             if (!is_root and self.ply <= depth and hash_move.capture == 0) {
                 if (is_capture and last_move.capture == 1 and move.end_square == last_move.end_square) {
@@ -994,14 +1022,23 @@ pub const Searcher = struct {
             if (on_pv and searched_moves == 1) {
                 score = -self.negamax(board, brd.flipColor(color), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
-                if (!in_check and depth >= 3 and i >= min_lmr_move) {
-                    var reduction: i32 = quiet_lmr[@min(depth, 63)][@min(quiet_count, 63)];
+                if (!in_check and depth >= 3 and searched_moves > min_lmr_move) {
+                    var reduction: i32 = if (is_capture)
+                        noisy_lmr[@min(depth, 63)][@min(searched_moves, 63)]
+                    else
+                        quiet_lmr[@min(depth, 63)][@min(searched_moves, 63)];
 
                     if (improving) {
                         reduction -= 1;
                     }
 
-                    if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
+                    // if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
+                    //     reduction -= 1;
+                    // }
+                    //
+                    if (last_move.toU32() != 0 and
+                    self.counter_moves[@intFromEnum(color)][last_move.start_square][last_move.end_square].toU32() == move.toU32())
+                {
                         reduction -= 1;
                     }
 
@@ -1017,7 +1054,9 @@ pub const Searcher = struct {
                         reduction -= 1;
                     }
 
-                    reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div);
+                    if (!is_capture) {
+                        reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div);
+                    }
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth + 1))));
 
@@ -1025,7 +1064,7 @@ pub const Searcher = struct {
 
                     do_full_search = score > alpha and reduced_depth < new_depth;
                 } else {
-                    do_full_search = !on_pv or i > 0;
+                    do_full_search = !on_pv or searched_moves > 1;
                 }
 
                 if (do_full_search) {
@@ -1067,6 +1106,10 @@ pub const Searcher = struct {
                     }
                 }
             }
+        }
+
+        if (searched_moves == 0) {
+            return alpha;
         }
 
         if (!in_check and !is_null and best_move.capture == 0 and (best_score > -eval.mate_score and best_score < eval.mate_score) and self.excluded_moves[self.ply].toU32() == 0 and !(best_score >= beta and best_score <= static_eval) and !(best_move.toU32() == 0 and best_score >= static_eval)) {
@@ -1214,12 +1257,11 @@ pub const Searcher = struct {
                     continue;
                 }
 
-                var captured_piece_value: i32 = 0;
-                captured_piece_value = see.see_values[@as(usize, @intCast(move.captured_piece)) + 1];
+                // var captured_piece_value: i32 = 0;
+                // captured_piece_value = see.see_values[@as(usize, @intCast(move.captured_piece))];
 
                 if (see_value < tp.q_see_margin and
-                    captured_piece_value < 300 and
-                    static_eval + see_value + captured_piece_value + tp.q_delta_margin < alpha)
+                    static_eval + see_value + tp.q_delta_margin < alpha)
                 {
                     continue;
                 }

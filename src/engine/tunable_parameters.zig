@@ -15,26 +15,29 @@ pub var nmp_beta_div: usize = 129;
 pub var razoring_base: i32 = 282;
 pub var razoring_mul: i32 = 61;
 
-pub var lmp_improve: usize = 221;
-pub var lmp_base: usize = 453;
-pub var lmp_mul: usize = 222;
+pub var lmp_improve: usize = 223;
+pub var lmp_base: usize = 426;
+pub var lmp_mul: usize = 229;
 
-pub var futility_mul: i32 = 168;
+pub var futility_mul: i32 = 170;
 
 pub var q_see_min: i32 = -144;
 pub var q_see_margin: i32 = -45;
 pub var q_delta_margin: i32 = 213;
 
-pub var lmr_base: i32 = 338;
-pub var lmr_div: i32 = 339;
+pub var lmr_base: i32 = 90;
+pub var lmr_div: i32 = 176;
 
-pub var lmr_pv_min: usize = 6;
-pub var lmr_non_pv_min: usize = 3;
+pub var lmr_noisy_base: i32 = -13;
+pub var lmr_noisy_div: i32 = 332;
+
+pub var lmr_pv_min: usize = 3;
+pub var lmr_non_pv_min: usize = 1;
 
 pub var se_double_threshold: i32 = 27;
 pub var se_triple_threshold: i32 = 46;
 
-pub var history_div: i32 = 4140;
+pub var history_div: i32 = 4107;
 
 pub var corr_div_bm: i32 = 10;
 pub var corr_div_nobm: i32 = 9;

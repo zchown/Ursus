@@ -143,8 +143,10 @@ pub fn updateQuietHistory(
     is_null: bool,
     depth: usize,
 ) void {
-    self.killer[self.ply][1] = self.killer[self.ply][0];
-    self.killer[self.ply][0] = best_move;
+    if(self.killer[self.ply][0].toU32() != best_move.toU32()) {
+        self.killer[self.ply][1] = self.killer[self.ply][0];
+        self.killer[self.ply][0] = best_move;
+    }
 
     const depth_i32 = @as(i32, @intCast(depth));
     const bonus = @min(16384, 32 * depth_i32 * depth_i32);

@@ -3,6 +3,9 @@ zig-cache/
 zig-out/
 .zig-cache/
 
+spsa*
+notes.typ
+patches.md
 fastchess_test.sh
 gauntlet.sh
 run_tournament.sh

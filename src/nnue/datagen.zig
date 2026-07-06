@@ -294,6 +294,7 @@ board: *brd.Board,
     if (book) |b| {
         const fen = b.pick(rng);
         fen_mod.parseFEN(board, fen) catch return false;
+        board.refreshNNUE();
     } else {
         fen_mod.setupStartingPosition(board);
         const jiggle: i32 = if (rng.next() % 2 == 0) -1 else 1;
