@@ -28,6 +28,12 @@ pub fn initQuietLMR() [64][64]i32 {
     return table;
 }
 
+inline fn scoreToTT(score: i32, ply: usize) i32 {
+    if (score >= eval.mate_score - 256) return score + @as(i32, @intCast(ply));
+    if (score <= -eval.mate_score + 256) return score - @as(i32, @intCast(ply));
+    return score;
+}
+
 pub var noisy_lmr: [64][64]i32 = undefined;
 
 pub fn initNoisyLMR() [64][64]i32 {
@@ -853,7 +859,7 @@ pub const Searcher = struct {
 
                     self.tt_table.set(tt.Entry{
                         .hash = board.game_state.zobrist,
-                        .eval = score,
+                        .eval = scoreToTT(score, self.ply),
                         .move = move,
                         .static_eval = static_eval,
                         .flag = tt.EstimationType.Under,
@@ -1135,7 +1141,7 @@ pub const Searcher = struct {
             self.tt_table.set(
                 tt.Entry{
                     .hash = board.game_state.zobrist,
-                    .eval = best_score,
+                    .eval = scoreToTT(best_score, self.ply),
                     .move = best_move,
                     .static_eval = raw_static_eval,
                     .flag = tt_flag,
