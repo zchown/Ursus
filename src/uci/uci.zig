@@ -155,6 +155,9 @@ pub const UciProtocol = struct {
         protocol.tt_table = try tt.TranspositionTable.init(a, protocol.hash_size_mb);
         searcher_ptr.tt_table = &protocol.tt_table;
 
+        srch.quiet_lmr = srch.initQuietLMR();
+        srch.noisy_lmr = srch.initNoisyLMR();
+
         return protocol;
     }
 
