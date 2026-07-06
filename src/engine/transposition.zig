@@ -399,24 +399,24 @@ pub const TranspositionTable = struct {
         return .{ .used = used, .total = self.num_buckets * TT_BUCKET_SLOTS };
     }
 
-    pub fn getFillPermill(self: *const TranspositionTable) usize {
-        const sample_size = @min(1000, self.num_buckets);
-        var used: usize = 0;
-
-        var i: usize = 0;
-        while (i < sample_size) : (i += 1) {
-            const idx = (i * self.num_buckets) / sample_size;
-            for (&self.buckets[idx].entries) |*item| {
-                const packed_data = item.load(.monotonic);
-                const packed_entry = PackedEntry{ .data = packed_data };
-                if (packed_entry.getFlag() != .None) {
-                    used += 1;
-                }
-            }
-        }
-
-        return (used * 1000) / (sample_size * 1);
-    }
+    // pub fn getFillPermill(self: *const TranspositionTable) usize {
+    //     const sample_size = @min(1000, self.num_buckets);
+    //     var used: usize = 0;
+    //
+    //     var i: usize = 0;
+    //     while (i < sample_size) : (i += 1) {
+    //         const idx = (i * self.num_buckets) / sample_size;
+    //         for (&self.buckets[idx].entries) |*item| {
+    //             const packed_data = item.load(.monotonic);
+    //             const packed_entry = PackedEntry{ .data = packed_data };
+    //             if (packed_entry.getFlag() != .None) {
+    //                 used += 1;
+    //             }
+    //         }
+    //     }
+    //
+    //     return (used * 1000) / (sample_size * 1);
+    // }
 };
 
 comptime {

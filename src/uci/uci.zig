@@ -819,6 +819,7 @@ pub const UciProtocol = struct {
     }
 
     fn calculateTimeAllocation(self: *const UciProtocol, limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {
+        _ = self;
         if (limits.movetime) |mt| {
             return .{ .max_ms = mt, .ideal_ms = mt };
         }
@@ -830,16 +831,17 @@ pub const UciProtocol = struct {
         if (our_time) |time| {
             const safe_time = time -| move_overhead;
             const increment = our_inc orelse 0;
-            var moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else blk: {
+            const moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else blk: {
                 if (increment == 0) break :blk @as(u64, 35);
                 if (increment < 200) break :blk @as(u64, 30);
                 break :blk @as(u64, 25);
             };
-            if (self.tt_table.getFillPermill() > 800) {
-                moves_remaining -= 5;
-            } else if (self.tt_table.getFillPermill() < 200) {
-                moves_remaining += 5;
-            }
+            // if (self.tt_table.getFillPermill() > 800) {
+            //     moves_remaining -= 5;
+            // } else if (self.tt_table.getFillPermill() < 200) {
+            //     moves_remaining += 5;
+            // }
+            //
             const total_time = safe_time + (increment * (moves_remaining - 1));
             const base_time = total_time / moves_remaining;
             var ideal_ms = @min(base_time * 9 / 10, safe_time -| 50);

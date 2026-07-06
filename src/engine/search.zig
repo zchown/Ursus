@@ -1348,7 +1348,7 @@ pub const Searcher = struct {
     pub fn printInfo(self: *Searcher, nodes: u64, tb_hits: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
         const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
         const nps: u64 = if (elapsed_ms > 0) (nodes * 1000) / elapsed_ms else 0;
-        const hashfull = self.tt_table.getFillPermill();
+        // const hashfull = self.tt_table.getFillPermill();
 
         var stdout_writer = std.fs.File.stdout().writer(&self.stdout_buffer);
         const stdout = &stdout_writer.interface;
@@ -1388,14 +1388,13 @@ pub const Searcher = struct {
         var score_buf: [64]u8 = undefined;
         const score_string = formatScore(score, &score_buf);
 
-        stdout.print("info depth {d} seldepth {d} {s} time {d} nodes {d} nps {d} hashfull {d} tbhits {d} pv {s}\n", .{
+        stdout.print("info depth {d} seldepth {d} {s} time {d} nodes {d} nps {d} tbhits {d} pv {s}\n", .{
             self.search_depth,
             self.seldepth,
             score_string,
             elapsed_ms,
             nodes,
             nps,
-            hashfull,
             tb_hits,
             pv_string,
         }) catch return;
