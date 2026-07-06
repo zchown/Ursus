@@ -31,8 +31,8 @@ pub fn initQuietLMR() [64][64]i32 {
 pub var noisy_lmr: [64][64]i32 = undefined;
 
 pub fn initNoisyLMR() [64][64]i32 {
-    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base)) / 100.0;
-    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_div)) / 100.0;
+    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_base)) / 100.0;
+    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_div)) / 100.0;
     var table: [64][64]i32 = undefined;
     for (0..64) |d| {
         for (0..64) |m| {
@@ -904,10 +904,8 @@ pub const Searcher = struct {
             }
 
             if (!is_capture) {
-                quiet_moves.addEncodedMove(move);
                 quiet_count += 1;
             } else {
-                other_moves.addEncodedMove(move);
                 other_count += 1;
             }
 
@@ -943,6 +941,12 @@ pub const Searcher = struct {
                 if (!see.seeAtLeast(board, self.move_gen, move, -100)) {
                     continue;
                 }
+            }
+
+            if (!is_capture) {
+                quiet_moves.addEncodedMove(move);
+            } else {
+                other_moves.addEncodedMove(move);
             }
 
             var extension: i32 = 0;
@@ -1028,7 +1032,13 @@ pub const Searcher = struct {
                         reduction -= 1;
                     }
 
-                    if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
+                    // if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
+                    //     reduction -= 1;
+                    // }
+                    //
+                    if (last_move.toU32() != 0 and
+                    self.counter_moves[@intFromEnum(color)][last_move.start_square][last_move.end_square].toU32() == move.toU32())
+                {
                         reduction -= 1;
                     }
 
@@ -1096,6 +1106,10 @@ pub const Searcher = struct {
                     }
                 }
             }
+        }
+
+        if (searched_moves == 0) {
+            return alpha;
         }
 
         if (!in_check and !is_null and best_move.capture == 0 and (best_score > -eval.mate_score and best_score < eval.mate_score) and self.excluded_moves[self.ply].toU32() == 0 and !(best_score >= beta and best_score <= static_eval) and !(best_move.toU32() == 0 and best_score >= static_eval)) {

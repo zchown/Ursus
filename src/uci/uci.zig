@@ -379,7 +379,7 @@ pub const UciProtocol = struct {
         // try respond("option name nmp_beta_div type spin default 150 min 50 max 400");
         // try respond("option name razoring_base type spin default 299 min 100 max 600");
         // try respond("option name razoring_mul type spin default 73 min 20 max 200");
-        // try respond("option name lmp_improve type spin default 219 min 50 max 500");
+        try respond("option name lmp_improve type spin default 219 min 50 max 500");
         try respond("option name lmp_base type spin default 503 min 100 max 1000");
         try respond("option name lmp_mul type spin default 185 min 50 max 500");
         try respond("option name futility_mul type spin default 157 min 50 max 400");
@@ -539,18 +539,18 @@ pub const UciProtocol = struct {
         //     if (args.len >= name_end + 2) {
         //         tp.razoring_mul = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 20, 200);
         //     }
-        // } else if (std.mem.eql(u8, option_name, "lmp_improve")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.lmp_improve = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500));
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "lmp_base")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.lmp_base = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 1000));
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "lmp_mul")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.lmp_mul = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500));
-        //     }
+        } else if (std.mem.eql(u8, option_name, "lmp_improve")) {
+            if (args.len >= name_end + 2) {
+                tp.lmp_improve = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500));
+            }
+        } else if (std.mem.eql(u8, option_name, "lmp_base")) {
+            if (args.len >= name_end + 2) {
+                tp.lmp_base = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 1000));
+            }
+        } else if (std.mem.eql(u8, option_name, "lmp_mul")) {
+            if (args.len >= name_end + 2) {
+                tp.lmp_mul = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500));
+            }
         } else if (std.mem.eql(u8, option_name, "futility_mul")) {
             if (args.len >= name_end + 2) {
                 tp.futility_mul = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 400);
