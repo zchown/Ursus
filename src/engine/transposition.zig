@@ -244,21 +244,42 @@ pub const TranspositionTable = struct {
         });
     }
 
+    const AGE_MASK: u128 = @as(u128, 0xFF) << 90;
+
     pub fn get(self: *TranspositionTable, hash: zob.ZobristKey) ?Entry {
         const idx = self.index(hash);
         const bucket = &self.buckets[idx];
+        const current_age = self.getAge();
 
         for (&bucket.entries) |*atomic_entry| {
             const packed_data = atomic_entry.load(.acquire);
             const packed_entry = PackedEntry{ .data = packed_data };
 
             if (packed_entry.getFlag() != .None and packed_entry.verify(hash)) {
+                if (packed_entry.getAge() != current_age) {
+                    const refreshed = (packed_data & ~AGE_MASK) | (@as(u128, current_age) << 90);
+                    atomic_entry.store(refreshed, .release);
+                }
                 return packed_entry.unpack(hash);
             }
         }
-
         return null;
     }
+    // pub fn get(self: *TranspositionTable, hash: zob.ZobristKey) ?Entry {
+    //     const idx = self.index(hash);
+    //     const bucket = &self.buckets[idx];
+    //
+    //     for (&bucket.entries) |*atomic_entry| {
+    //         const packed_data = atomic_entry.load(.acquire);
+    //         const packed_entry = PackedEntry{ .data = packed_data };
+    //
+    //         if (packed_entry.getFlag() != .None and packed_entry.verify(hash)) {
+    //             return packed_entry.unpack(hash);
+    //         }
+    //     }
+    //
+    //     return null;
+    // }
 
     pub inline fn store(self: *TranspositionTable, entry: Entry) void {
         self.set(entry);
@@ -297,8 +318,12 @@ pub const TranspositionTable = struct {
             }
 
             // 2. Score the entry to find the weakest link for collision handling
-            var score: i32 = packed_entry.getDepth();
-            if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
+            // var score: i32 = packed_entry.getDepth();
+            // if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
+            // if (packed_entry.getIsPv()) score += 2;
+            // if (flag == .Exact) score += 1;
+            const rel_age: i32 = @as(i32, current_age -% packed_entry.getAge());
+            var score: i32 = @as(i32, packed_entry.getDepth()) - 8 * rel_age;
             if (packed_entry.getIsPv()) score += 2;
             if (flag == .Exact) score += 1;
 
