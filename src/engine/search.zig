@@ -736,10 +736,18 @@ pub const Searcher = struct {
             }
 
             // razoring
+            // if (depth <= 4) {
+            //     const threshold = tp.razoring_base + (tp.razoring_mul * @as(i32, @intCast(depth)));
+            //     if (static_eval + threshold < alpha) {
+            //         return self.qsearch(board, color, alpha, beta);
+            //     }
+            // }
+
             if (depth <= 4) {
                 const threshold = tp.razoring_base + (tp.razoring_mul * @as(i32, @intCast(depth)));
                 if (static_eval + threshold < alpha) {
-                    return self.qsearch(board, color, alpha, beta);
+                    const rscore = self.qsearch(board, color, alpha - 1, alpha);
+                    if (rscore < alpha) return rscore;
                 }
             }
 
