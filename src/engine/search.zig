@@ -610,7 +610,7 @@ pub const Searcher = struct {
                 self.best_move_score = tt_eval;
             }
 
-            if (!is_null and !on_pv and !is_root and self.excluded_moves[self.ply].toU32() == 0 and e.depth >= @as(u8, @intCast(depth))) {
+            if (!on_pv and !is_root and self.excluded_moves[self.ply].toU32() == 0 and e.depth >= @as(u8, @intCast(depth))) {
                 switch (e.flag) {
                     .Exact => return tt_eval,
                     .Under => alpha = @max(alpha, tt_eval),
