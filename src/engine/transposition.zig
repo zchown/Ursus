@@ -27,156 +27,118 @@ pub const Entry = struct {
     static_eval_valid: bool = false,
 };
 
-// Packed into 128 bits for atomic load/store:
-//
-//   bits   0-31:  hash key upper (bits 32-63 of zobrist)
-//   bits  32-47:  eval (i16, clamped)
-//   bits  48-63:  move (u16, compressed from u32)
-//   bits  64-79:  static_eval (i16, clamped)
-//   bits  80-81:  flag (EstimationType, 2 bits)
-//   bits  82-89:  depth (u8)
-//   bits  90-97:  age (u8)
-//   bit   98:     in_check (1 bit)
-//   bit   99:     is_pv (1 bit)
-//   bit  100:     static_eval_valid (1 bit)
-//   bits 101-127: hash key lower (bits 0-26 of zobrist, 27 bits)
-//
-// Hash verification: bits 0-31 (upper 32) + bits 101-127 (lower 27) = 59-bit key.
-// This reduces false-positive collision probability 
+pub inline fn keyOf(hash: u64) u16 {
+    return @truncate(hash >> 48);
+}
+
+inline fn clampEval(x: i32) i16 {
+    return @intCast(@max(-32768, @min(32767, x)));
+}
+
 pub const PackedEntry = extern struct {
-    data: u128,
+    key: u16 = 0,
+    score: i16 = 0,
+    static_eval: i16 = 0,
+    move: u16 = 0,
+    depth: u8 = 0,
+    meta: u8 = 0,
+    age: u8 = 0,
 
-    pub inline fn pack(
-        hash: u64,
-        eval_: i32,
-        move_u16: u16,
-        static_eval: i32,
-        flag: EstimationType,
-        depth: u8,
-        age: u8,
-        in_check: bool,
-        is_pv: bool,
-        static_eval_valid: bool,
-    ) PackedEntry {
-        const hash_upper: u32 = @truncate(hash >> 32);
-        const hash_lower: u27 = @truncate(hash);
-
-        const clamped_eval: i16 = @intCast(@max(-32768, @min(32767, eval_)));
-        const eval_bits: u16 = @bitCast(clamped_eval);
-
-        const clamped_static: i16 = @intCast(@max(-32768, @min(32767, static_eval)));
-        const static_bits: u16 = @bitCast(clamped_static);
-
-        var packed_entry: u128 = 0;
-        packed_entry |= @as(u128, hash_upper);                            // bits   0-31
-        packed_entry |= @as(u128, eval_bits) << 32;                       // bits  32-47
-        packed_entry |= @as(u128, move_u16) << 48;                        // bits  48-63
-        packed_entry |= @as(u128, static_bits) << 64;                     // bits  64-79
-        packed_entry |= @as(u128, @intFromEnum(flag)) << 80;              // bits  80-81
-        packed_entry |= @as(u128, depth) << 82;                           // bits  82-89
-        packed_entry |= @as(u128, age) << 90;                             // bits  90-97
-        packed_entry |= @as(u128, @intFromBool(in_check)) << 98;          // bit   98
-        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99;             // bit   99
-        packed_entry |= @as(u128, @intFromBool(static_eval_valid)) << 100; // bit  100
-        packed_entry |= @as(u128, hash_lower) << 101;                     // bits 101-127
-
-        return PackedEntry{ .data = packed_entry };
+    inline fn makeMeta(flag: EstimationType, pv: bool, in_check: bool, sev: bool) u8 {
+        var m: u8 = @intFromEnum(flag);
+        m |= @as(u8, @intFromBool(pv)) << 2;
+        m |= @as(u8, @intFromBool(in_check)) << 3;
+        m |= @as(u8, @intFromBool(sev)) << 4;
+        return m;
     }
 
-    pub inline fn unpack(self: PackedEntry, full_hash: u64) Entry {
-        const eval_bits: u16 = @truncate(self.data >> 32);
-        const eval_: i16 = @bitCast(eval_bits);
-
-        const move_u16: u16 = @truncate(self.data >> 48);
-
-        const static_bits: u16 = @truncate(self.data >> 64);
-        const static_eval: i16 = @bitCast(static_bits);
-
-        const flag_bits: u2 = @truncate(self.data >> 80);
-        const depth: u8 = @truncate(self.data >> 82);
-        const age: u8 = @truncate(self.data >> 90);
-        const in_check: bool = ((self.data >> 98) & 1) != 0;
-        const is_pv: bool = ((self.data >> 99) & 1) != 0;
-        const static_eval_valid: bool = ((self.data >> 100) & 1) != 0;
-
-        return Entry{
-            .hash = full_hash,
-            .eval = @as(i32, eval_),
-            .static_eval = @as(i32, static_eval),
-            .move = mv.EncodedMove.fromTTKey(move_u16),
-            .flag = @enumFromInt(flag_bits),
-            .depth = depth,
-            .age = age,
-            .in_check = in_check,
-            .is_pv = is_pv,
-            .static_eval_valid = static_eval_valid,
-        };
+    pub inline fn bound(self: PackedEntry) EstimationType {
+        return @enumFromInt(@as(u2, @truncate(self.meta)));
     }
 
-    pub inline fn getHashKey(self: PackedEntry) u32 {
-        return @truncate(self.data);
+    pub inline fn isPv(self: PackedEntry) bool {
+        return (self.meta >> 2) & 1 != 0;
     }
 
-    // 59-bit verification: upper 32 bits of zobrist (stored in bits 0-31) plus
-    // lower 27 bits of zobrist (stored in bits 101-127).
-    pub inline fn verify(self: PackedEntry, full_hash: u64) bool {
-        const stored_upper: u32 = @truncate(self.data);
-        const stored_lower: u27 = @truncate(self.data >> 101);
-        const hash_upper: u32 = @truncate(full_hash >> 32);
-        const hash_lower: u27 = @truncate(full_hash);
-        return stored_upper == hash_upper and stored_lower == hash_lower;
+    pub inline fn inCheck(self: PackedEntry) bool {
+        return (self.meta >> 3) & 1 != 0;
     }
 
-    pub inline fn getFlag(self: PackedEntry) EstimationType {
-        const flag_bits: u2 = @truncate(self.data >> 80);
-        return @enumFromInt(flag_bits);
-    }
-
-    pub inline fn getDepth(self: PackedEntry) u8 {
-        return @truncate(self.data >> 82);
-    }
-
-    pub inline fn getAge(self: PackedEntry) u8 {
-        return @truncate(self.data >> 90);
-    }
-
-    pub inline fn getInCheck(self: PackedEntry) bool {
-        return ((self.data >> 98) & 1) != 0;
-    }
-
-    pub inline fn getIsPv(self: PackedEntry) bool {
-        return ((self.data >> 99) & 1) != 0;
-    }
-
-    pub inline fn getStaticEvalValid(self: PackedEntry) bool {
-        return ((self.data >> 100) & 1) != 0;
+    pub inline fn staticEvalValid(self: PackedEntry) bool {
+        return (self.meta >> 4) & 1 != 0;
     }
 
     pub inline fn getMove(self: PackedEntry) mv.EncodedMove {
-        const move_u16: u16 = @truncate(self.data >> 48);
-        return mv.EncodedMove.fromTTKey(move_u16);
+        return mv.EncodedMove.fromTTKey(self.move);
+    }
+
+    // 16-bit verification against the top bits of the query hash.
+    pub inline fn verify(self: PackedEntry, full_hash: u64) bool {
+        return self.key == keyOf(full_hash);
+    }
+
+    pub inline fn fromEntry(entry: Entry, move_u16: u16, age: u8) PackedEntry {
+        return .{
+            .key = keyOf(entry.hash),
+            .score = clampEval(entry.eval),
+            .static_eval = clampEval(entry.static_eval),
+            .move = move_u16,
+            .depth = entry.depth,
+            .meta = makeMeta(entry.flag, entry.is_pv, entry.in_check, entry.static_eval_valid),
+            .age = age,
+        };
+    }
+
+    pub inline fn toEntry(self: PackedEntry, full_hash: u64) Entry {
+        return .{
+            .hash = full_hash,
+            .eval = @as(i32, self.score),
+            .static_eval = @as(i32, self.static_eval),
+            .move = mv.EncodedMove.fromTTKey(self.move),
+            .flag = self.bound(),
+            .depth = self.depth,
+            .age = self.age,
+            .in_check = self.inCheck(),
+            .is_pv = self.isPv(),
+            .static_eval_valid = self.staticEvalValid(),
+        };
+    }
+
+    pub inline fn atomicRead(e: *const PackedEntry) PackedEntry {
+        const key = @atomicLoad(u16, &e.key, .acquire);
+        return .{
+            .key = key,
+            .score = @atomicLoad(i16, &e.score, .monotonic),
+            .static_eval = @atomicLoad(i16, &e.static_eval, .monotonic),
+            .move = @atomicLoad(u16, &e.move, .monotonic),
+            .depth = @atomicLoad(u8, &e.depth, .monotonic),
+            .meta = @atomicLoad(u8, &e.meta, .monotonic),
+            .age = @atomicLoad(u8, &e.age, .monotonic),
+        };
+    }
+
+    pub inline fn atomicWrite(e: *PackedEntry, v: PackedEntry) void {
+        @atomicStore(i16, &e.score, v.score, .monotonic);
+        @atomicStore(i16, &e.static_eval, v.static_eval, .monotonic);
+        @atomicStore(u16, &e.move, v.move, .monotonic);
+        @atomicStore(u8, &e.depth, v.depth, .monotonic);
+        @atomicStore(u8, &e.meta, v.meta, .monotonic);
+        @atomicStore(u8, &e.age, v.age, .monotonic);
+        @atomicStore(u16, &e.key, v.key, .release); // publish last
     }
 };
 
 pub var stop_signal: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-pub const TT_BUCKET_SLOTS = 3;
+// 5 slots * 12 bytes = 60 bytes, + 4 bytes padding = exactly one 64-byte line.
+pub const TT_BUCKET_SLOTS = 5;
 
-pub const Bucket = struct {
-    // 3 slots * 16 bytes = 48 bytes
-    entries: [TT_BUCKET_SLOTS]std.atomic.Value(u128),
-    // 16 bytes padding forces the struct to exactly 64 bytes
-    _pad: u128, 
+pub const Bucket = extern struct {
+    entries: [TT_BUCKET_SLOTS]PackedEntry,
+    _pad: u32 = 0,
 
     pub fn init() Bucket {
-        return .{
-            .entries = .{
-                std.atomic.Value(u128).init(0),
-                std.atomic.Value(u128).init(0),
-                std.atomic.Value(u128).init(0),
-            },
-            ._pad = 0,
-        };
+        return .{ .entries = [_]PackedEntry{.{}} ** TT_BUCKET_SLOTS, ._pad = 0 };
     }
 };
 
@@ -189,7 +151,6 @@ pub const TranspositionTable = struct {
         const raw_num_buckets = (size_in_mb * mb) / @sizeOf(Bucket);
         const num_buckets = std.math.floorPowerOfTwo(usize, raw_num_buckets);
 
-        // alignedAlloc guarantees each bucket starts exactly on a cache line boundary
         const buckets = try allocator.alignedAlloc(Bucket, std.mem.Alignment.@"64", num_buckets);
         for (buckets) |*b| {
             b.* = Bucket.init();
@@ -207,9 +168,10 @@ pub const TranspositionTable = struct {
     }
 
     pub inline fn clear(self: *TranspositionTable) void {
+        const empty = PackedEntry{};
         for (self.buckets) |*bucket| {
             for (&bucket.entries) |*entry| {
-                entry.store(0, .monotonic);
+                PackedEntry.atomicWrite(entry, empty);
             }
         }
     }
@@ -239,7 +201,6 @@ pub const TranspositionTable = struct {
     pub inline fn prefetch(self: *TranspositionTable, hash: zob.ZobristKey) void {
         const idx = self.index(hash);
         const ptr = &self.buckets[idx];
-        // Prefetching now pulls all 3 slots into L1 simultaneously
         @prefetch(ptr, .{
             .rw = .read,
             .locality = 1,
@@ -252,11 +213,9 @@ pub const TranspositionTable = struct {
         const bucket = &self.buckets[idx];
 
         for (&bucket.entries) |*atomic_entry| {
-            const packed_data = atomic_entry.load(.acquire);
-            const packed_entry = PackedEntry{ .data = packed_data };
-
-            if (packed_entry.getFlag() != .None and packed_entry.verify(hash)) {
-                return packed_entry.unpack(hash);
+            const pe = PackedEntry.atomicRead(atomic_entry);
+            if (pe.bound() != .None and pe.verify(hash)) {
+                return pe.toEntry(hash);
             }
         }
 
@@ -273,36 +232,34 @@ pub const TranspositionTable = struct {
         const current_age = self.getAge();
 
         var best_move = entry.move;
-        
+
         var match_idx: ?usize = null;
         var empty_idx: ?usize = null;
-        
+
         var worst_idx: usize = 0;
         var worst_score: i32 = std.math.maxInt(i32);
 
-        // 1. Scan the bucket for a match, an empty slot, and identify the worst entry
+        // 1. Scan for a match, an empty slot, and the weakest existing entry.
         for (&bucket.entries, 0..) |*atomic_entry, i| {
-            const packed_data = atomic_entry.load(.acquire);
-            const packed_entry = PackedEntry{ .data = packed_data };
-            const flag = packed_entry.getFlag();
+            const pe = PackedEntry.atomicRead(atomic_entry);
+            const flag = pe.bound();
 
             if (flag == .None) {
                 empty_idx = i;
                 continue;
             }
 
-            if (packed_entry.verify(entry.hash)) {
+            if (pe.verify(entry.hash)) {
                 match_idx = i;
-                if (best_move.isNull() and !packed_entry.getMove().isNull()) {
-                    best_move = packed_entry.getMove();
+                if (best_move.isNull() and !pe.getMove().isNull()) {
+                    best_move = pe.getMove();
                 }
                 break;
             }
 
-            // 2. Score the entry to find the weakest link for collision handling
-            var score: i32 = packed_entry.getDepth();
-            if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
-            if (packed_entry.getIsPv()) score += 2;
+            var score: i32 = pe.depth;
+            if (pe.age != current_age) score -= 256; // Nuke old searches
+            if (pe.isPv()) score += 2;
             if (flag == .Exact) score += 1;
 
             if (score < worst_score) {
@@ -311,23 +268,10 @@ pub const TranspositionTable = struct {
             }
         }
 
-        // 3. Determine the write target: Match > Empty > Worst
         const target_idx = match_idx orelse empty_idx orelse worst_idx;
 
-        const new_packed = PackedEntry.pack(
-            entry.hash,
-            entry.eval,
-            best_move.toTTKey(),
-            entry.static_eval,
-            entry.flag,
-            entry.depth,
-            current_age,
-            entry.in_check,
-            entry.is_pv,
-            entry.static_eval_valid,
-        );
-
-        bucket.entries[target_idx].store(new_packed.data, .release);
+        const new_pe = PackedEntry.fromEntry(entry, best_move.toTTKey(), current_age);
+        PackedEntry.atomicWrite(&bucket.entries[target_idx], new_pe);
     }
 
     pub fn compareAndSwap(
@@ -340,43 +284,14 @@ pub const TranspositionTable = struct {
         const bucket = &self.buckets[idx];
         const current_age = self.getAge();
 
-        const expected_packed = PackedEntry.pack(
-            expected_entry.hash,
-            expected_entry.eval,
-            expected_entry.move.toTTKey(),
-            expected_entry.static_eval,
-            expected_entry.flag,
-            expected_entry.depth,
-            current_age,
-            expected_entry.in_check,
-            expected_entry.is_pv,
-            expected_entry.static_eval_valid,
-        );
+        const expected_pe = PackedEntry.fromEntry(expected_entry, expected_entry.move.toTTKey(), current_age);
+        const new_pe = PackedEntry.fromEntry(new_entry, new_entry.move.toTTKey(), current_age);
 
-        const new_packed = PackedEntry.pack(
-            new_entry.hash,
-            new_entry.eval,
-            new_entry.move.toTTKey(),
-            new_entry.static_eval,
-            new_entry.flag,
-            new_entry.depth,
-            current_age,
-            new_entry.in_check,
-            new_entry.is_pv,
-            new_entry.static_eval_valid,
-        );
-
-        // Find the matching expected entry in the bucket
         for (&bucket.entries) |*atomic_entry| {
-            const current_data = atomic_entry.load(.acquire);
-            if (current_data == expected_packed.data) {
-                const result = atomic_entry.cmpxchgStrong(
-                    expected_packed.data,
-                    new_packed.data,
-                    .acqRel,
-                    .acquire,
-                );
-                return result == null;
+            const cur = PackedEntry.atomicRead(atomic_entry);
+            if (std.meta.eql(cur, expected_pe)) {
+                PackedEntry.atomicWrite(atomic_entry, new_pe);
+                return true;
             }
         }
 
@@ -388,9 +303,8 @@ pub const TranspositionTable = struct {
 
         for (self.buckets) |*bucket| {
             for (&bucket.entries) |*item| {
-                const packed_data = item.load(.monotonic);
-                const packed_entry = PackedEntry{ .data = packed_data };
-                if (packed_entry.getFlag() != .None) {
+                const pe = PackedEntry.atomicRead(item);
+                if (pe.bound() != .None) {
                     used += 1;
                 }
             }
@@ -399,35 +313,30 @@ pub const TranspositionTable = struct {
         return .{ .used = used, .total = self.num_buckets * TT_BUCKET_SLOTS };
     }
 
-    // pub fn getFillPermill(self: *const TranspositionTable) usize {
-    //     const sample_size = @min(1000, self.num_buckets);
-    //     var used: usize = 0;
-    //
-    //     var i: usize = 0;
-    //     while (i < sample_size) : (i += 1) {
-    //         const idx = (i * self.num_buckets) / sample_size;
-    //         for (&self.buckets[idx].entries) |*item| {
-    //             const packed_data = item.load(.monotonic);
-    //             const packed_entry = PackedEntry{ .data = packed_data };
-    //             if (packed_entry.getFlag() != .None) {
-    //                 used += 1;
-    //             }
-    //         }
-    //     }
-    //
-    //     return (used * 1000) / (sample_size * 1);
-    // }
+    pub fn getFillPermill(self: *const TranspositionTable) usize {
+        const sample_size = @min(1000, self.num_buckets);
+        var used: usize = 0;
+
+        var i: usize = 0;
+        while (i < sample_size) : (i += 1) {
+            const idx = (i * self.num_buckets) / sample_size;
+            for (&self.buckets[idx].entries) |*item| {
+                const pe = PackedEntry.atomicRead(item);
+                if (pe.bound() != .None) {
+                    used += 1;
+                }
+            }
+        }
+
+        return (used * 1000) / (sample_size * TT_BUCKET_SLOTS);
+    }
 };
 
 comptime {
-    if (@sizeOf(u128) != 16) {
-        @compileError("u128 must be 16 bytes for atomic operations");
-    }
-    if (@sizeOf(PackedEntry) != 16) {
-        @compileError("PackedEntry must be 16 bytes for atomic operations");
+    if (@sizeOf(PackedEntry) != 12) {
+        @compileError("PackedEntry must be 12 bytes");
     }
     if (@sizeOf(Bucket) != 64) {
         @compileError("Bucket must be exactly 64 bytes to align with CPU cache lines");
     }
 }
-
