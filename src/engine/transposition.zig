@@ -266,17 +266,17 @@ pub const TranspositionTable = struct {
     pub inline fn store(self: *TranspositionTable, entry: Entry) void {
         self.set(entry);
     }
-
+    
     pub inline fn set(self: *TranspositionTable, entry: Entry) void {
         const idx = self.index(entry.hash);
         const bucket = &self.buckets[idx];
         const current_age = self.getAge();
 
         var best_move = entry.move;
-        
+
         var match_idx: ?usize = null;
         var empty_idx: ?usize = null;
-        
+
         var worst_idx: usize = 0;
         var worst_score: i32 = std.math.maxInt(i32);
 
@@ -292,6 +292,15 @@ pub const TranspositionTable = struct {
             }
 
             if (packed_entry.verify(entry.hash)) {
+                // NEW: keep clearly deeper data from the current search
+                // unless the new bound is exact.
+                if (entry.flag != .Exact and
+                    packed_entry.getAge() == current_age and
+                    @as(i32, packed_entry.getDepth()) > @as(i32, entry.depth) + 3)
+                {
+                    return;
+                }
+
                 match_idx = i;
                 if (best_move.isNull() and !packed_entry.getMove().isNull()) {
                     best_move = packed_entry.getMove();
@@ -329,6 +338,68 @@ pub const TranspositionTable = struct {
 
         bucket.entries[target_idx].store(new_packed.data, .release);
     }
+    // pub inline fn set(self: *TranspositionTable, entry: Entry) void {
+    //     const idx = self.index(entry.hash);
+    //     const bucket = &self.buckets[idx];
+    //     const current_age = self.getAge();
+    //
+    //     var best_move = entry.move;
+    //    
+    //     var match_idx: ?usize = null;
+    //     var empty_idx: ?usize = null;
+    //    
+    //     var worst_idx: usize = 0;
+    //     var worst_score: i32 = std.math.maxInt(i32);
+    //
+    //     // 1. Scan the bucket for a match, an empty slot, and identify the worst entry
+    //     for (&bucket.entries, 0..) |*atomic_entry, i| {
+    //         const packed_data = atomic_entry.load(.acquire);
+    //         const packed_entry = PackedEntry{ .data = packed_data };
+    //         const flag = packed_entry.getFlag();
+    //
+    //         if (flag == .None) {
+    //             empty_idx = i;
+    //             continue;
+    //         }
+    //
+    //         if (packed_entry.verify(entry.hash)) {
+    //             match_idx = i;
+    //             if (best_move.isNull() and !packed_entry.getMove().isNull()) {
+    //                 best_move = packed_entry.getMove();
+    //             }
+    //             break;
+    //         }
+    //
+    //         // 2. Score the entry to find the weakest link for collision handling
+    //         var score: i32 = packed_entry.getDepth();
+    //         if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
+    //         if (packed_entry.getIsPv()) score += 2;
+    //         if (flag == .Exact) score += 1;
+    //
+    //         if (score < worst_score) {
+    //             worst_score = score;
+    //             worst_idx = i;
+    //         }
+    //     }
+    //
+    //     // 3. Determine the write target: Match > Empty > Worst
+    //     const target_idx = match_idx orelse empty_idx orelse worst_idx;
+    //
+    //     const new_packed = PackedEntry.pack(
+    //         entry.hash,
+    //         entry.eval,
+    //         best_move.toTTKey(),
+    //         entry.static_eval,
+    //         entry.flag,
+    //         entry.depth,
+    //         current_age,
+    //         entry.in_check,
+    //         entry.is_pv,
+    //         entry.static_eval_valid,
+    //     );
+    //
+    //     bucket.entries[target_idx].store(new_packed.data, .release);
+    // }
 
     pub fn compareAndSwap(
         self: *TranspositionTable,
