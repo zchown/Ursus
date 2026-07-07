@@ -962,14 +962,14 @@ pub const Searcher = struct {
             // Singular Extensions, also double and triple
             if (!is_root and
                 self.excluded_moves[self.ply].toU32() == 0 and
-                depth >= 7 and
+                depth >= 6 and
                 tt_hit and
                 move.matchesTTKey(hash_move) and
-                tt_depth + 4 >= depth and
+                tt_depth + 3 >= depth and
                 (tt_e_flag == .Under or tt_e_flag == .Exact) and
                 !eval.almostMate(tt_eval))
             {
-                const singular_beta: i32 = @max(tt_eval - 2 * @as(i32, @intCast(depth)), -eval.mate_score + 256);
+                const singular_beta: i32 = @max(tt_eval - 4 * @as(i32, @intCast(depth)), -eval.mate_score + 256);
                 const singular_depth: usize = (depth - 1) / 2;
 
                 self.excluded_moves[self.ply] = hash_move;
@@ -989,11 +989,11 @@ pub const Searcher = struct {
                 else if (singular_beta >= beta) {
                     return singular_beta; // multicut: two moves beat beta
                 } 
-                // else if (tt_eval >= beta) {
-                //     extension = -2;
-                // } else if (cutnode) {
-                //     extension = -1;
-                // }
+                else if (tt_eval >= beta) {
+                    extension = -2;
+                } else if (cutnode) {
+                    extension = -2;
+                }
             }
 
             // if (!is_root and depth >= 7 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and move.matchesTTKey(hash_move) and entry.?.depth >= depth - 3 and move_list.len >= 2) {
