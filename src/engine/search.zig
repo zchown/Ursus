@@ -717,7 +717,7 @@ pub const Searcher = struct {
             depth = depth - r;
         }
 
-        if (!in_check and !on_pv and self.excluded_moves[self.ply].toU32() == 0) {
+        if (!in_check and !on_pv) {
             low_estimate_score = if (!tt_hit or entry.?.flag == tt.EstimationType.Under) static_eval else tt_eval;
 
             // reverse futility pruning
@@ -744,39 +744,41 @@ pub const Searcher = struct {
             }
 
             // null move pruning
-            var nmp_static_eval: i32 = static_eval;
-            if (improving) {
-                nmp_static_eval += tp.nmp_improve;
-            }
-
-            if (!is_null and depth >= 4 and nmp_static_eval >= beta and has_non_pawns) {
-                var r = tp.nmp_base + depth / tp.nmp_depth_div;
-                // r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
-                const diff = static_eval - beta;
-                const div = @divTrunc(diff, @as(i32, @intCast(tp.nmp_beta_div)));
-                r += @as(usize, @intCast(@max(0, @min(4, div))));
-
-                if (cutnode) {
-                    r += 1;
+            if (self.excluded_moves[self.ply].toU32() == 0) {
+                var nmp_static_eval: i32 = static_eval;
+                if (improving) {
+                    nmp_static_eval += tp.nmp_improve;
                 }
 
-                r = @min(r, depth);
+                if (!is_null and depth >= 4 and nmp_static_eval >= beta and has_non_pawns) {
+                    var r = tp.nmp_base + depth / tp.nmp_depth_div;
+                    // r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
+                    const diff = static_eval - beta;
+                    const div = @divTrunc(diff, @as(i32, @intCast(tp.nmp_beta_div)));
+                    r += @as(usize, @intCast(@max(0, @min(4, div))));
 
-                self.ply += 1;
-                board.makeNullMove();
-                var null_score = -self.negamax(board, brd.flipColor(color), depth - r, -beta, -beta + 1, true, NodeType.NonPV, false);
-                self.ply -= 1;
-                board.unmakeNullMove();
-
-                if (self.time_stop) {
-                    return 0;
-                }
-
-                if (null_score >= beta) {
-                    if (null_score >= eval.mate_score - 256) {
-                        null_score = beta;
+                    if (cutnode) {
+                        r += 1;
                     }
-                    return null_score;
+
+                    r = @min(r, depth);
+
+                    self.ply += 1;
+                    board.makeNullMove();
+                    var null_score = -self.negamax(board, brd.flipColor(color), depth - r, -beta, -beta + 1, true, NodeType.NonPV, false);
+                    self.ply -= 1;
+                    board.unmakeNullMove();
+
+                    if (self.time_stop) {
+                        return 0;
+                    }
+
+                    if (null_score >= beta) {
+                        if (null_score >= eval.mate_score - 256) {
+                            null_score = beta;
+                        }
+                        return null_score;
+                    }
                 }
             }
         }
@@ -984,9 +986,10 @@ pub const Searcher = struct {
                     //     extension = 2;
                     // }
                 } 
-                // else if (singular_beta >= beta) {
-                //     return singular_beta; // multicut: two moves beat beta
-                // } else if (tt_eval >= beta) {
+                else if (singular_beta >= beta) {
+                    return singular_beta; // multicut: two moves beat beta
+                } 
+                // else if (tt_eval >= beta) {
                 //     extension = -2;
                 // } else if (cutnode) {
                 //     extension = -1;
