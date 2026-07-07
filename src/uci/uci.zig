@@ -118,8 +118,8 @@ pub const UciProtocol = struct {
     should_quit: bool = false,
     is_searching: bool = false,
     chess960: bool = false,
-    hash_size_mb: u32 = 512,
-    threads: usize = 8,
+    hash_size_mb: u32 = 256,
+    threads: usize = 1,
     searcher: *srch.Searcher,
     tt_table: tt.TranspositionTable = undefined,
 

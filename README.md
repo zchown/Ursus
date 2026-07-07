@@ -1,6 +1,8 @@
 # Ursus Chess Engine
 
-Ursus is a UCI-compatible chess engine written in [Zig](https://ziglang.org/). It uses a bitboard-based board representation, alpha-beta search with many search optimizations, and uses a NNUE for evaluation.
+Ursus is a UCI-compatible chess engine written in [Zig](https://ziglang.org/). It supports standard, fisher random and double fisher random chess!
+
+It uses a bitboard-based board representation, alpha-beta search with many search optimizations, and uses a NNUE for evaluation.
 
 Esitmated ELO: ~3470
 
