@@ -1052,7 +1052,7 @@ pub const Searcher = struct {
                         reduction += 1;
                     }
 
-                    if (cutnode) {
+                    if (!tt_is_pv and cutnode) {
                         reduction += 1;
                     }
 
