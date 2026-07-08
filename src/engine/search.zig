@@ -710,11 +710,17 @@ pub const Searcher = struct {
         }
 
         if (depth >= 3 and !in_check and !tt_hit and self.excluded_moves[self.ply].toU32() == 0 and (on_pv or cutnode)) {
-            var r = @divTrunc(depth, 4);
-            if (r < 1) {
-                r = 1;
+            if (cutnode) {
+                depth -= 2;
             }
-            depth = depth - r;
+            else {
+                depth -= 1;
+            }
+            // var r = @divTrunc(depth, 4);
+            // if (r < 1) {
+            //     r = 1;
+            // }
+            // depth = depth - r;
         }
 
         if (!in_check and !on_pv and self.excluded_moves[self.ply].toU32() == 0) {
