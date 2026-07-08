@@ -1043,8 +1043,7 @@ pub const Searcher = struct {
                     // }
                     //
                     if (last_move.toU32() != 0 and
-                    self.counter_moves[@intFromEnum(color)][last_move.start_square][last_move.end_square].toU32() == move.toU32())
-                {
+                    self.counter_moves[@intFromEnum(color)][last_move.start_square][last_move.end_square].toU32() == move.toU32()) {
                         reduction -= 1;
                     }
 
@@ -1052,7 +1051,7 @@ pub const Searcher = struct {
                         reduction += 1;
                     }
 
-                    if (!tt_is_pv and cutnode) {
+                    if (hash_move.toU32() != 0 and cutnode) {
                         reduction += 1;
                     }
 
