@@ -779,6 +779,27 @@ pub const Searcher = struct {
                     return null_score;
                 }
             }
+
+
+            // Poor mans probcut
+            const probcut_depth_offset: usize = 2;
+            const probcut_tt_margin_quiet: i32 = 375;
+            const probcut_tt_margin_noisy: i32 = 375;
+
+            const hash_move_noisy = hash_move.capture == 1 or hash_move.promoted_piece != 0;
+            const probcut_beta = beta + (if (hash_move_noisy) probcut_tt_margin_noisy else probcut_tt_margin_quiet);
+
+            if (!is_null and tt_hit and
+                tt_e_flag != tt.EstimationType.None and
+                tt_e_flag != tt.EstimationType.Over and
+                @abs(tt_eval) < eval.mate_score - 256 and
+                @abs(beta) < eval.mate_score - 256 and
+                probcut_beta < eval.mate_score - 256 and
+                tt_eval >= probcut_beta and
+                tt_depth + probcut_depth_offset >= depth)
+            {
+                return tt_eval;
+            }
         }
 
         // Actually run search
@@ -922,8 +943,8 @@ pub const Searcher = struct {
             }
 
             if (!is_capture and !is_important and !in_check and !on_pv and
-                depth <= 4 and searched_moves >= 2)
-            {
+            depth <= 4 and searched_moves >= 2)
+        {
                 const hist_score = self.history[@intFromEnum(color)][move.start_square][move.end_square];
                 const hist_threshold: i32 = -@as(i32, @intCast(depth)) * 1536;
                 if (hist_score < hist_threshold) {
