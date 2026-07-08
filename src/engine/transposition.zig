@@ -289,13 +289,20 @@ pub const TranspositionTable = struct {
             }
 
             if (packed_entry.verify(entry.hash)) {
+                // Keep clearly deeper data from the current search unless the new bound is exact.
+                if (entry.flag != .Exact and
+                    packed_entry.getAge() == current_age and
+                    @as(i32, packed_entry.getDepth()) > @as(i32, entry.depth) + 3)
+                {
+                    return;
+                }
                 match_idx = i;
                 if (best_move.isNull() and !packed_entry.getMove().isNull()) {
                     best_move = packed_entry.getMove();
                 }
                 break;
             }
-
+            
             // 2. Score the entry to find the weakest link for collision handling
             var score: i32 = packed_entry.getDepth();
             // if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
