@@ -160,13 +160,12 @@ pub const PackedEntry = extern struct {
 
 pub var stop_signal: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-pub const TT_BUCKET_SLOTS = 3;
+pub const TT_BUCKET_SLOTS = 4;
 
 pub const Bucket = struct {
     // 3 slots * 16 bytes = 48 bytes
     entries: [TT_BUCKET_SLOTS]std.atomic.Value(u128),
     // 16 bytes padding forces the struct to exactly 64 bytes
-    _pad: u128, 
 
     pub fn init() Bucket {
         return .{
@@ -174,8 +173,8 @@ pub const Bucket = struct {
                 std.atomic.Value(u128).init(0),
                 std.atomic.Value(u128).init(0),
                 std.atomic.Value(u128).init(0),
+                std.atomic.Value(u128).init(0),
             },
-            ._pad = 0,
         };
     }
 };
