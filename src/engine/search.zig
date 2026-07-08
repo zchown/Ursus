@@ -808,74 +808,74 @@ pub const Searcher = struct {
 
 
         // Probcut
-        var probcut_beta = beta + tp.probcut_margin;
-
-        if (improving) {
-            probcut_beta += (tp.probcut_improve - 1000);
-        }
-
-
-        if (cutnode and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].toU32() == 0) {
-            const probcut_depth = depth - 3;
-            for (0..move_count) |i| {
-                const move_see = mp.getNextBestWithSee(&move_list, &eval_moves, i);
-                const move = move_see.move;
-                const see_score = move_see.see_val;
-
-                if (move.capture == 0) {
-                    if (!move.matchesTTKey(hash_move)) {
-                        break;
-                    }
-                }
-                else if (see_score < tp.probcut_min_see) {
-                    break;
-                }
-
-                self.move_history[self.ply] = move;
-                var moved_piece = PieceColor{
-                    .piece = .None,
-                    .color = .White
-                };
-
-                if (board.getPieceFromSquare(move.start_square)) |p| {
-                    moved_piece = .{.piece = p, .color = board.toMove() };
-                }
-
-                self.moved_piece_history[self.ply] = moved_piece;
-
-                mvs.makeMove(board, move);
-                self.ply += 1;
-
-                var score = -self.qsearch(board, brd.flipColor(color), -probcut_beta, -probcut_beta+1);
-
-                if (score >= probcut_beta) {
-                    score = -self.negamax(board, brd.flipColor(color), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, true);
-                }
-
-                if (score >= probcut_beta) {
-                    // store in TT
-                    mvs.undoMove(board, move);
-                    self.ply -= 1;
-
-                    self.tt_table.set(tt.Entry{
-                        .hash = board.game_state.zobrist,
-                        .eval = scoreToTT(score, self.ply),
-                        .move = move,
-                        .static_eval = static_eval,
-                        .flag = tt.EstimationType.Under,
-                        .depth = @intCast(probcut_depth),
-                        .age = self.tt_table.getAge(),
-                    });
-
-
-                    return score;
-                } 
-                else {
-                    mvs.undoMove(board, move);
-                    self.ply -= 1;
-                }
-            }
-        }
+        // var probcut_beta = beta + tp.probcut_margin;
+        //
+        // if (improving) {
+        //     probcut_beta += (tp.probcut_improve - 1000);
+        // }
+        //
+        //
+        // if (cutnode and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].toU32() == 0) {
+        //     const probcut_depth = depth - 3;
+        //     for (0..move_count) |i| {
+        //         const move_see = mp.getNextBestWithSee(&move_list, &eval_moves, i);
+        //         const move = move_see.move;
+        //         const see_score = move_see.see_val;
+        //
+        //         if (move.capture == 0) {
+        //             if (!move.matchesTTKey(hash_move)) {
+        //                 break;
+        //             }
+        //         }
+        //         else if (see_score < tp.probcut_min_see) {
+        //             break;
+        //         }
+        //
+        //         self.move_history[self.ply] = move;
+        //         var moved_piece = PieceColor{
+        //             .piece = .None,
+        //             .color = .White
+        //         };
+        //
+        //         if (board.getPieceFromSquare(move.start_square)) |p| {
+        //             moved_piece = .{.piece = p, .color = board.toMove() };
+        //         }
+        //
+        //         self.moved_piece_history[self.ply] = moved_piece;
+        //
+        //         mvs.makeMove(board, move);
+        //         self.ply += 1;
+        //
+        //         var score = -self.qsearch(board, brd.flipColor(color), -probcut_beta, -probcut_beta+1);
+        //
+        //         if (score >= probcut_beta) {
+        //             score = -self.negamax(board, brd.flipColor(color), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, true);
+        //         }
+        //
+        //         if (score >= probcut_beta) {
+        //             // store in TT
+        //             mvs.undoMove(board, move);
+        //             self.ply -= 1;
+        //
+        //             self.tt_table.set(tt.Entry{
+        //                 .hash = board.game_state.zobrist,
+        //                 .eval = scoreToTT(score, self.ply),
+        //                 .move = move,
+        //                 .static_eval = static_eval,
+        //                 .flag = tt.EstimationType.Under,
+        //                 .depth = @intCast(probcut_depth),
+        //                 .age = self.tt_table.getAge(),
+        //             });
+        //
+        //
+        //             return score;
+        //         } 
+        //         else {
+        //             mvs.undoMove(board, move);
+        //             self.ply -= 1;
+        //         }
+        //     }
+        // }
 
         var skip_quiet: bool = false;
         var quiet_count: usize = 0;
