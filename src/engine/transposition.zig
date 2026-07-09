@@ -42,7 +42,7 @@ pub const Entry = struct {
 //   bits 101-127: hash key lower (bits 0-26 of zobrist, 27 bits)
 //
 // Hash verification: bits 0-31 (upper 32) + bits 101-127 (lower 27) = 59-bit key.
-// This reduces false-positive collision probability 
+// This reduces false-positive collision probability
 pub const PackedEntry = extern struct {
     data: u128,
 
@@ -68,17 +68,17 @@ pub const PackedEntry = extern struct {
         const static_bits: u16 = @bitCast(clamped_static);
 
         var packed_entry: u128 = 0;
-        packed_entry |= @as(u128, hash_upper);                            // bits   0-31
-        packed_entry |= @as(u128, eval_bits) << 32;                       // bits  32-47
-        packed_entry |= @as(u128, move_u16) << 48;                        // bits  48-63
-        packed_entry |= @as(u128, static_bits) << 64;                     // bits  64-79
-        packed_entry |= @as(u128, @intFromEnum(flag)) << 80;              // bits  80-81
-        packed_entry |= @as(u128, depth) << 82;                           // bits  82-89
-        packed_entry |= @as(u128, age) << 90;                             // bits  90-97
-        packed_entry |= @as(u128, @intFromBool(in_check)) << 98;          // bit   98
-        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99;             // bit   99
+        packed_entry |= @as(u128, hash_upper); // bits   0-31
+        packed_entry |= @as(u128, eval_bits) << 32; // bits  32-47
+        packed_entry |= @as(u128, move_u16) << 48; // bits  48-63
+        packed_entry |= @as(u128, static_bits) << 64; // bits  64-79
+        packed_entry |= @as(u128, @intFromEnum(flag)) << 80; // bits  80-81
+        packed_entry |= @as(u128, depth) << 82; // bits  82-89
+        packed_entry |= @as(u128, age) << 90; // bits  90-97
+        packed_entry |= @as(u128, @intFromBool(in_check)) << 98; // bit   98
+        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99; // bit   99
         packed_entry |= @as(u128, @intFromBool(static_eval_valid)) << 100; // bit  100
-        packed_entry |= @as(u128, hash_lower) << 101;                     // bits 101-127
+        packed_entry |= @as(u128, hash_lower) << 101; // bits 101-127
 
         return PackedEntry{ .data = packed_entry };
     }
@@ -160,22 +160,56 @@ pub const PackedEntry = extern struct {
 
 pub var stop_signal: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-pub const TT_BUCKET_SLOTS = 4;
+pub const TT_BUCKET_SLOTS = 3;
 
-pub const Bucket = struct {
-    entries: [TT_BUCKET_SLOTS]std.atomic.Value(u128),
+const Slot = struct {
+    lo: std.atomic.Value(u64),
+    hi_x: std.atomic.Value(u64), // stores (hi ^ lo)
 
-    pub fn init() Bucket {
-        return .{
-            .entries = .{
-                std.atomic.Value(u128).init(0),
-                std.atomic.Value(u128).init(0),
-                std.atomic.Value(u128).init(0),
-                std.atomic.Value(u128).init(0),
-            },
-        };
+    inline fn loadPacked(self: *Slot) u128 {
+        const lo = self.lo.load(.monotonic);
+        const hi = self.hi_x.load(.monotonic) ^ lo;
+        return (@as(u128, hi) << 64) | @as(u128, lo);
+    }
+
+    inline fn storePacked(self: *Slot, d: u128) void {
+        const lo: u64 = @truncate(d);
+        const hi: u64 = @truncate(d >> 64);
+        self.lo.store(lo, .monotonic);
+        self.hi_x.store(hi ^ lo, .monotonic);
+    }
+
+    inline fn clearSlot(self: *Slot) void {
+        self.lo.store(0, .monotonic);
+        self.hi_x.store(0, .monotonic);
     }
 };
+
+pub const Bucket = struct {
+    entries: [TT_BUCKET_SLOTS]Slot,
+    _pad: [(64 - TT_BUCKET_SLOTS * 16) % 64]u8, // 16B at 3 slots, 0B at 4
+
+    pub fn init() Bucket {
+        var b: Bucket = undefined;
+        for (&b.entries) |*e| e.clearSlot();
+        b._pad = @splat(0);
+        return b;
+    }
+};
+// pub const Bucket = struct {
+//     entries: [TT_BUCKET_SLOTS]std.atomic.Value(u128),
+//
+//     pub fn init() Bucket {
+//         return .{
+//             .entries = .{
+//                 std.atomic.Value(u128).init(0),
+//                 std.atomic.Value(u128).init(0),
+//                 std.atomic.Value(u128).init(0),
+//                 std.atomic.Value(u128).init(0),
+//             },
+//         };
+//     }
+// };
 
 pub const TranspositionTable = struct {
     buckets: []Bucket,
@@ -206,7 +240,8 @@ pub const TranspositionTable = struct {
     pub inline fn clear(self: *TranspositionTable) void {
         for (self.buckets) |*bucket| {
             for (&bucket.entries) |*entry| {
-                entry.store(0, .monotonic);
+                // entry.store(0, .monotonic);
+                entry.clearSlot();
             }
         }
     }
@@ -245,20 +280,32 @@ pub const TranspositionTable = struct {
     }
 
     pub fn get(self: *TranspositionTable, hash: zob.ZobristKey) ?Entry {
-        const idx = self.index(hash);
-        const bucket = &self.buckets[idx];
-
-        for (&bucket.entries) |*atomic_entry| {
-            const packed_data = atomic_entry.load(.acquire);
-            const packed_entry = PackedEntry{ .data = packed_data };
-
-            if (packed_entry.getFlag() != .None and packed_entry.verify(hash)) {
+        const bucket = &self.buckets[self.index(hash)];
+        for (&bucket.entries) |*slot| {
+            const packed_entry = PackedEntry{ .data = slot.loadPacked() };
+            // verify first: on the common miss path this rejects on two
+            // 64-bit compares without touching the flag bits
+            if (packed_entry.verify(hash) and packed_entry.getFlag() != .None) {
                 return packed_entry.unpack(hash);
             }
         }
-
         return null;
     }
+    // pub fn get(self: *TranspositionTable, hash: zob.ZobristKey) ?Entry {
+    //     const idx = self.index(hash);
+    //     const bucket = &self.buckets[idx];
+    //
+    //     for (&bucket.entries) |*atomic_entry| {
+    //         const packed_data = atomic_entry.load(.acquire);
+    //         const packed_entry = PackedEntry{ .data = packed_data };
+    //
+    //         if (packed_entry.getFlag() != .None and packed_entry.verify(hash)) {
+    //             return packed_entry.unpack(hash);
+    //         }
+    //     }
+    //
+    //     return null;
+    // }
 
     pub inline fn store(self: *TranspositionTable, entry: Entry) void {
         self.set(entry);
@@ -270,16 +317,16 @@ pub const TranspositionTable = struct {
         const current_age = self.getAge();
 
         var best_move = entry.move;
-        
+
         var match_idx: ?usize = null;
         var empty_idx: ?usize = null;
-        
+
         var worst_idx: usize = 0;
         var worst_score: i32 = std.math.maxInt(i32);
 
         // 1. Scan the bucket for a match, an empty slot, and identify the worst entry
-        for (&bucket.entries, 0..) |*atomic_entry, i| {
-            const packed_data = atomic_entry.load(.acquire);
+        for (&bucket.entries, 0..) |*slot, i| {
+            const packed_data = slot.loadPacked();
             const packed_entry = PackedEntry{ .data = packed_data };
             const flag = packed_entry.getFlag();
 
@@ -302,7 +349,7 @@ pub const TranspositionTable = struct {
                 }
                 break;
             }
-            
+
             // 2. Score the entry to find the weakest link for collision handling
             var score: i32 = packed_entry.getDepth();
             // if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
@@ -331,60 +378,8 @@ pub const TranspositionTable = struct {
             entry.static_eval_valid,
         );
 
-        bucket.entries[target_idx].store(new_packed.data, .release);
-    }
-
-    pub fn compareAndSwap(
-        self: *TranspositionTable,
-        hash: zob.ZobristKey,
-        expected_entry: Entry,
-        new_entry: Entry,
-    ) bool {
-        const idx = self.index(hash);
-        const bucket = &self.buckets[idx];
-        const current_age = self.getAge();
-
-        const expected_packed = PackedEntry.pack(
-            expected_entry.hash,
-            expected_entry.eval,
-            expected_entry.move.toTTKey(),
-            expected_entry.static_eval,
-            expected_entry.flag,
-            expected_entry.depth,
-            current_age,
-            expected_entry.in_check,
-            expected_entry.is_pv,
-            expected_entry.static_eval_valid,
-        );
-
-        const new_packed = PackedEntry.pack(
-            new_entry.hash,
-            new_entry.eval,
-            new_entry.move.toTTKey(),
-            new_entry.static_eval,
-            new_entry.flag,
-            new_entry.depth,
-            current_age,
-            new_entry.in_check,
-            new_entry.is_pv,
-            new_entry.static_eval_valid,
-        );
-
-        // Find the matching expected entry in the bucket
-        for (&bucket.entries) |*atomic_entry| {
-            const current_data = atomic_entry.load(.acquire);
-            if (current_data == expected_packed.data) {
-                const result = atomic_entry.cmpxchgStrong(
-                    expected_packed.data,
-                    new_packed.data,
-                    .acqRel,
-                    .acquire,
-                );
-                return result == null;
-            }
-        }
-
-        return false;
+        // bucket.entries[target_idx].store(new_packed.data, .release);
+        bucket.entries[target_idx].storePacked(new_packed.data);
     }
 
     pub fn getUsage(self: *TranspositionTable) struct { used: usize, total: usize } {
@@ -427,11 +422,7 @@ comptime {
     if (@sizeOf(u128) != 16) {
         @compileError("u128 must be 16 bytes for atomic operations");
     }
-    if (@sizeOf(PackedEntry) != 16) {
-        @compileError("PackedEntry must be 16 bytes for atomic operations");
-    }
     if (@sizeOf(Bucket) != 64) {
         @compileError("Bucket must be exactly 64 bytes to align with CPU cache lines");
     }
 }
-
