@@ -1137,12 +1137,16 @@ pub const Searcher = struct {
         }
 
         if (self.excluded_moves[self.ply].toU32() == 0) {
-            const tt_flag = tt.EstimationType.Over;
-            // if (best_score >= beta) {
-            //     tt_flag = tt.EstimationType.Under;
-            // } else if (alpha != alpha_) {
-            //     tt_flag = tt.EstimationType.Exact;
-            // }
+            var tt_flag = tt.EstimationType.Over;
+            if (best_score >= beta) {
+                tt_flag = tt.EstimationType.Under;
+            } else if (alpha != alpha_) {
+                tt_flag = tt.EstimationType.Exact;
+            }
+
+            if (skip_quiet) {
+                tt_flag = tt.EstimationType.Over;
+            }
 
             self.tt_table.set(
                 tt.Entry{
