@@ -6,6 +6,7 @@ zig-out/
 spsa*
 notes.typ
 patches.md
+tt_patches.md
 fastchess_test.sh
 gauntlet.sh
 run_tournament.sh
