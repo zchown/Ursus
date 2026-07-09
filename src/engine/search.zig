@@ -34,6 +34,12 @@ inline fn scoreToTT(score: i32, ply: usize) i32 {
     return score;
 }
 
+inline fn scoreFromTT(score: i32, ply: usize) i32 {
+    if (score >= eval.mate_score - 256) return score - @as(i32, @intCast(ply));
+    if (score <= -eval.mate_score + 256) return score + @as(i32, @intCast(ply));
+    return score;
+}
+
 pub var noisy_lmr: [64][64]i32 = undefined;
 
 pub fn initNoisyLMR() [64][64]i32 {
@@ -589,7 +595,7 @@ pub const Searcher = struct {
 
         if (entry) |e| {
             tt_hit = true;
-            tt_eval = e.eval;
+            tt_eval = scoreFromTT(e.eval, self.ply);
             tt_depth = @as(usize, @intCast(e.depth));
             tt_e_flag = e.flag;
             tt_static_eval = e.static_eval;
@@ -1194,12 +1200,13 @@ pub const Searcher = struct {
             qs_tt_in_check = e.in_check;
             qs_tt_static_eval = e.static_eval;
             qs_tt_static_eval_valid = e.static_eval_valid;
+            const tt_score = scoreFromTT(e.eval, self.ply);
             if (e.flag == .Exact) {
-                return e.eval;
-            } else if (e.flag == .Under and e.eval >= beta) {
-                return e.eval;
-            } else if (e.flag == .Over and e.eval <= alpha) {
-                return e.eval;
+                return tt_score;
+            } else if (e.flag == .Under and tt_score >= beta) {
+                return tt_score;
+            } else if (e.flag == .Over and tt_score <= alpha) {
+                return tt_score;
             }
         }
 
