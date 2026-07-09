@@ -314,7 +314,7 @@ pub const TranspositionTable = struct {
             // 2. Score the entry to find the weakest link for collision handling
             var score: i32 = packed_entry.getDepth();
             const rel_age: u8 = current_age -% packed_entry.getAge();
-            score -= 8 * @as(i32, @min(rel_age, 28)); // was: -256 for any age mismatch
+            score -= 4 * @as(i32, @min(rel_age, 32)); // was: -256 for any age mismatch
             if (packed_entry.getIsPv()) score += 2;
             if (flag == .Exact) score += 1;
 
