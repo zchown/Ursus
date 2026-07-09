@@ -28,6 +28,18 @@ pub fn initQuietLMR() [64][64]i32 {
     return table;
 }
 
+inline fn scoreToTT(score: i32, ply: usize) i32 {
+    if (score >= eval.mate_score - 256) return score + @as(i32, @intCast(ply));
+    if (score <= -eval.mate_score + 256) return score - @as(i32, @intCast(ply));
+    return score;
+}
+
+inline fn scoreFromTT(score: i32, ply: usize) i32 {
+    if (score >= eval.mate_score - 256) return score - @as(i32, @intCast(ply));
+    if (score <= -eval.mate_score + 256) return score + @as(i32, @intCast(ply));
+    return score;
+}
+
 pub var noisy_lmr: [64][64]i32 = undefined;
 
 pub fn initNoisyLMR() [64][64]i32 {
@@ -583,7 +595,7 @@ pub const Searcher = struct {
 
         if (entry) |e| {
             tt_hit = true;
-            tt_eval = e.eval;
+            tt_eval = scoreFromTT(e.eval, self.ply);
             tt_depth = @as(usize, @intCast(e.depth));
             tt_e_flag = e.flag;
             tt_static_eval = e.static_eval;
@@ -853,7 +865,7 @@ pub const Searcher = struct {
 
                     self.tt_table.set(tt.Entry{
                         .hash = board.game_state.zobrist,
-                        .eval = score,
+                        .eval = scoreToTT(score, self.ply),
                         .move = move,
                         .static_eval = static_eval,
                         .flag = tt.EstimationType.Under,
@@ -1135,7 +1147,7 @@ pub const Searcher = struct {
             self.tt_table.set(
                 tt.Entry{
                     .hash = board.game_state.zobrist,
-                    .eval = best_score,
+                    .eval = scoreToTT(best_score, self.ply),
                     .move = best_move,
                     .static_eval = raw_static_eval,
                     .flag = tt_flag,
@@ -1188,37 +1200,67 @@ pub const Searcher = struct {
             qs_tt_in_check = e.in_check;
             qs_tt_static_eval = e.static_eval;
             qs_tt_static_eval_valid = e.static_eval_valid;
+            const tt_score = scoreFromTT(e.eval, self.ply);
             if (e.flag == .Exact) {
-                return e.eval;
-            } else if (e.flag == .Under and e.eval >= beta) {
-                return e.eval;
-            } else if (e.flag == .Over and e.eval <= alpha) {
-                return e.eval;
+                return tt_score;
+            } else if (e.flag == .Under and tt_score >= beta) {
+                return tt_score;
+            } else if (e.flag == .Over and tt_score <= alpha) {
+                return tt_score;
             }
         }
 
         const in_check: bool = if (qs_tt_hit) qs_tt_in_check else self.move_gen.isInCheck(board, color);
 
         var best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
+        var best_move = mvs.EncodedMove.fromU32(0);
         var static_eval: i32 = best_score;
 
+        // / if (!in_check) {
+        //     if (qs_tt_hit and qs_tt_static_eval_valid) {
+        //         static_eval = qs_tt_static_eval + hist.getCorrection(self, color, board);
+        //     } else {
+        //         static_eval = board.evaluateNNUE();
+        //         static_eval += hist.getCorrection(self, color, board);
+        //     }
+        //
+        //     best_score = static_eval;
+        //
+        //     if (best_score >= beta) {
+        //         return best_score;
+        //     }
+        //     if (best_score > alpha) {
+        //         alpha = best_score;
+        //     }
+        // }
+        var raw_static: i32 = 0;
         if (!in_check) {
             if (qs_tt_hit and qs_tt_static_eval_valid) {
-                static_eval = qs_tt_static_eval + hist.getCorrection(self, color, board);
+                raw_static = qs_tt_static_eval;
             } else {
-                static_eval = board.evaluateNNUE();
-                static_eval += hist.getCorrection(self, color, board);
+                raw_static = board.evaluateNNUE();
             }
-
+            static_eval = raw_static + hist.getCorrection(self, color, board);
             best_score = static_eval;
 
             if (best_score >= beta) {
+                self.tt_table.set(tt.Entry{
+                    .hash = board.game_state.zobrist,
+                    .eval = scoreToTT(best_score, self.ply),
+                    .move = mvs.EncodedMove.fromU32(0),
+                    .static_eval = raw_static,
+                    .flag = .Under,
+                    .depth = 0,
+                    .age = self.tt_table.getAge(),
+                    .in_check = in_check,
+                    .is_pv = false,
+                    .static_eval_valid = true,
+                });
                 return best_score;
             }
-            if (best_score > alpha) {
-                alpha = best_score;
-            }
+            if (best_score > alpha) alpha = best_score;
         }
+
 
         const queen_val = 950;
 
@@ -1286,6 +1328,7 @@ pub const Searcher = struct {
 
             if (score > best_score) {
                 best_score = score;
+                best_move = move;
                 if (score > alpha) {
                     alpha = best_score;
 
@@ -1326,6 +1369,21 @@ pub const Searcher = struct {
                 }
             }
         }
+
+        if (self.time_stop) return 0;
+
+        self.tt_table.set(tt.Entry{
+            .hash = board.game_state.zobrist,
+            .eval = scoreToTT(best_score, self.ply),
+            .move = best_move,
+            .static_eval = raw_static,
+            .flag = if (best_score >= beta) tt.EstimationType.Under else tt.EstimationType.Over,
+            .depth = 0,
+            .age = self.tt_table.getAge(),
+            .in_check = in_check,
+            .is_pv = false,
+            .static_eval_valid = !in_check,
+        });
 
         return best_score;
     }
