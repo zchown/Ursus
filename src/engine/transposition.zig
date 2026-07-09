@@ -352,7 +352,7 @@ pub const TranspositionTable = struct {
 
             // 2. Score the entry to find the weakest link for collision handling
             var score: i32 = packed_entry.getDepth();
-            // if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
+            if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
             if (packed_entry.getIsPv()) score += 2;
             if (flag == .Exact) score += 1;
 
