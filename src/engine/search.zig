@@ -1136,13 +1136,13 @@ pub const Searcher = struct {
             hist.updateCaptureHistory(self, board, color, best_move, &other_moves, depth);
         }
 
-        if (self.excluded_moves[self.ply].toU32() == 0) {
+       if (!skip_quiet and self.excluded_moves[self.ply].toU32() == 0) {
             var tt_flag = tt.EstimationType.Over;
             if (best_score >= beta) {
                 tt_flag = tt.EstimationType.Under;
-            } else if (alpha != alpha_ and !skip_quiet) {
+            } else if (alpha != alpha_) {
                 tt_flag = tt.EstimationType.Exact;
-            }
+            } 
 
             self.tt_table.set(
                 tt.Entry{
