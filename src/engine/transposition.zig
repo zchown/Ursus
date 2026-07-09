@@ -226,7 +226,7 @@ pub const TranspositionTable = struct {
     pub inline fn clear(self: *TranspositionTable) void {
         for (self.buckets) |*bucket| {
             for (&bucket.entries) |*entry| {
-                entry.store(0, .monotonic);
+                entry.clearSlot();
             }
         }
     }
@@ -339,7 +339,7 @@ pub const TranspositionTable = struct {
             entry.static_eval_valid,
         );
 
-        bucket.entries[target_idx].storePacked(new_packed);
+        bucket.entries[target_idx].storePacked(@bitCast(new_packed));
     }
 
     pub fn getUsage(self: *TranspositionTable) struct { used: usize, total: usize } {
