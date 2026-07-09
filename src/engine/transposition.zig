@@ -162,21 +162,38 @@ pub var stop_signal: std.atomic.Value(bool) = std.atomic.Value(bool).init(false)
 
 pub const TT_BUCKET_SLOTS = 3;
 
+const Slot = struct {
+    lo: std.atomic.Value(u64),
+    hi_x: std.atomic.Value(u64), // stores (hi ^ lo)
+
+    inline fn loadPacked(self: *Slot) u128 {
+        const lo = self.lo.load(.monotonic);
+        const hi = self.hi_x.load(.monotonic) ^ lo;
+        return (@as(u128, hi) << 64) | @as(u128, lo);
+    }
+
+    inline fn storePacked(self: *Slot, d: u128) void {
+        const lo: u64 = @truncate(d);
+        const hi: u64 = @truncate(d >> 64);
+        self.lo.store(lo, .monotonic);
+        self.hi_x.store(hi ^ lo, .monotonic);
+    }
+
+    inline fn clearSlot(self: *Slot) void {
+        self.lo.store(0, .monotonic);
+        self.hi_x.store(0, .monotonic);
+    }
+};
+
 pub const Bucket = struct {
-    // 3 slots * 16 bytes = 48 bytes
-    entries: [TT_BUCKET_SLOTS]std.atomic.Value(u128),
-    // 16 bytes padding forces the struct to exactly 64 bytes
-    _pad: u128, 
+    entries: [TT_BUCKET_SLOTS]Slot,
+    _pad: [(64 - TT_BUCKET_SLOTS * 16) % 64]u8, // 16B at 3 slots, 0B at 4
 
     pub fn init() Bucket {
-        return .{
-            .entries = .{
-                std.atomic.Value(u128).init(0),
-                std.atomic.Value(u128).init(0),
-                std.atomic.Value(u128).init(0),
-            },
-            ._pad = 0,
-        };
+        var b: Bucket = undefined;
+        for (&b.entries) |*e| e.clearSlot();
+        b._pad = @splat(0);
+        return b;
     }
 };
 
@@ -209,7 +226,7 @@ pub const TranspositionTable = struct {
     pub inline fn clear(self: *TranspositionTable) void {
         for (self.buckets) |*bucket| {
             for (&bucket.entries) |*entry| {
-                entry.store(0, .monotonic);
+                entry.clearSlot();
             }
         }
     }
@@ -248,18 +265,13 @@ pub const TranspositionTable = struct {
     }
 
     pub fn get(self: *TranspositionTable, hash: zob.ZobristKey) ?Entry {
-        const idx = self.index(hash);
-        const bucket = &self.buckets[idx];
-
-        for (&bucket.entries) |*atomic_entry| {
-            const packed_data = atomic_entry.load(.acquire);
-            const packed_entry = PackedEntry{ .data = packed_data };
-
-            if (packed_entry.getFlag() != .None and packed_entry.verify(hash)) {
+        const bucket = &self.buckets[self.index(hash)];
+        for (&bucket.entries) |*slot| {
+            const packed_entry = PackedEntry{ .data = slot.loadPacked() };
+            if (packed_entry.verify(hash) and packed_entry.getFlag() != .None) {
                 return packed_entry.unpack(hash);
             }
         }
-
         return null;
     }
 
@@ -281,8 +293,8 @@ pub const TranspositionTable = struct {
         var worst_score: i32 = std.math.maxInt(i32);
 
         // 1. Scan the bucket for a match, an empty slot, and identify the worst entry
-        for (&bucket.entries, 0..) |*atomic_entry, i| {
-            const packed_data = atomic_entry.load(.acquire);
+        for (&bucket.entries, 0..) |*slot, i| {
+            const packed_data = slot.loadPacked();
             const packed_entry = PackedEntry{ .data = packed_data };
             const flag = packed_entry.getFlag();
 
@@ -327,7 +339,7 @@ pub const TranspositionTable = struct {
             entry.static_eval_valid,
         );
 
-        bucket.entries[target_idx].store(new_packed.data, .release);
+        bucket.entries[target_idx].storePacked(@bitCast(new_packed));
     }
 
     pub fn getUsage(self: *TranspositionTable) struct { used: usize, total: usize } {
@@ -369,9 +381,6 @@ pub const TranspositionTable = struct {
 comptime {
     if (@sizeOf(u128) != 16) {
         @compileError("u128 must be 16 bytes for atomic operations");
-    }
-    if (@sizeOf(PackedEntry) != 16) {
-        @compileError("PackedEntry must be 16 bytes for atomic operations");
     }
     if (@sizeOf(Bucket) != 64) {
         @compileError("Bucket must be exactly 64 bytes to align with CPU cache lines");
