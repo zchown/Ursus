@@ -1140,12 +1140,8 @@ pub const Searcher = struct {
             var tt_flag = tt.EstimationType.Over;
             if (best_score >= beta) {
                 tt_flag = tt.EstimationType.Under;
-            } else if (alpha != alpha_) {
+            } else if (alpha != alpha_ and !skip_quiet) {
                 tt_flag = tt.EstimationType.Exact;
-            }
-
-            if (skip_quiet) {
-                tt_flag = tt.EstimationType.Over;
             }
 
             self.tt_table.set(
