@@ -326,6 +326,14 @@ pub const TranspositionTable = struct {
         // 3. Determine the write target: Match > Empty > Worst
         const target_idx = match_idx orelse empty_idx orelse worst_idx;
 
+        if (match_idx != null) {
+            const old = PackedEntry{ .data = bucket.entries[target_idx].loadPacked() };
+            const keep_old = entry.flag != .Exact and
+                old.getAge() == current_age and
+                @as(i32, old.getDepth()) >= @as(i32, entry.depth) + 4;
+            if (keep_old) return; // deep data survives; move was already merged above
+        }
+
         const new_packed = PackedEntry.pack(
             entry.hash,
             entry.eval,
