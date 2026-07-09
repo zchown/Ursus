@@ -269,6 +269,13 @@ pub const TranspositionTable = struct {
         for (&bucket.entries) |*slot| {
             const packed_entry = PackedEntry{ .data = slot.loadPacked() };
             if (packed_entry.verify(hash) and packed_entry.getFlag() != .None) {
+                const current_age = self.getAge();
+                if (packed_entry.getAge() != current_age) {
+                    const age_mask: u128 = @as(u128, 0xFF) << 90;
+                    const refreshed = (packed_entry.data & ~age_mask) |
+                (@as(u128, current_age) << 90);
+                    slot.storePacked(refreshed);
+                }
                 return packed_entry.unpack(hash);
             }
         }
