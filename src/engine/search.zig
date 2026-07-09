@@ -926,7 +926,7 @@ pub const Searcher = struct {
             }
 
             // futility pruning
-            if (searched_moves >= 1 and move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and static_eval + ((@as(i32, @intCast(depth)) + 1) * tp.futility_mul) <= alpha) {
+            if (move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and static_eval + ((@as(i32, @intCast(depth)) + 1) * tp.futility_mul) <= alpha) {
                 continue;
             }
 
