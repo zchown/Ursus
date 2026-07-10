@@ -160,7 +160,7 @@ pub const PackedEntry = extern struct {
 
 pub var stop_signal: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-pub const TT_BUCKET_SLOTS = 3;
+pub const TT_BUCKET_SLOTS = 4;
 
 const Slot = struct {
     lo: std.atomic.Value(u64),
