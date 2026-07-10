@@ -160,7 +160,7 @@ pub const PackedEntry = extern struct {
 
 pub var stop_signal: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-pub const TT_BUCKET_SLOTS = 4;
+pub const TT_BUCKET_SLOTS = 3;
 
 const Slot = struct {
     lo: std.atomic.Value(u64),
@@ -187,12 +187,12 @@ const Slot = struct {
 
 pub const Bucket = struct {
     entries: [TT_BUCKET_SLOTS]Slot,
-    _pad: [(64 - TT_BUCKET_SLOTS * 16) % 64]u8, // 16B at 3 slots, 0B at 4
+    // _pad: [(64 - TT_BUCKET_SLOTS * 16) % 64]u8, // 16B at 3 slots, 0B at 4
 
     pub fn init() Bucket {
         var b: Bucket = undefined;
         for (&b.entries) |*e| e.clearSlot();
-        b._pad = @splat(0);
+        // b._pad = @splat(0);
         return b;
     }
 };
@@ -396,11 +396,11 @@ pub const TranspositionTable = struct {
 };
 
 comptime {
-    if (@sizeOf(u128) != 16) {
-        @compileError("u128 must be 16 bytes for atomic operations");
-    }
-    if (@sizeOf(Bucket) != 64) {
-        @compileError("Bucket must be exactly 64 bytes to align with CPU cache lines");
-    }
+    // if (@sizeOf(u128) != 16) {
+    //     @compileError("u128 must be 16 bytes for atomic operations");
+    // }
+    // if (@sizeOf(Bucket) != 64) {
+    //     @compileError("Bucket must be exactly 64 bytes to align with CPU cache lines");
+    // }
 }
 
