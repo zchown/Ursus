@@ -755,7 +755,7 @@ pub const Searcher = struct {
                 nmp_static_eval += tp.nmp_improve;
             }
 
-            if (!is_null and depth >= 4 and nmp_static_eval >= beta and has_non_pawns) {
+            if (!is_null and depth >= 3 and nmp_static_eval >= beta and has_non_pawns) {
                 var r = tp.nmp_base + depth / tp.nmp_depth_div;
                 // r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
                 const diff = static_eval - beta;
