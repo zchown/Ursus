@@ -888,6 +888,16 @@ pub const Searcher = struct {
         var other_count: usize = 0;
         var searched_moves: usize = 0;
 
+        var lmp_threshold: usize = tp.lmp_base + depth * tp.lmp_mul;
+
+        lmp_threshold = @divTrunc(lmp_threshold, 100);
+
+        lmp_threshold += self.thread_id;
+
+        if (improving and !on_pv) {
+            lmp_threshold += tp.lmp_improve;
+        }
+
         for (0..move_count) |i| {
             var move = mp.getNextBest(&move_list, &eval_moves, i);
 
@@ -898,17 +908,7 @@ pub const Searcher = struct {
             const is_capture = move.capture == 1;
             const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
 
-            if (!is_root and i > 1 and !in_check and !on_pv) {
-                var lmp_threshold: usize = tp.lmp_base + depth * tp.lmp_mul;
-
-                lmp_threshold = @divTrunc(lmp_threshold, 100);
-
-                lmp_threshold += self.thread_id;
-
-                if (improving and !on_pv) {
-                    lmp_threshold += tp.lmp_improve;
-                }
-
+            if (!skip_quiet and !is_root and i > 1 and !on_pv) {
                 // Prune if we have searched enough quiet moves
                 if (quiet_count > lmp_threshold) {
                     skip_quiet = true;
