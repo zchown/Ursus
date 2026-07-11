@@ -269,8 +269,16 @@ pub const TranspositionTable = struct {
         for (&bucket.entries) |*slot| {
             const packed_entry = PackedEntry{ .data = slot.loadPacked() };
             if (packed_entry.verify(hash) and packed_entry.getFlag() != .None) {
+               const current_age = self.getAge();
+                if (packed_entry.getAge() != current_age) {
+                    const age_mask: u128 = @as(u128, 0xFF) << 90;
+                    const refreshed = (packed_entry.data & ~age_mask) |
+                        (@as(u128, current_age) << 90);
+                    slot.storePacked(refreshed);
+                }
                 return packed_entry.unpack(hash);
             }
+
         }
         return null;
     }
@@ -313,7 +321,8 @@ pub const TranspositionTable = struct {
 
             // 2. Score the entry to find the weakest link for collision handling
             var score: i32 = packed_entry.getDepth();
-            if (packed_entry.getAge() != current_age) score -= 256; // Nuke old searches
+            const rel_age: u8 = current_age -% packed_entry.getAge();
+            score -= 8 * @as(i32, @min(rel_age, 28)); // was: -256 for any age mismatch
             if (packed_entry.getIsPv()) score += 2;
             if (flag == .Exact) score += 1;
 
@@ -325,6 +334,14 @@ pub const TranspositionTable = struct {
 
         // 3. Determine the write target: Match > Empty > Worst
         const target_idx = match_idx orelse empty_idx orelse worst_idx;
+
+        if (match_idx != null) {
+            const old = PackedEntry{ .data = bucket.entries[target_idx].loadPacked() };
+            const keep_old = entry.flag != .Exact and
+                old.getAge() == current_age and
+                @as(i32, old.getDepth()) >= @as(i32, entry.depth) + 4;
+            if (keep_old) return; // deep data survives; move was already merged above
+        }
 
         const new_packed = PackedEntry.pack(
             entry.hash,
