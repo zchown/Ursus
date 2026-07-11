@@ -21,7 +21,7 @@ pub var lmp_mul: usize = 229;
 
 pub var futility_mul: i32 = 170;
 
-pub var q_see_min: i32 = -144;
+pub var q_see_min: i32 = -50;
 pub var q_see_margin: i32 = -45;
 pub var q_delta_margin: i32 = 213;
 
