@@ -442,7 +442,9 @@ pub const Board = struct {
     }
 
     pub fn evaluateNNUE(self: *Board) i32 {
-        return nnue.evaluate(&self.nnue_stack, self.game_state.side_to_move, self);
+        const score: f32 = @floatFromInt(nnue.evaluate(&self.nnue_stack, self.game_state.side_to_move, self));
+        const hmc = @as(f32, @floatFromInt(self.game_state.halfmove_clock));
+        return @intFromFloat(score * (200 - hmc) / 200);
     }
 
     pub fn isDraw(self: *Board, ply: usize) bool {
