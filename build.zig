@@ -118,7 +118,7 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
         }),
         .use_llvm = true,
     });
-    exe.linkLibC();
+    // exe.linkLibC();
     // exe.root_module.omit_frame_pointer = false;
     // exe.root_module.strip = false;
 

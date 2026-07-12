@@ -138,15 +138,15 @@ pub const Searcher = struct {
 
     pub fn initInPlace(self: *Searcher) void {
         self.timer = std.time.Timer.start() catch unreachable;
-        self.move_gen = std.heap.c_allocator.create(mvs.MoveGen) catch unreachable;
+        self.move_gen = std.heap.smp_allocator.create(mvs.MoveGen) catch unreachable;
         self.move_gen.init();
-        self.continuation = std.heap.c_allocator.create([12][64][64][64]i32) catch unreachable;
+        self.continuation = std.heap.smp_allocator.create([12][64][64][64]i32) catch unreachable;
         hist.resetHeuristics(self, true);
     }
 
     pub fn deinit(self: *Searcher) void {
-        std.heap.c_allocator.destroy(self.continuation);
-        std.heap.c_allocator.destroy(self.move_gen);
+        std.heap.smp_allocator.destroy(self.continuation);
+        std.heap.smp_allocator.destroy(self.move_gen);
     }
 
     pub inline fn should_stop(self: *Searcher) bool {
@@ -196,25 +196,25 @@ pub const Searcher = struct {
 
         for (search_helpers.items) |helper| {
             helper.deinit();
-            std.heap.c_allocator.destroy(helper);
+            std.heap.smp_allocator.destroy(helper);
         }
         search_helpers.clearRetainingCapacity();
         threads.clearRetainingCapacity();
 
-        try search_helpers.ensureTotalCapacity(std.heap.c_allocator, num_threads - 1);
-        try threads.ensureTotalCapacity(std.heap.c_allocator, num_threads - 1);
+        try search_helpers.ensureTotalCapacity(std.heap.smp_allocator, num_threads - 1);
+        try threads.ensureTotalCapacity(std.heap.smp_allocator, num_threads - 1);
 
         // Create helper searchers (thread 0 is the main searcher)
         var i: usize = 1;
         while (i < num_threads) : (i += 1) {
-            const helper_ptr = try std.heap.c_allocator.create(Searcher);
+            const helper_ptr = try std.heap.smp_allocator.create(Searcher);
             helper_ptr.* = .{};
             helper_ptr.initInPlace();
             helper_ptr.chess960 = chess960;
             helper_ptr.thread_id = i;
             helper_ptr.silent_output = true;
             helper_ptr.tt_table = shared_tt;
-            try search_helpers.append(std.heap.c_allocator, helper_ptr);
+            try search_helpers.append(std.heap.smp_allocator, helper_ptr);
         }
     }
 
@@ -237,7 +237,7 @@ pub const Searcher = struct {
         main_searcher.root_board = board;
 
         for (search_helpers.items) |helper| {
-            var board_copy: *brd.Board = try std.heap.c_allocator.create(brd.Board);
+            var board_copy: *brd.Board = try std.heap.smp_allocator.create(brd.Board);
             board_copy.copyFrom(board);
 
             helper.root_board = board_copy;
@@ -258,7 +258,7 @@ pub const Searcher = struct {
             };
 
             const thread = try std.Thread.spawn(.{}, helperThreadWorker, .{ctx});
-            try threads.append(std.heap.c_allocator, thread);
+            try threads.append(std.heap.smp_allocator, thread);
         }
     }
 
@@ -269,7 +269,7 @@ pub const Searcher = struct {
         threads.clearRetainingCapacity();
 
         for (search_helpers.items) |helper| {
-            std.heap.c_allocator.destroy(helper.root_board);
+            std.heap.smp_allocator.destroy(helper.root_board);
         }
     }
 
@@ -319,11 +319,11 @@ pub const Searcher = struct {
 
         for (search_helpers.items) |helper| {
             helper.deinit();
-            std.heap.c_allocator.destroy(helper);
+            std.heap.smp_allocator.destroy(helper);
         }
 
-        search_helpers.deinit(std.heap.c_allocator);
-        threads.deinit(std.heap.c_allocator);
+        search_helpers.deinit(std.heap.smp_allocator);
+        threads.deinit(std.heap.smp_allocator);
     }
 
     pub fn iterativeDeepening(self: *Searcher, board: *brd.Board, max_depth: ?u8) !SearchResult {
@@ -370,7 +370,7 @@ pub const Searcher = struct {
             self.seldepth = 1;
 
             if (!self.silent_output) {
-                self.printInfo(0, 1, self.best_move_score, pv_buf[0..1], std.heap.c_allocator);
+                self.printInfo(0, 1, self.best_move_score, pv_buf[0..1], std.heap.smp_allocator);
             }
 
             self.is_searching = false;
@@ -462,7 +462,7 @@ pub const Searcher = struct {
                     total_tb_hits += helper.tb_hits;
                 }
 
-                self.printInfo(total_nodes, total_tb_hits, score, best_pv[0..best_pv_length], std.heap.c_allocator);
+                self.printInfo(total_nodes, total_tb_hits, score, best_pv[0..best_pv_length], std.heap.smp_allocator);
             }
 
             var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
