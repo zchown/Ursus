@@ -163,7 +163,7 @@ pub const UciProtocol = struct {
 
     pub fn deinit(self: *UciProtocol) void {
         self.stopSearch();
-        srch.Searcher.deinitThreading();
+        self.searcher.deinitThreading();
         tb.deinit();
         self.searcher.deinit();
         self.allocator.destroy(self.searcher);

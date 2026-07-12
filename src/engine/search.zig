@@ -62,6 +62,8 @@ pub const NodeType = enum {
     NonPV,
 };
 
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+
 pub const SearchResult = struct {
     move: mvs.EncodedMove,
     score: i32,
@@ -130,6 +132,7 @@ pub const Searcher = struct {
     stdout_buffer: [2048]u8 = undefined,
 
     tt_table: *tt.TranspositionTable = undefined,
+    allocator: std.mem.Allocator = undefined,
 
     pub const PieceColor = struct {
         piece: brd.Pieces,
@@ -137,16 +140,17 @@ pub const Searcher = struct {
     };
 
     pub fn initInPlace(self: *Searcher) void {
+        self.allocator = gpa.allocator();
         self.timer = std.time.Timer.start() catch unreachable;
-        self.move_gen = std.heap.c_allocator.create(mvs.MoveGen) catch unreachable;
+        self.move_gen = self.allocator.create(mvs.MoveGen) catch unreachable;
         self.move_gen.init();
-        self.continuation = std.heap.c_allocator.create([12][64][64][64]i32) catch unreachable;
+        self.continuation = self.allocator.create([12][64][64][64]i32) catch unreachable;
         hist.resetHeuristics(self, true);
     }
 
     pub fn deinit(self: *Searcher) void {
-        std.heap.c_allocator.destroy(self.continuation);
-        std.heap.c_allocator.destroy(self.move_gen);
+        self.allocator.destroy(self.continuation);
+        self.allocator.destroy(self.move_gen);
     }
 
     pub inline fn should_stop(self: *Searcher) bool {
@@ -189,32 +193,32 @@ pub const Searcher = struct {
         };
     }
 
-    pub fn initHelperThreads(num_threads: usize, shared_tt: *tt.TranspositionTable, chess960: bool) !void {
+    pub fn initHelperThreads(allocator: std.mem.Allocator, num_threads: usize, shared_tt: *tt.TranspositionTable, chess960: bool) !void {
         if (num_threads <= 1) {
             return; // No helpers needed for single-threaded search
         }
 
         for (search_helpers.items) |helper| {
             helper.deinit();
-            std.heap.c_allocator.destroy(helper);
+            allocator.destroy(helper);
         }
         search_helpers.clearRetainingCapacity();
         threads.clearRetainingCapacity();
 
-        try search_helpers.ensureTotalCapacity(std.heap.c_allocator, num_threads - 1);
-        try threads.ensureTotalCapacity(std.heap.c_allocator, num_threads - 1);
+        try search_helpers.ensureTotalCapacity(allocator, num_threads - 1);
+        try threads.ensureTotalCapacity(allocator, num_threads - 1);
 
         // Create helper searchers (thread 0 is the main searcher)
         var i: usize = 1;
         while (i < num_threads) : (i += 1) {
-            const helper_ptr = try std.heap.c_allocator.create(Searcher);
+            const helper_ptr = try allocator.create(Searcher);
             helper_ptr.* = .{};
             helper_ptr.initInPlace();
             helper_ptr.chess960 = chess960;
             helper_ptr.thread_id = i;
             helper_ptr.silent_output = true;
             helper_ptr.tt_table = shared_tt;
-            try search_helpers.append(std.heap.c_allocator, helper_ptr);
+            try search_helpers.append(allocator, helper_ptr);
         }
     }
 
@@ -229,7 +233,7 @@ pub const Searcher = struct {
         }
 
         if (search_helpers.items.len != num_threads - 1) {
-            try initHelperThreads(num_threads, main_searcher.tt_table, main_searcher.chess960);
+            try initHelperThreads(main_searcher.allocator, num_threads, main_searcher.tt_table, main_searcher.chess960);
         }
 
         threads.clearRetainingCapacity();
@@ -237,7 +241,7 @@ pub const Searcher = struct {
         main_searcher.root_board = board;
 
         for (search_helpers.items) |helper| {
-            var board_copy: *brd.Board = try std.heap.c_allocator.create(brd.Board);
+            var board_copy: *brd.Board = try main_searcher.allocator.create(brd.Board);
             board_copy.copyFrom(board);
 
             helper.root_board = board_copy;
@@ -258,18 +262,18 @@ pub const Searcher = struct {
             };
 
             const thread = try std.Thread.spawn(.{}, helperThreadWorker, .{ctx});
-            try threads.append(std.heap.c_allocator, thread);
+            try threads.append(main_searcher.allocator, thread);
         }
     }
 
-    pub fn waitForHelpers() void {
+    pub fn waitForHelpers(allocator: std.mem.Allocator) void {
         for (threads.items) |thread| {
             thread.join();
         }
         threads.clearRetainingCapacity();
 
         for (search_helpers.items) |helper| {
-            std.heap.c_allocator.destroy(helper.root_board);
+            allocator.destroy(helper.root_board);
         }
     }
 
@@ -302,7 +306,7 @@ pub const Searcher = struct {
 
         stopAllThreads();
 
-        waitForHelpers();
+        waitForHelpers(main_searcher.allocator);
 
         var total_nodes = result.nodes;
         for (search_helpers.items) |helper| {
@@ -315,15 +319,15 @@ pub const Searcher = struct {
         return final_result;
     }
 
-    pub fn deinitThreading() void {
+    pub fn deinitThreading(self: *Searcher) void {
 
         for (search_helpers.items) |helper| {
             helper.deinit();
-            std.heap.c_allocator.destroy(helper);
+            self.allocator.destroy(helper);
         }
 
-        search_helpers.deinit(std.heap.c_allocator);
-        threads.deinit(std.heap.c_allocator);
+        search_helpers.deinit(self.allocator);
+        threads.deinit(self.allocator);
     }
 
     pub fn iterativeDeepening(self: *Searcher, board: *brd.Board, max_depth: ?u8) !SearchResult {
@@ -370,7 +374,7 @@ pub const Searcher = struct {
             self.seldepth = 1;
 
             if (!self.silent_output) {
-                self.printInfo(0, 1, self.best_move_score, pv_buf[0..1], std.heap.c_allocator);
+                self.printInfo(0, 1, self.best_move_score, pv_buf[0..1], self.allocator);
             }
 
             self.is_searching = false;
@@ -462,7 +466,7 @@ pub const Searcher = struct {
                     total_tb_hits += helper.tb_hits;
                 }
 
-                self.printInfo(total_nodes, total_tb_hits, score, best_pv[0..best_pv_length], std.heap.c_allocator);
+                self.printInfo(total_nodes, total_tb_hits, score, best_pv[0..best_pv_length], self.allocator);
             }
 
             var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
@@ -580,8 +584,6 @@ pub const Searcher = struct {
 
         self.nodes += 1;
 
-        // TT lookup happens before isInCheck so we can reuse the stored in_check flag
-        // on hits, saving an expensive bitboard traversal on the common TT-hit path.
         var hash_move = mvs.EncodedMove.fromU32(0);
         var tt_hit = false;
         var tt_eval: i32 = 0;
@@ -684,9 +686,6 @@ pub const Searcher = struct {
         if (in_check) {
             static_eval = -eval.mate_score + @as(i32, @intCast(self.ply));
         } else if (tt_hit and tt_static_eval_valid) {
-            // Only reuse the stored static eval when it was produced by a real
-            // NNUE call. TB entries store 0 as a placeholder, so static_eval_valid
-            // guards us against silently using that as a real evaluation.
             raw_static_eval = tt_static_eval;
             static_eval = raw_static_eval + hist.getCorrection(self, color, board);
         } else if (self.excluded_moves[self.ply].toU32() != 0) {
@@ -757,7 +756,6 @@ pub const Searcher = struct {
 
             if (!is_null and depth >= 4 and nmp_static_eval >= beta and has_non_pawns) {
                 var r = tp.nmp_base + depth / tp.nmp_depth_div;
-                // r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
                 const diff = static_eval - beta;
                 const div = @divTrunc(diff, @as(i32, @intCast(tp.nmp_beta_div)));
                 r += @as(usize, @intCast(@max(0, @min(4, div))));
@@ -1044,10 +1042,6 @@ pub const Searcher = struct {
                         reduction -= 1;
                     }
 
-                    // if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
-                    //     reduction -= 1;
-                    // }
-                    //
                     if (last_move.toU32() != 0 and
                     self.counter_moves[@intFromEnum(color)][last_move.start_square][last_move.end_square].toU32() == move.toU32())
                 {
@@ -1216,23 +1210,6 @@ pub const Searcher = struct {
         var best_move = mvs.EncodedMove.fromU32(0);
         var static_eval: i32 = best_score;
 
-        // / if (!in_check) {
-        //     if (qs_tt_hit and qs_tt_static_eval_valid) {
-        //         static_eval = qs_tt_static_eval + hist.getCorrection(self, color, board);
-        //     } else {
-        //         static_eval = board.evaluateNNUE();
-        //         static_eval += hist.getCorrection(self, color, board);
-        //     }
-        //
-        //     best_score = static_eval;
-        //
-        //     if (best_score >= beta) {
-        //         return best_score;
-        //     }
-        //     if (best_score > alpha) {
-        //         alpha = best_score;
-        //     }
-        // }
         var raw_static: i32 = 0;
         if (!in_check) {
             if (qs_tt_hit and qs_tt_static_eval_valid) {
@@ -1298,9 +1275,6 @@ pub const Searcher = struct {
                 if (see_value < tp.q_see_min) {
                     continue;
                 }
-
-                // var captured_piece_value: i32 = 0;
-                // captured_piece_value = see.see_values[@as(usize, @intCast(move.captured_piece))];
 
                 if (see_value < tp.q_see_margin and
                     static_eval + see_value + tp.q_delta_margin < alpha)
@@ -1406,7 +1380,6 @@ pub const Searcher = struct {
     pub fn printInfo(self: *Searcher, nodes: u64, tb_hits: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
         const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
         const nps: u64 = if (elapsed_ms > 0) (nodes * 1000) / elapsed_ms else 0;
-        // const hashfull = self.tt_table.getFillPermill();
 
         var stdout_writer = std.fs.File.stdout().writer(&self.stdout_buffer);
         const stdout = &stdout_writer.interface;
