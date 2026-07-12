@@ -699,7 +699,6 @@ pub const Searcher = struct {
 
         var best_score: i32 = static_eval;
 
-        var low_estimate_score: i32 = -eval.mate_score - 1;
         self.eval_history[self.ply] = raw_static_eval;
 
         const improving: bool = !in_check and self.ply >= 2 and static_eval > self.eval_history[self.ply - 2];
@@ -724,7 +723,16 @@ pub const Searcher = struct {
         }
 
         if (!in_check and !on_pv and self.excluded_moves[self.ply].toU32() == 0) {
-            low_estimate_score = if (!tt_hit or entry.?.flag == tt.EstimationType.Under) static_eval else tt_eval;
+            var pruning_eval = static_eval;
+            if (tt_hit and !in_check and tt_eval < eval.mate_score - 256 and tt_eval > -eval.mate_score + 256) {
+                const use_tt = switch (tt_e_flag) {
+                    .Exact => true,
+                    .Under => tt_eval > static_eval,
+                    .Over => tt_eval < static_eval,
+                    .None => false,
+                };
+                if (use_tt) pruning_eval = tt_eval;
+            }
 
             // reverse futility pruning
             if (@abs(beta) < eval.mate_score - 256 and
@@ -736,7 +744,7 @@ pub const Searcher = struct {
                     n -= tp.rfp_improve;
                 }
 
-                if (static_eval - n >= beta) {
+                if (pruning_eval - n >= beta) {
                     return beta;
                 }
             }
@@ -744,7 +752,7 @@ pub const Searcher = struct {
             // razoring
             if (depth <= 4) {
                 const threshold = tp.razoring_base + (tp.razoring_mul * @as(i32, @intCast(depth)));
-                if (static_eval + threshold < alpha) {
+                if (pruning_eval + threshold < alpha) {
                     return self.qsearch(board, color, alpha, beta);
                 }
             }
@@ -757,8 +765,7 @@ pub const Searcher = struct {
 
             if (!is_null and depth >= 4 and nmp_static_eval >= beta and has_non_pawns) {
                 var r = tp.nmp_base + depth / tp.nmp_depth_div;
-                // r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
-                const diff = static_eval - beta;
+                const diff = pruning_eval - beta;
                 const div = @divTrunc(diff, @as(i32, @intCast(tp.nmp_beta_div)));
                 r += @as(usize, @intCast(@max(0, @min(4, div))));
 
