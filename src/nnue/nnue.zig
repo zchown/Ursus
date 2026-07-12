@@ -179,6 +179,14 @@ square: u8,
     return bucket * features_per_bucket + base_idx;
 }
 
+inline fn prefetchFeatureRow(feature_idx: usize) void {
+    const w = net_weights orelse return;
+    const row: [*]const u8 = @ptrCast(&w.ft_weights[feature_idx]);
+    @prefetch(row, .{ .rw = .read, .locality = 3, .cache = .data });
+    @prefetch(row + 1024, .{ .rw = .read, .locality = 3, .cache = .data });
+    @prefetch(row + 2048, .{ .rw = .read, .locality = 3, .cache = .data });
+}
+
 fn materialBucket(board: *const brd.Board) usize {
     const occupied: u64 = board.color_bb[0] | board.color_bb[1];
     const piece_count: usize = @popCount(occupied);
@@ -245,7 +253,7 @@ pub const Accumulator = struct {
                 : [p] "r" (@as([*]const u8, @ptrCast(src))),
             );
         }
-        inline for (0..num_acc_vecs) |i| {
+        for (0..num_acc_vecs) |i| {
             dst[i] +%= src[i];
         }
     }
@@ -260,7 +268,7 @@ pub const Accumulator = struct {
                 : [p] "r" (@as([*]const u8, @ptrCast(src))),
             );
         }
-        inline for (0..num_acc_vecs) |i| {
+        for (0..num_acc_vecs) |i| {
             dst[i] -%= src[i];
         }
     }
@@ -276,7 +284,7 @@ pub const Accumulator = struct {
         const add_w = weightVecs(add_feat);
         const sub_w = weightVecs(sub_feat);
 
-        inline for (0..num_acc_vecs) |i| {
+        for (0..num_acc_vecs) |i| {
             dst[i] = src[i] +% add_w[i] -% sub_w[i];
         }
     }
@@ -294,7 +302,7 @@ pub const Accumulator = struct {
         const sub1_w = weightVecs(sub1_feat);
         const sub2_w = weightVecs(sub2_feat);
 
-        inline for (0..num_acc_vecs) |i| {
+        for (0..num_acc_vecs) |i| {
             dst[i] = src[i] +% add_w[i] -% sub1_w[i] -% sub2_w[i];
         }
     }
@@ -314,7 +322,7 @@ pub const Accumulator = struct {
         const sub1_w = weightVecs(sub1_feat);
         const sub2_w = weightVecs(sub2_feat);
 
-        inline for (0..num_acc_vecs) |i| {
+        for (0..num_acc_vecs) |i| {
             dst[i] = src[i] +% add1_w[i] +% add2_w[i] -% sub1_w[i] -% sub2_w[i];
         }
     }
@@ -328,29 +336,37 @@ view_idx: usize,
     const dirty = &state.dirty;
     const view: brd.Color = @enumFromInt(view_idx);
     const king_sq = state.king_squares[view_idx];
+    const parent_acc = parent.acc_ptr[view_idx];
+
+    if (dirty.num_adds == 0 and dirty.num_subs == 0) {
+        state.acc_ptr[view_idx] = parent_acc;
+        return;
+    }
 
     if (dirty.num_adds == 1 and dirty.num_subs == 1) {
         const add_idx = featureIndex(view, king_sq, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
         const sub_idx = featureIndex(view, king_sq, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
-        state.accumulators[view_idx].addSubCopy(&parent.accumulators[view_idx], add_idx, sub_idx);
+        state.accumulators[view_idx].addSubCopy(parent_acc, add_idx, sub_idx);
     } else if (dirty.num_adds == 1 and dirty.num_subs == 2) {
         const add_idx = featureIndex(view, king_sq, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
         const sub1_idx = featureIndex(view, king_sq, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
         const sub2_idx = featureIndex(view, king_sq, dirty.subs[1].piece_color, dirty.subs[1].piece_type, dirty.subs[1].square);
-        state.accumulators[view_idx].addSubSubCopy(&parent.accumulators[view_idx], add_idx, sub1_idx, sub2_idx);
+        state.accumulators[view_idx].addSubSubCopy(parent_acc, add_idx, sub1_idx, sub2_idx);
     } else if (dirty.num_adds == 2 and dirty.num_subs == 2) {
         const add1_idx = featureIndex(view, king_sq, dirty.adds[0].piece_color, dirty.adds[0].piece_type, dirty.adds[0].square);
         const add2_idx = featureIndex(view, king_sq, dirty.adds[1].piece_color, dirty.adds[1].piece_type, dirty.adds[1].square);
         const sub1_idx = featureIndex(view, king_sq, dirty.subs[0].piece_color, dirty.subs[0].piece_type, dirty.subs[0].square);
         const sub2_idx = featureIndex(view, king_sq, dirty.subs[1].piece_color, dirty.subs[1].piece_type, dirty.subs[1].square);
-        state.accumulators[view_idx].addAddSubSubCopy(&parent.accumulators[view_idx], add1_idx, add2_idx, sub1_idx, sub2_idx);
+        state.accumulators[view_idx].addAddSubSubCopy(parent_acc, add1_idx, add2_idx, sub1_idx, sub2_idx);
     } else {
-        state.accumulators[view_idx] = parent.accumulators[view_idx];
+        state.accumulators[view_idx] = parent_acc.*;
     }
+    state.acc_ptr[view_idx] = &state.accumulators[view_idx];
 }
 
 pub const NNUEState = struct {
     accumulators: [brd.num_colors]Accumulator,
+    acc_ptr: [brd.num_colors]*const Accumulator,
     king_squares: [brd.num_colors]u8,
     dirty: DirtyPieces,
     needs_refresh: [brd.num_colors]bool,
@@ -359,6 +375,7 @@ pub const NNUEState = struct {
     pub fn init() NNUEState {
         return .{
             .accumulators = [_]Accumulator{Accumulator.init()} ** brd.num_colors,
+            .acc_ptr = undefined, 
             .king_squares = [_]u8{0} ** brd.num_colors,
             .dirty = .{},
             .needs_refresh = [_]bool{false} ** brd.num_colors,
@@ -499,6 +516,24 @@ pub const NNUEStack = struct {
             }
         }
 
+        if (net_weights != null) {
+            for (0..brd.num_colors) |c| {
+                if (needs_refresh[c]) continue;
+                const view: brd.Color = @enumFromInt(c);
+                const ksq = new_king_sqs[c];
+                var k: u8 = 0;
+                while (k < dirty.num_adds) : (k += 1) {
+                    const d = dirty.adds[k];
+                    prefetchFeatureRow(featureIndex(view, ksq, d.piece_color, d.piece_type, d.square));
+                }
+                k = 0;
+                while (k < dirty.num_subs) : (k += 1) {
+                    const d = dirty.subs[k];
+                    prefetchFeatureRow(featureIndex(view, ksq, d.piece_color, d.piece_type, d.square));
+                }
+            }
+        }
+
         self.states[next].dirty = dirty;
         self.states[next].king_squares = new_king_sqs;
         self.states[next].needs_refresh = needs_refresh;
@@ -568,6 +603,7 @@ fn refreshPerspective(board: *const brd.Board, state: *NNUEState, view: brd.Colo
         }
     }
 
+    state.acc_ptr[c] = &state.accumulators[c];
     state.needs_refresh[c] = false;
     state.computed[c] = true;
 }
@@ -620,6 +656,7 @@ view: brd.Color,
     }
 
     state.accumulators[c] = entry.accumulator;
+    state.acc_ptr[c] = &state.accumulators[c];
     state.needs_refresh[c] = false;
     state.computed[c] = true;
 }
@@ -648,8 +685,8 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Bo
     const zero_vec: I16Vec = @splat(0);
     const qa_vec: I16Vec = @splat(QA);
 
-    const stm_acc = state.accumulators[stm].constVecs();
-    const nstm_acc = state.accumulators[nstm].constVecs();
+    const stm_acc = state.acc_ptr[stm].constVecs();
+    const nstm_acc = state.acc_ptr[nstm].constVecs();
 
     const bucket_weights = &w.out_weights[bucket];
     const stm_weights: *const [num_acc_vecs]I16Vec =
@@ -657,8 +694,11 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Bo
     const nstm_weights: *const [num_acc_vecs]I16Vec =
     @ptrCast(@alignCast(bucket_weights[hidden_size .. 2 * hidden_size]));
 
-    const ACC_COUNT = comptime if (TARGET == .aarch64) 4 else std.math.gcd(4, num_acc_vecs);
-    var sums: [ACC_COUNT]I32Vec = @splat(@as(I32Vec, @splat(0)));
+    const ACC_COUNT = 4;
+    comptime std.debug.assert(num_acc_vecs % ACC_COUNT == 0);
+
+    var sums_stm: [ACC_COUNT]I32Vec = @splat(@as(I32Vec, @splat(0)));
+    var sums_ntm: [ACC_COUNT]I32Vec = @splat(@as(I32Vec, @splat(0)));
 
     var i: usize = 0;
     while (i < num_acc_vecs) {
@@ -671,14 +711,15 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Bo
             const stm_vw  = mulHigh(stm_v,  stm_weights[vi]);
             const nstm_vw = mulHigh(nstm_v, nstm_weights[vi]);
 
-            sums[a] = scReluAccumulate(sums[a], stm_vw,  stm_v);
-            sums[a] = scReluAccumulate(sums[a], nstm_vw, nstm_v);
+            sums_stm[a] = scReluAccumulate(sums_stm[a], stm_vw,  stm_v);
+            sums_ntm[a] = scReluAccumulate(sums_ntm[a], nstm_vw, nstm_v);
         }
         i += ACC_COUNT;
     }
 
-    var total_vec = sums[0];
-    inline for (1..ACC_COUNT) |a| total_vec += sums[a];
+    var total_vec = sums_stm[0];
+    inline for (1..ACC_COUNT) |a| total_vec += sums_stm[a];
+    inline for (0..ACC_COUNT) |a| total_vec += sums_ntm[a];
     const total_i32 = @reduce(.Add, total_vec);
 
     const total: i64 = total_i32;
