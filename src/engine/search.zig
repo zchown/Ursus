@@ -836,24 +836,24 @@ pub const Searcher = struct {
         var best_move = mvs.EncodedMove.fromU32(0);
         best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
 
-        const probcut_depth_offset: usize = 2;
-        const probcut_tt_margin_quiet: i32 = 375;
-        const probcut_tt_margin_noisy: i32 = 375;
-
-        const hash_move_noisy = hash_move.capture == 1 or hash_move.promoted_piece != 0;
-        const probcut_beta = beta + (if (hash_move_noisy) probcut_tt_margin_noisy else probcut_tt_margin_quiet);
-
-        if (!is_null and tt_hit and
-        tt_e_flag != tt.EstimationType.None and
-        tt_e_flag != tt.EstimationType.Over and
-        @abs(tt_eval) < eval.mate_score - 256 and
-        @abs(beta) < eval.mate_score - 256 and
-        probcut_beta < eval.mate_score - 256 and
-        tt_eval >= probcut_beta and
-        tt_depth + probcut_depth_offset >= depth)
-    {
-            return tt_eval;
-        }
+    //     const probcut_depth_offset: usize = 2;
+    //     const probcut_tt_margin_quiet: i32 = 375;
+    //     const probcut_tt_margin_noisy: i32 = 375;
+    //
+    //     const hash_move_noisy = hash_move.capture == 1 or hash_move.promoted_piece != 0;
+    //     const probcut_beta = beta + (if (hash_move_noisy) probcut_tt_margin_noisy else probcut_tt_margin_quiet);
+    //
+    //     if (!is_null and tt_hit and
+    //     tt_e_flag != tt.EstimationType.None and
+    //     tt_e_flag != tt.EstimationType.Over and
+    //     @abs(tt_eval) < eval.mate_score - 256 and
+    //     @abs(beta) < eval.mate_score - 256 and
+    //     probcut_beta < eval.mate_score - 256 and
+    //     tt_eval >= probcut_beta and
+    //     tt_depth + probcut_depth_offset >= depth)
+    // {
+    //         return tt_eval;
+    //     }
 
         var skip_quiet: bool = false;
         var quiet_count: usize = 0;
