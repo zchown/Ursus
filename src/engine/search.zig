@@ -750,7 +750,6 @@ pub const Searcher = struct {
                 if (use_tt) pruning_eval = tt_eval;
             }
 
-
             // reverse futility pruning
             if (@abs(beta) < eval.mate_score - 256 and
                 depth <= @as(usize, @intCast(tp.rfp_depth)))
