@@ -592,7 +592,7 @@ pub fn run(config: DatagenConfig) !void {
     defer if (maybe_book) |*b| b.deinit();
 
     if (config.opening_book_path) |book_path| {
-        maybe_book = OpeningBook.load(std.heap.c_allocator, book_path) catch |err|
+        maybe_book = OpeningBook.load(std.heap.smp_allocator, book_path) catch |err|
         blk: {
             std.debug.print("Warning: failed to load opening book '{s}': {} — falling back to random plies\n", .{ book_path, err });
             break :blk null;
@@ -617,10 +617,10 @@ pub fn run(config: DatagenConfig) !void {
     stop_signal.store(false, .release);
     var timer = try std.time.Timer.start();
 
-    var thread_contexts = try std.heap.c_allocator.alloc(ThreadContext, config.num_threads);
-    defer std.heap.c_allocator.free(thread_contexts);
-    var thread_handles = try std.heap.c_allocator.alloc(std.Thread, config.num_threads);
-    defer std.heap.c_allocator.free(thread_handles);
+    var thread_contexts = try std.heap.smp_allocator.alloc(ThreadContext, config.num_threads);
+    defer std.heap.smp_allocator.free(thread_contexts);
+    var thread_handles = try std.heap.smp_allocator.alloc(std.Thread, config.num_threads);
+    defer std.heap.smp_allocator.free(thread_handles);
 
     // CRITICAL: Force a massive thread stack size for deep recursive engine search
     const spawn_config = std.Thread.SpawnConfig{

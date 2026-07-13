@@ -115,12 +115,15 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         }),
         .use_llvm = true,
     });
-    exe.linkLibC();
     // exe.root_module.omit_frame_pointer = false;
     // exe.root_module.strip = false;
+
+    const exe_options = b.addOptions();
+    exe.root_module.addOptions("build_options", exe_options);
 
     board_module.addImport("zobrist", zobrist_module);
     board_module.addImport("moves", moves_module);
@@ -238,12 +241,6 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
     search_module.addImport("tb", tb_mod);
     uci_module.addImport("tb", tb_mod);
 
-    tb_mod.addImport("board", board_module);
-    tb_mod.addImport("moves", moves_module);
-
-    search_module.addImport("tb", tb_mod);
-    uci_module.addImport("tb", tb_mod);
-
     return exe;
 }
 
@@ -254,9 +251,6 @@ pub fn build(b: *std.Build) void {
     const exe = buildExe(b, target, optimize);
     b.installArtifact(exe);
 
-    const exe_options = b.addOptions();
-    exe.root_module.addOptions("build_options", exe_options);
-
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);
@@ -265,88 +259,73 @@ pub fn build(b: *std.Build) void {
         run_cmd.addArgs(args);
     }
 
-    addReleaseStep(b, buildExe);
+    addReleaseStep(b);
 }
 
 const ReleaseTarget = struct {
     name: []const u8,
-    query: std.Target.Query,
+    triple: []const u8,
+    // CPU model + feature tweaks, e.g. "x86_64_v3", "znver3", "x86_64+cx16".
+    cpu: []const u8 = "baseline",
 };
 
+// One binary per line. Naming: ursus-<os>-<arch>-<tier>.
+// x86-64 tiers: sse2 = runs anywhere (+cx16 for 16-byte atomics);
+// v2 = +popcnt/sse4.2 (Nehalem/Jaguar and newer, big for bitboard code);
+// avx2 = x86-64-v3, the mainstream tier (also what the NNUE AVX2 path wants);
+// avx512 = x86-64-v4, 512-bit NNUE vectors (Zen 4/5, Intel server).
+// znverN = scheduling-tuned for specific Ryzens (znver1 = 1700X, znver3 = 5950X).
+// Apple Silicon: apple_m1 is default
+// apple_m4 adds M4 scheduling + ISA extensions.
 const release_targets = [_]ReleaseTarget{
-    .{
-        .name = "ursus-linux-x86_64-avx2",
-        .query = .{
-            .cpu_arch = .x86_64,
-            .os_tag = .linux,
-            .abi = .gnu,
-            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64_v3 },
-        },
-    },
-    .{
-        .name = "ursus-linux-x86_64-sse2",
-        .query = .{
-            .cpu_arch = .x86_64,
-            .os_tag = .linux,
-            .abi = .gnu,
-            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64 },
-            .cpu_features_add = std.Target.x86.featureSet(&.{.cx16}),
-        },
-    },
-    .{
-        .name = "ursus-linux-aarch64",
-        .query = .{
-            .cpu_arch = .aarch64,
-            .os_tag = .linux,
-            .abi = .gnu,
-        },
-    },
-    .{
-        .name = "ursus-windows-x86_64-avx2.exe",
-        .query = .{
-            .cpu_arch = .x86_64,
-            .os_tag = .windows,
-            .abi = .gnu,
-            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64_v3 },
-        },
-    },
-    .{
-        .name = "ursus-windows-x86_64-sse2.exe",
-        .query = .{
-            .cpu_arch = .x86_64,
-            .os_tag = .windows,
-            .abi = .gnu,
-            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64 },
-            .cpu_features_add = std.Target.x86.featureSet(&.{.cx16}),
-        },
-    },
-    .{
-        .name = "ursus-macos-x86_64-avx2",
-        .query = .{
-            .cpu_arch = .x86_64,
-            .os_tag = .macos,
-            .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64_v3 },
-        },
-    },
-    .{
-        .name = "ursus-macos-aarch64",
-        .query = .{
-            .cpu_arch = .aarch64,
-            .os_tag = .macos,
-        },
-    },
+    // Linux x86-64
+    .{ .name = "ursus-linux-x86_64-sse2", .triple = "x86_64-linux-gnu", .cpu = "x86_64+cx16" },
+    .{ .name = "ursus-linux-x86_64-v2", .triple = "x86_64-linux-gnu", .cpu = "x86_64_v2" },
+    .{ .name = "ursus-linux-x86_64-avx2", .triple = "x86_64-linux-gnu", .cpu = "x86_64_v3" },
+    .{ .name = "ursus-linux-x86_64-avx512", .triple = "x86_64-linux-gnu", .cpu = "x86_64_v4" },
+    .{ .name = "ursus-linux-x86_64-znver1", .triple = "x86_64-linux-gnu", .cpu = "znver1" },
+    .{ .name = "ursus-linux-x86_64-znver3", .triple = "x86_64-linux-gnu", .cpu = "znver3" },
+    .{ .name = "ursus-linux-x86_64-znver5", .triple = "x86_64-linux-gnu", .cpu = "znver5" },
+
+    // Windows x86-64
+    .{ .name = "ursus-windows-x86_64-sse2.exe", .triple = "x86_64-windows-gnu", .cpu = "x86_64+cx16" },
+    .{ .name = "ursus-windows-x86_64-v2.exe", .triple = "x86_64-windows-gnu", .cpu = "x86_64_v2" },
+    .{ .name = "ursus-windows-x86_64-avx2.exe", .triple = "x86_64-windows-gnu", .cpu = "x86_64_v3" },
+    .{ .name = "ursus-windows-x86_64-avx512.exe", .triple = "x86_64-windows-gnu", .cpu = "x86_64_v4" },
+    .{ .name = "ursus-windows-x86_64-znver1.exe", .triple = "x86_64-windows-gnu", .cpu = "znver1" },
+    .{ .name = "ursus-windows-x86_64-znver3.exe", .triple = "x86_64-windows-gnu", .cpu = "znver3" },
+    .{ .name = "ursus-windows-x86_64-znver5.exe", .triple = "x86_64-windows-gnu", .cpu = "znver5" },
+
+    // macOS
+    .{ .name = "ursus-macos-x86_64-avx2", .triple = "x86_64-macos", .cpu = "x86_64_v3" },
+    .{ .name = "ursus-macos-aarch64-m1", .triple = "aarch64-macos", .cpu = "apple_m1" },
+    .{ .name = "ursus-macos-aarch64-m4", .triple = "aarch64-macos", .cpu = "apple_m4" },
+
+    // Linux aarch64
+    .{ .name = "ursus-linux-aarch64", .triple = "aarch64-linux-gnu" },
+    .{ .name = "ursus-linux-aarch64-neoverse", .triple = "aarch64-linux-gnu", .cpu = "neoverse_n1" },
+
+    // Android: static musl, no Bionic or glibc
+    .{ .name = "ursus-android-aarch64", .triple = "aarch64-linux-musl" },
+    .{ .name = "ursus-android-aarch64-v8.2", .triple = "aarch64-linux-musl", .cpu = "cortex_a76" },
 };
 
-pub fn addReleaseStep(b: *std.Build, builde: anytype) void {
-    const release_step = b.step("release", "Build all release binaries");
+pub fn addReleaseStep(b: *std.Build) void {
+    const release_step = b.step("release", "Build all release binaries into zig-out/release");
 
     for (release_targets) |rt| {
-        const target = b.resolveTargetQuery(rt.query);
-        const exe = builde(b, target, .ReleaseFast);
+        const query = std.Target.Query.parse(.{
+            .arch_os_abi = rt.triple,
+            .cpu_features = rt.cpu,
+        }) catch |err| std.debug.panic("bad release target '{s}': {}", .{ rt.name, err });
+        const target = b.resolveTargetQuery(query);
+
+        const exe = buildExe(b, target, .ReleaseFast);
 
         const install = b.addInstallArtifact(exe, .{
             .dest_dir = .{ .override = .{ .custom = "release" } },
             .dest_sub_path = rt.name,
+            .pdb_dir = .disabled,
         });
         release_step.dependOn(&install.step);
     }
