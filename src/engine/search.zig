@@ -56,6 +56,7 @@ pub fn initNoisyLMR() [64][64]i32 {
     return table;
 }
 
+
 pub const NodeType = enum {
     Root,
     PV,
@@ -468,11 +469,13 @@ pub const Searcher = struct {
                 self.printInfo(total_nodes, total_tb_hits, score, best_pv[0..best_pv_length], std.heap.smp_allocator);
             }
 
-            var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
-
-            if (stability == 0) {
-                factor = @min(factor * 1.2, 1.5);
-            }
+            // var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
+            //
+            // if (stability == 0) {
+            //     factor = @min(factor * 1.2, 1.5);
+            // }
+            const stability_idx = @min(stability, tp.tm_stability_scale.len - 1);
+            var factor: f32 = tp.tm_stability_scale[stability_idx];
 
             if (score - prev_score > tp.aspiration_window) {
                 factor *= 1.3;
