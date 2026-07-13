@@ -124,6 +124,7 @@ pub const Searcher = struct {
     major_correction: [2][16384]i32 = undefined,
     minor_correction: [2][16384]i32 = undefined,
     capture_history: [2][7][64][7]i32 = undefined,
+    root_node_counts: [64][64]u64 = undefined,
 
     thread_id: usize = 0,
     root_board: *brd.Board = undefined,
@@ -340,6 +341,7 @@ pub const Searcher = struct {
         hist.resetHeuristics(self, false);
         self.nodes = 0;
         self.tb_hits = 0;
+        self.root_node_counts = std.mem.zeroes([64][64]u64);
         self.best_move = mvs.EncodedMove.fromU32(0);
         self.best_move_score = -eval.mate_score;
         self.timer = std.time.Timer.start() catch unreachable;
@@ -482,6 +484,14 @@ pub const Searcher = struct {
             } else if (prev_score - score > tp.aspiration_window) {
                 factor *= 1.5;
             }
+
+            if (outer_depth >= tp.tm_nodetm_min_depth and bm.toU32() != 0 and self.nodes > 0) {
+                const bm_nodes = self.root_node_counts[bm.start_square][bm.end_square];
+                const bm_frac = @as(f32, @floatFromInt(bm_nodes)) / @as(f32, @floatFromInt(self.nodes));
+                factor *= std.math.clamp((tp.tm_nodetm_base - bm_frac) * tp.tm_nodetm_mul, 0.55, 1.80);
+            }
+
+            factor = std.math.clamp(factor, 0.35, 2.75);
 
             prev_score = score;
             self.search_score = score;
@@ -1018,6 +1028,8 @@ pub const Searcher = struct {
                 self.moved_piece_history[self.ply] = .{ .piece = .None, .color = .White };
             }
 
+            const nodes_before_move: u64 = if (is_root) self.nodes else 0;
+
             self.ply += 1;
 
             mvs.makeMove(board, move);
@@ -1096,6 +1108,10 @@ pub const Searcher = struct {
 
             self.ply -= 1;
             mvs.undoMove(board, move);
+
+            if (is_root) {
+                self.root_node_counts[move.start_square][move.end_square] += self.nodes - nodes_before_move;
+            }
 
             if (self.time_stop) {
                 return 0;

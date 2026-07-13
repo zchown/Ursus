@@ -57,3 +57,6 @@ pub var probcut_improve: i32 = 1046;
 pub var probcut_min_see: i32 = 206;
 
 pub var tm_stability_scale = [_]f32{ 1.60, 1.25, 1.10, 1.00, 0.94, 0.88, 0.83, 0.78, 0.75 };
+pub var tm_nodetm_min_depth: usize = 5;
+pub var tm_nodetm_base: f32 = 1.40;
+pub var tm_nodetm_mul: f32 = 1.33;
