@@ -56,6 +56,7 @@ pub fn initNoisyLMR() [64][64]i32 {
     return table;
 }
 
+
 pub const NodeType = enum {
     Root,
     PV,
@@ -123,6 +124,7 @@ pub const Searcher = struct {
     major_correction: [2][16384]i32 = undefined,
     minor_correction: [2][16384]i32 = undefined,
     capture_history: [2][7][64][7]i32 = undefined,
+    root_node_counts: [64][64]u64 = undefined,
 
     thread_id: usize = 0,
     root_board: *brd.Board = undefined,
@@ -168,13 +170,16 @@ pub const Searcher = struct {
             if (self.nodes >= soft_limit) return true;
         }
         const thinking = @atomicLoad(bool, &self.force_think, .acquire);
-        const scaled_ideal_ms = if (self.ideal_ms == std.math.maxInt(u64))
+        const soft_limit_ms = if (self.ideal_ms == std.math.maxInt(u64))
             std.math.maxInt(u64)
-        else
-            @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor));
+            else
+            @min(
+            @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor)),
+            self.max_ms,
+        );
         return self.thread_id == 0 and
-            ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
-                (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, scaled_ideal_ms)));
+    ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
+    (!thinking and self.timer.read() / std.time.ns_per_ms >= soft_limit_ms));
     }
 
     const ThreadContext = struct {
@@ -336,6 +341,7 @@ pub const Searcher = struct {
         hist.resetHeuristics(self, false);
         self.nodes = 0;
         self.tb_hits = 0;
+        self.root_node_counts = std.mem.zeroes([64][64]u64);
         self.best_move = mvs.EncodedMove.fromU32(0);
         self.best_move_score = -eval.mate_score;
         self.timer = std.time.Timer.start() catch unreachable;
@@ -465,17 +471,27 @@ pub const Searcher = struct {
                 self.printInfo(total_nodes, total_tb_hits, score, best_pv[0..best_pv_length], std.heap.smp_allocator);
             }
 
-            var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
-
-            if (stability == 0) {
-                factor = @min(factor * 1.2, 1.5);
-            }
+            // var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
+            //
+            // if (stability == 0) {
+            //     factor = @min(factor * 1.2, 1.5);
+            // }
+            const stability_idx = @min(stability, tp.tm_stability_scale.len - 1);
+            var factor: f32 = tp.tm_stability_scale[stability_idx];
 
             if (score - prev_score > tp.aspiration_window) {
                 factor *= 1.3;
             } else if (prev_score - score > tp.aspiration_window) {
                 factor *= 1.5;
             }
+
+            if (outer_depth >= tp.tm_nodetm_min_depth and bm.toU32() != 0 and self.nodes > 0) {
+                const bm_nodes = self.root_node_counts[bm.start_square][bm.end_square];
+                const bm_frac = @as(f32, @floatFromInt(bm_nodes)) / @as(f32, @floatFromInt(self.nodes));
+                factor *= std.math.clamp((tp.tm_nodetm_base - bm_frac) * tp.tm_nodetm_mul, 0.55, 1.80);
+            }
+
+            factor = std.math.clamp(factor, 0.35, 2.75);
 
             prev_score = score;
             self.search_score = score;
@@ -1020,6 +1036,8 @@ pub const Searcher = struct {
                 self.moved_piece_history[self.ply] = .{ .piece = .None, .color = .White };
             }
 
+            const nodes_before_move: u64 = if (is_root) self.nodes else 0;
+
             self.ply += 1;
 
             mvs.makeMove(board, move);
@@ -1098,6 +1116,10 @@ pub const Searcher = struct {
 
             self.ply -= 1;
             mvs.undoMove(board, move);
+
+            if (is_root) {
+                self.root_node_counts[move.start_square][move.end_square] += self.nodes - nodes_before_move;
+            }
 
             if (self.time_stop) {
                 return 0;
