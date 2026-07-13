@@ -168,13 +168,16 @@ pub const Searcher = struct {
             if (self.nodes >= soft_limit) return true;
         }
         const thinking = @atomicLoad(bool, &self.force_think, .acquire);
-        const scaled_ideal_ms = if (self.ideal_ms == std.math.maxInt(u64))
+        const soft_limit_ms = if (self.ideal_ms == std.math.maxInt(u64))
             std.math.maxInt(u64)
-        else
-            @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor));
+            else
+            @min(
+            @as(u64, @intFromFloat(@as(f32, @floatFromInt(self.ideal_ms)) * factor)),
+            self.max_ms,
+        );
         return self.thread_id == 0 and
-            ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
-                (!thinking and self.timer.read() / std.time.ns_per_ms >= @min(self.ideal_ms, scaled_ideal_ms)));
+    ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
+    (!thinking and self.timer.read() / std.time.ns_per_ms >= soft_limit_ms));
     }
 
     const ThreadContext = struct {
