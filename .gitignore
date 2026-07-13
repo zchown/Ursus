@@ -3,6 +3,7 @@ zig-cache/
 zig-out/
 .zig-cache/
 
+*.py
 spsa*
 notes.typ
 patches.md
