@@ -839,12 +839,6 @@ pub const UciProtocol = struct {
                 if (increment < 200) break :blk @as(u64, 30);
                 break :blk @as(u64, 25);
             };
-            // if (self.tt_table.getFillPermill() > 800) {
-            //     moves_remaining -= 5;
-            // } else if (self.tt_table.getFillPermill() < 200) {
-            //     moves_remaining += 5;
-            // }
-            //
             const total_time = safe_time + (increment * (moves_remaining - 1));
             const base_time = total_time / moves_remaining;
             var ideal_ms = @min(base_time * 9 / 10, safe_time -| 50);
@@ -855,7 +849,7 @@ pub const UciProtocol = struct {
             return .{
                 .max_ms = @max(max_ms, 1),
                 .ideal_ms = @max(ideal_ms, 1),
-            };
+           };
         }
         return .{ .max_ms = std.math.maxInt(u64), .ideal_ms = std.math.maxInt(u64) };
     }
