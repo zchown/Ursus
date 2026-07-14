@@ -725,10 +725,10 @@ pub const Searcher = struct {
         if (self.ply > 0) {
             last_move = self.move_history[self.ply - 1];
         }
-        var last_last_last_move = mvs.EncodedMove.fromU32(0);
-        if (self.ply > 2) {
-            last_last_last_move = self.move_history[self.ply - 3];
-        }
+        // var last_last_last_move = mvs.EncodedMove.fromU32(0);
+        // if (self.ply > 2) {
+        //     last_last_last_move = self.move_history[self.ply - 3];
+        // }
 
         if (depth >= 3 and !in_check and !tt_hit and self.excluded_moves[self.ply].toU32() == 0 and (on_pv or cutnode)) {
             var r = @divTrunc(depth, 4);
