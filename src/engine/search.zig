@@ -920,7 +920,7 @@ pub const Searcher = struct {
             }
 
             const is_capture = move.capture == 1;
-            const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
+            // const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
 
             if (!is_root and i > 1 and !in_check and !on_pv) {
                 var lmp_threshold: usize = tp.lmp_base + depth * tp.lmp_mul;
@@ -945,7 +945,7 @@ pub const Searcher = struct {
                 other_count += 1;
             }
 
-            const is_important = is_killer or (move.promoted_piece == @intFromEnum(brd.Pieces.Queen));
+            const is_important = (move.promoted_piece == @intFromEnum(brd.Pieces.Queen));
 
             if (skip_quiet and !is_capture and !is_important) {
                 continue;
