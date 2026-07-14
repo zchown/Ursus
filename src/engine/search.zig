@@ -1162,7 +1162,7 @@ pub const Searcher = struct {
             hist.updateQuietHistory(self, color, best_move, &quiet_moves, is_null, depth);
         }
 
-        if (alpha >= beta and best_move.capture == 1) {
+        if (alpha >= beta) {
             hist.updateCaptureHistory(self, board, color, best_move, &other_moves, depth);
         }
 
