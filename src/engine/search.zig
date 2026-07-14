@@ -1003,9 +1003,9 @@ pub const Searcher = struct {
                     extension = 1;
             
                     // double extension
-                    if (on_pv and depth >= 7 and singular_score < singular_beta - tp.se_double_threshold) {
-                        extension = 2;
-                    }
+                    // if (on_pv and depth >= 7 and singular_score < singular_beta - tp.se_double_threshold) {
+                    //     extension = 2;
+                    // }
                 } 
                 else if (singular_beta >= beta) {
                     return singular_beta;
