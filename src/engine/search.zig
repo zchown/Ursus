@@ -619,12 +619,6 @@ pub const Searcher = struct {
             tt_is_pv = e.is_pv;
             tt_static_eval_valid = e.static_eval_valid;
 
-            if (tt_eval > eval.mate_score - 256 and tt_eval <= eval.mate_score) {
-                tt_eval -= @as(i32, @intCast(self.ply));
-            } else if (tt_eval < -eval.mate_score + 256 and tt_eval >= -eval.mate_score) {
-                tt_eval += @as(i32, @intCast(self.ply));
-            }
-
             hash_move = e.move;
 
             if (is_root) {
@@ -988,32 +982,6 @@ pub const Searcher = struct {
             var extension: i32 = 0;
 
             // Singular Extensions, also double and triple
-            // if (!is_root and depth >= 6 and tt_hit and entry.?.flag != tt.EstimationType.Over and !eval.almostMate(tt_eval) and move.matchesTTKey(hash_move) and entry.?.depth >= depth - 3 and move_list.len >= 2) {
-            //     const margin: i32 = @as(i32, @intCast(depth)) * 2;
-            //     const singular_beta = @max(tt_eval - margin, -eval.mate_score + 256);
-            //
-            //     self.excluded_moves[self.ply] = hash_move;
-            //
-            //     const r = @divTrunc(@as(i32, @intCast(depth)) - 1, 2);
-            //     const singular_depth = @max(r, 1);
-            //     const singular_score = self.negamax(board, color, singular_depth, singular_beta - 1, singular_beta, false, NodeType.NonPV, cutnode);
-            //     self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
-            //
-            //     if (singular_score < singular_beta) {
-            //         extension = 1;
-            //
-            //         // double extension
-            //         if (on_pv and depth >= 7 and singular_score < singular_beta - tp.se_double_threshold) {
-            //             extension = 2;
-            //         }
-            //     } else if (singular_beta >= beta) {
-            //         return singular_beta;
-            //     } else if (cutnode) {
-            //         extension = -1;
-            //     } else if (static_eval >= beta) {
-            //         extension = -2;
-            //     }
-            // }
 
             if (!is_root and self.ply <= depth and hash_move.capture == 0) {
                 if (is_capture and last_move.capture == 1 and move.end_square == last_move.end_square) {
