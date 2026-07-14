@@ -1015,7 +1015,7 @@ pub const Searcher = struct {
             //     }
             // }
 
-            if (!is_root and self.ply <= depth and hash_move.capture == 0) {
+            if (!is_root and self.ply <= depth) {
                 if (is_capture and last_move.capture == 1 and move.end_square == last_move.end_square) {
                     extension += 1;
                 } else if (is_capture and self.ply >= 3 and last_last_last_move.capture == 1 and
