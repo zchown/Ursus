@@ -127,6 +127,7 @@ pub const UciProtocol = struct {
     is_pondering: bool = false,
     ponder_limits: SearchLimits = .{},
     ponder_side: brd.Color = .White,
+    game_ply: u32 = 0,
 
     pub fn init(a: std.mem.Allocator) !*UciProtocol {
         const protocol = try a.create(UciProtocol);
@@ -154,6 +155,7 @@ pub const UciProtocol = struct {
 
         protocol.tt_table = try tt.TranspositionTable.init(a, protocol.hash_size_mb);
         searcher_ptr.tt_table = &protocol.tt_table;
+        protocol.game_ply = 0;
 
         srch.quiet_lmr = srch.initQuietLMR();
         srch.noisy_lmr = srch.initNoisyLMR();
@@ -746,6 +748,7 @@ pub const UciProtocol = struct {
                         return;
                     };
                     mvs.makeMove(&self.board, move);
+                    self.game_ply += 1;
                 }
             }
         } else if (std.mem.eql(u8, args[0], "fen")) {
@@ -763,6 +766,15 @@ pub const UciProtocol = struct {
             try fen.parseFEN(&self.board, fen_str);
             self.board.refreshNNUE();
 
+            self.game_ply = 0;
+            if (fen_parts.items.len >= 6) {
+                const fullmove = std.fmt.parseInt(u32, fen_parts.items[5], 10) catch 1;
+                self.game_ply = (fullmove -| 1) *| 2;
+            }
+            if (fen_parts.items.len >= 2 and std.mem.eql(u8, fen_parts.items[1], "b")) {
+                self.game_ply += 1;
+            }
+
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
                 j += 1;
                 for (args[j..]) |move_str| {
@@ -773,6 +785,7 @@ pub const UciProtocol = struct {
                         return;
                     };
                     mvs.makeMove(&self.board, move);
+                    self.game_ply += 1;
                 }
             }
         } else {
@@ -822,7 +835,6 @@ pub const UciProtocol = struct {
     }
 
     fn calculateTimeAllocation(self: *const UciProtocol, limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {
-        _ = self;
         if (limits.movetime) |mt| {
             return .{ .max_ms = mt, .ideal_ms = mt };
         }
@@ -834,10 +846,20 @@ pub const UciProtocol = struct {
         if (our_time) |time| {
             const safe_time = time -| move_overhead;
             const increment = our_inc orelse 0;
-            const moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else blk: {
-                if (increment == 0) break :blk @as(u64, 35);
-                if (increment < 200) break :blk @as(u64, 30);
-                break :blk @as(u64, 25);
+            // const moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else blk: {
+            //     if (increment == 0) break :blk @as(u64, 35);
+            //     if (increment < 200) break :blk @as(u64, 30);
+            //     break :blk @as(u64, 25);
+            // };
+                        const moves_remaining: u64 = if (limits.movestogo) |mtg| @max(mtg, 1) else blk: {
+                var horizon: u64 = 35;
+                if (increment >= 200) {
+                    horizon = 25;
+                } else if (increment > 0) {
+                    horizon = 30;
+                }
+                horizon = @max(horizon -| (self.game_ply / tp.tm_horizon_div), tp.tm_horizon_min);
+                break :blk horizon;
             };
             // if (self.tt_table.getFillPermill() > 800) {
             //     moves_remaining -= 5;
