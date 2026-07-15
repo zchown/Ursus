@@ -988,7 +988,7 @@ pub const Searcher = struct {
             tt_hit and
             hash_move.toU32() != 0 and
             move.matchesTTKey(hash_move) and
-            tt_depth + 4 >= depth and
+            tt_depth + 3 >= depth and
         (tt_e_flag == .Under or tt_e_flag == .Exact) and
             tt_eval < eval.mate_score - 256 and
             tt_eval > -eval.mate_score + 256)
