@@ -996,7 +996,7 @@ pub const Searcher = struct {
                 const s_depth: usize = (depth - 1) / 2;
 
                 self.excluded_moves[self.ply] = move;
-                const s_score = self.negamax(board, color, s_depth, s_beta - 1, s_beta, false, NodeType.NonPV, cutnode);
+                const s_score = self.negamax(board, color, s_depth, s_beta - 1, s_beta, false, NodeType.NonPV, true);
                 self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
 
                 if (self.time_stop) return 0;

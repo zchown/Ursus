@@ -34,8 +34,8 @@ pub var lmr_noisy_div: i32 = 332;
 pub var lmr_pv_min: usize = 3;
 pub var lmr_non_pv_min: usize = 1;
 
-pub var se_margin: i32 = 200;
-pub var se_min_depth: usize = 9;
+pub var se_margin: i32 = 300;
+pub var se_min_depth: usize = 8;
 
 pub var history_div: i32 = 4107;
 
