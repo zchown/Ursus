@@ -988,7 +988,7 @@ pub const Searcher = struct {
             tt_hit and
             hash_move.toU32() != 0 and
             move.matchesTTKey(hash_move) and
-            tt_depth + 3 >= depth and
+            tt_depth + 4 >= depth and
             (tt_e_flag == .Under or tt_e_flag == .Exact) and
             tt_eval < eval.mate_score - 256 and
             tt_eval > -eval.mate_score + 256) {
@@ -996,7 +996,7 @@ pub const Searcher = struct {
                 const s_depth: usize = (depth - 1) / 2;
 
                 self.excluded_moves[self.ply] = move;
-                const s_score = self.negamax(board, color, s_depth, s_beta - 1, s_beta, false, NodeType.NonPV, true);
+                const s_score = self.negamax(board, color, s_depth, s_beta - 1, s_beta, false, NodeType.NonPV, cutnode);
                 self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
 
                 if (self.time_stop) return 0;
