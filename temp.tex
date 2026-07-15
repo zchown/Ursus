@@ -1,0 +1,286 @@
+% ============================================================================
+% paper_body.tex — everything after the Introduction.
+%   §2  Constructing objective-specific demand maps   <- WRITTEN (uses Fig. 1)
+%   §3  A taxonomy of demand                           <- SKETCH (Table 2)
+%   §4  Different demand, different constellations      <- SKETCH (Figs. 2-3)
+%   §5  Toward first-class demand modeling (agenda)     <- SKETCH
+%   §6  Related work                                    <- SKETCH
+%   §7  Conclusion                                      <- SKETCH
+%
+% Numbers below are from the live pipeline today (1,500 metros >=300k pop,
+% 72x144 equal-area grid). population/gdp/road are REAL fetched data.
+% nightlight is the PROXY (no VIIRS raster supplied) — see the boxed caveat
+% in §2. Recompute nightlight-dependent numbers once the real raster is in.
+%
+% Figure asset: fig1_demand_signals.pdf (place in your figs/ dir).
+% ============================================================================
+
+\section{Constructing objective-specific demand maps}
+\label{sec:signals}
+
+If demand is part of the specification, then the first practical question is
+whether objective-specific demand maps are actually \emph{different}
+maps---or whether, once gridded and normalized, they collapse into
+lightly-reweighted versions of the same population surface. This section
+builds four such maps from independent public signals and shows they are
+not.
+
+\paragraph{A common substrate.}
+All four maps share one spatial substrate so that any difference between
+them comes from the signal, not the tessellation. We bin the Earth into an
+equal-area grid of $n_{\text{lat}}\times n_{\text{lon}}$ cells, uniform in
+$\sin(\text{latitude})$ so that a degree of longitude near the pole does not
+over-count relative to one at the equator.\footnote{A uniform lat/lon grid
+over-weights high-latitude cells; binning uniformly in $\sin(\text{lat})$
+carves cells of approximately equal physical area. This is an
+implementation detail, not a contribution, but it matters: an unequal-area
+grid silently biases every demand centroid poleward.} Onto this grid we
+place \todo{$N$; today 1{,}500} metros of population $\ge$\,\todo{300k} from
+GeoNames, each carrying population, per-capita GDP (World Bank), a nighttime
+radiance sample, and a road-network-reach value. Each demand model is then a
+function from this metro table to a per-cell weight; every value in the
+pipeline is tagged with its provenance (fetched vs.\ proxied) so a reader
+can see exactly which numbers are real signal and which are placeholders.
+
+\paragraph{Four signals, four objectives.}
+Figure~\ref{fig:signals} shows the four maps. Each targets a different
+objective, and---crucially---each is built from a signal that is
+\emph{independent} of the others rather than a transform of population:
+
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt]
+  \item \textbf{Population} (universal broadband): weight $\propto$ people.
+        The baseline every other map is measured against.
+  \item \textbf{GDP} (economically weighted capacity): weight $\propto$
+        population $\times$ per-capita GDP, a proxy for traffic that tracks
+        spending power. Appropriate for backbone backup and inter-metro
+        long-haul, where the customers are the world's economic centers.
+  \item \textbf{Nightlight gap} (underserved / under-electrified): weight
+        $\propto$ population $\times\,(1-\text{rank}(\text{radiance}))$, so
+        weight moves to places that are populated but \emph{dark} at
+        night---a proxy for regions terrestrial infrastructure has
+        under-served.
+  \item \textbf{Road gap} (rural / terrestrial-access gap): weight
+        $\propto$ population $\times\,(1-\text{rank}(\text{road km within
+        60\,km}))$, so weight moves to populated places with little nearby
+        road network. Roads correlate with terrestrial ISP build-out, so
+        ``people, but no roads'' is a direct signal that satellite is the
+        only realistic option.
+\end{itemize}
+
+The last two maps share a template worth stating explicitly:
+\emph{population minus terrestrial-infrastructure reach}, instantiated with
+two \emph{independent} proxies for that reach (nighttime light and road
+density). This is the map several LSN papers gesture at when they invoke the
+``millions of unconnected users'' but do not build; here it is concrete.
+
+\paragraph{The maps genuinely diverge.}
+Table~\ref{tab:divergence} quantifies the pairwise disagreement. Even though
+all four maps are restricted to the \emph{same} metros---so these numbers
+are a conservative floor; adding genuinely rural, sub-metro demand points
+would only widen the gap---the objective-specific maps are far from
+interchangeable. The GDP map and the road-gap map, the two extremes, have a
+Spearman rank correlation of only \todo{0.28}, their 100 highest-demand
+cells overlap by a Jaccard index of just \todo{0.21}, and their
+demand-weighted centroids sit roughly \todo{2{,}900\,km} apart---one pulled
+toward wealthy northern metros, the other toward populous but road-poor
+regions nearer the equator. The maps also differ in \emph{shape}: the GDP
+map concentrates \todo{20}\% of its total weight in its top 1\% of cells,
+while the two gap maps spread weight far more evenly
+(\todo{8--12}\%)---exactly the behavior you would want from a map meant to
+represent diffuse, underserved demand rather than a handful of megacities.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figs/fig1_demand_signals.pdf}
+  \caption{Four objective-specific demand maps on a common equal-area grid,
+  built from independent public signals. Marker size and color encode
+  normalized per-cell demand; the red $\times$ is each map's demand-weighted
+  centroid. The maps place weight in visibly different
+  places---economic-center-heavy (GDP) versus dispersed and
+  equatorward (road gap)---despite sharing an identical set of metros.
+  \todo{Panel (c) uses a population$\times$wealth \emph{proxy} for
+  nightlight; replace with the real VIIRS \texttt{avg\_rade9h} raster before
+  submission (see text).}}
+  \label{fig:signals}
+\end{figure*}
+
+\begin{table}[t]
+  \centering\small
+  \caption{Pairwise divergence across the four maps (union of nonzero
+  cells). Low correlation, low top-100 overlap, and large centroid
+  separation all say the same thing: these are different maps.
+  \todo{Regenerate the nightlight rows with the real VIIRS raster.}}
+  \label{tab:divergence}
+  \begin{tabular}{lccc}
+    \toprule
+    map pair & Spearman $\rho$ & top-100 Jaccard & centroid dist. \\
+    \midrule
+    population -- gdp            & 0.57 & 0.40 & 1{,}767\,km \\
+    population -- road gap       & 0.82 & 0.52 & 1{,}187\,km \\
+    gdp -- road gap              & \textbf{0.28} & \textbf{0.21} & \textbf{2{,}954\,km} \\
+    \addlinespace
+    population -- nightlight\,$\dagger$ & 0.96 & 0.68 & 868\,km \\
+    gdp -- nightlight\,$\dagger$        & 0.36 & 0.30 & 2{,}611\,km \\
+    road gap -- nightlight\,$\dagger$   & 0.85 & 0.49 & 404\,km \\
+    \bottomrule
+  \end{tabular}
+  \\[2pt]
+  {\footnotesize $\dagger$ proxy nightlight; provisional (see caveat).}
+\end{table}
+
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+% CAVEAT — READ BEFORE SUBMITTING. The nightlight column in this run is the
+% pipeline's population x wealth PROXY, because no VIIRS raster was supplied.
+% Consequence: nightlight correlates 0.96 with population *by construction*,
+% which UNDERSELLS the thesis (it makes one of your four maps look redundant).
+% Do NOT feature panel (c) or quote any nightlight number until you drop in
+% the real raster:
+%     python make_demand_map.py --model nightlight_gap \
+%         --nightlight-raster <...>.avg_rade9h.tif --out fig1c.png
+% With real radiance, nightlight_gap should DIVERGE from population (dark-but-
+% populated regions up-weighted). The gdp--road_gap row is proxy-free and is
+% your safe headline tonight. Upload the .tif here and I'll regenerate Fig.1.
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+% ==========================================================================
+\section{A taxonomy of demand}       % ===== SKETCH =====
+\label{sec:taxonomy}
+% GOAL (~0.75 pp): make the scenario->demand mapping from the intro
+% systematic, and show each objective needs its own signal(s) and, sometimes,
+% its own *representation* (point vs. pair/transit).
+
+% Opening move: a demand model has three parts a paper should have to state
+% — WHERE (spatial support), HOW MUCH (weighting), and WHEN (temporal
+% structure). Most published models declare only the first two, implicitly.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Objectives induce demand models. Each row is a distinct notion of
+  demand with distinct data sources; the ``rep.'' column flags whether the
+  objective needs point demand or pair/transit demand — a representational
+  fork most single-map pipelines cannot express. \todo{fill/verify}}
+  \label{tab:taxonomy}
+  \begin{tabular}{llll}
+    \toprule
+    objective & signal / proxy & data source & rep. \\
+    \midrule
+    universal broadband   & population            & GeoNames/WorldPop      & point \\
+    econ.\ capacity       & pop $\times$ GDPpc    & World Bank             & point \\
+    rural / underserved   & pop $-$ infra reach   & VIIRS, roads (OSM)     & point \\
+    backbone augment.     & cable topology        & TeleGeography          & pair  \\
+    low-latency long-haul & metro--metro geometry & pop centers + gt-circle & pair \\
+    disaster response     & outage history        & IODA, news, \todo{}    & point(t) \\
+    maritime / aviation   & lane / corridor density & AIS, ADS-B           & point(t) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% Body (2-3 short paras):
+%  - Walk 2-3 rows to show the induced model really differs, using Fig. 1 as
+%    the worked example for the point-demand rows (broadband/econ/rural).
+%  - The representational fork: backbone & long-haul are PAIR demand. Point
+%    maps can't say "traffic FROM region A TO region B." Flag this as the
+%    honest boundary of what Fig.1-style maps do, and forward-ref §5. (This
+%    is also the clean answer to Ram's "econ vs long-haul?" question: econ =
+%    where capacity terminates (point); long-haul = which pairs it connects.)
+%  - Temporal column: disaster/maritime/aviation carry a WHEN that none of
+%    our four static maps encode. Name it as a gap, not a solved thing.
+% Punchline sentence: "No single map serves two rows of this table; that is
+% the taxonomy's whole content."
+
+
+% ==========================================================================
+\section{Different demand, different constellations}   % ===== SKETCH =====
+\label{sec:crosseval}
+% GOAL (~1.5 pp): the empirical payoff. Same synthesizer, only the demand map
+% changes -> constellations don't transfer. This is the "money" section.
+
+% --- Setup paragraph (state the controlled-variable discipline up front) ---
+% Same framework for every run: matching-pursuit selection of repeat-ground-
+% track orbits (TinyLEO), SAME satellite budget N, SAME altitude limits, SAME
+% launch/inclination constraints. The ONLY thing that changes between runs is
+% the demand map fed in. No SS-orbits (deliberately — avoids a reviewer
+% detour into whether SS-orbits are valid; cite TinyLEO's RGT machinery and
+% move on). Normalize every map to equal total demand and synthesize to a
+% fixed budget N, reporting % demand satisfied — otherwise satellite counts
+% aren't comparable (this is the "balancing/weighting" fix).
+
+\begin{figure}[t]\centering
+  % \includegraphics[width=\columnwidth]{figs/fig2_crosseval.pdf}
+  \fbox{\parbox{0.9\columnwidth}{\centering\vspace{3em}
+  \textbf{Fig().~2 (TODO): cross-evaluation heatmap.}\\[2pt]
+  rows = demand model synthesized for; cols = demand model evaluated
+  against; cell = \% demand met at fixed budget $N$. Diagonal should
+  dominate.\vspace{3em}}}
+  \caption{A constellation serves the demand it was built for and
+  under-serves the rest. \todo{generate from synthesis runs}}
+  \label{fig:crosseval}
+\end{figure}
+
+% --- Result paragraph ---
+% Read Fig. 2: strong diagonal, off-diagonal as low as \todo{Y}%. State the
+% single headline number (worst off-diagonal transfer) in the first sentence.
+
+% --- Orbital-structure paragraph + Fig. 3 (inclination/RAAN per objective) --
+% Per Ram: the orbital differences are EVIDENCE for the thesis, not the
+% contribution. Explain physically: rural/road-gap spreads planes across
+% low-latitude land masses; GDP concentrates over northern mid-latitudes;
+% etc. Report inclination, altitude, sats/plane per run in a small table.
+
+% --- Guardrail paragraph (answer Chris's "of course it specializes") ---
+% Pre-empt head-on: yes, tailored designs are supposed to fit their targets;
+% specialization working is the MECHANISM, not a rebuttal. Because it works:
+% (a) an evaluation claiming objective O but optimizing demand D!=O has not
+% established what it claims; (b) reported comparisons are demand-conditional.
+% [If the ranking-flip experiment lands, its figure goes here as the sharpest
+% form of (b): the "best" design inverts when the demand map changes.]
+
+
+% ==========================================================================
+\section{Toward first-class demand modeling}          % ===== SKETCH =====
+\label{sec:agenda}
+% GOAL (~0.75 pp): the perspective-paper payload — open problems. Keep each
+% to 2-3 sentences; this is an agenda, not a solution.
+
+% (1) Transit demand without artificial nodes. Backbone/long-haul are pair
+%     demand, but LSN users aren't nodes. How to define endpoints for a
+%     gravity-style pair model over a diffuse client population? (Directly
+%     picks up the §3 representational fork.)
+% (2) Temporal structure. Sector-dependent diurnal patterns (education vs
+%     agriculture vs transport); disaster as transient spikes. Demand as a
+%     spatiotemporal field, not a static map. (Ties to the "and when" in the
+%     intro's demand-model definition.)
+% (3) Validation without ground truth. The populations that motivate LSNs
+%     generate no measurable traffic today, so maps can't be checked against
+%     observation. What does falsification even look like? (cross-proxy
+%     agreement; natural experiments when new coverage arrives; sensitivity.)
+% (4) Fusion & provenance. Corporate filings, day-side RF observation, AIS,
+%     ADS-B, cable-landing topology, outage histories — combined WITH the
+%     provenance discipline from §2 so a map's real-vs-proxied composition is
+%     legible.
+% (5) A benchmark. A public suite of objective-LABELED demand maps, so papers
+%     report per-objective results against declared demand instead of one
+%     unlabeled number. (This operationalizes the whole thesis; our four maps
+%     + pipeline are a first seed, released with the paper.)
+
+
+% ==========================================================================
+\section{Related work}                                % ===== SKETCH =====
+\label{sec:related}
+% ~0.4 pp, three clusters:
+%  - LSN design/synthesis: TinyLEO, MegaReduce, SS-Plane; simulators
+%    (Hypatia, StarPerf-style). How each represents demand -> our critique.
+%  - Terrestrial demand modeling: traffic matrices, gravity models — and why
+%    they don't port (no nodes; the unconnected have no "before" traffic).
+%  - Connectivity / digital-divide mapping: nightlights literature, Ookla,
+%    ITU/GSMA coverage. We reuse these as SIGNALS but for a new purpose.
+
+
+% ==========================================================================
+\section{Conclusion}                                  % ===== SKETCH =====
+\label{sec:conclusion}
+% 2-3 sentences. Restate: demand is part of the specification; an "optimal"
+% constellation without a declared demand model is ill-posed. The ask:
+% declare your demand model the way you declare topology and workload. Point
+% at the released maps + benchmark seed as the way to start doing so.
