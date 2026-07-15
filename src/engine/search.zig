@@ -981,7 +981,31 @@ pub const Searcher = struct {
 
             var extension: i32 = 0;
 
-            // Singular Extensions, also double and triple
+            // Singular Extensions
+            if (!is_root and
+            self.excluded_moves[self.ply].toU32() == 0 and
+            depth >= tp.se_min_depth and
+            tt_hit and
+            hash_move.toU32() != 0 and
+            move.matchesTTKey(hash_move) and
+            tt_depth + 3 >= depth and
+        (tt_e_flag == .Under or tt_e_flag == .Exact) and
+            tt_eval < eval.mate_score - 256 and
+            tt_eval > -eval.mate_score + 256)
+        {
+                const s_beta: i32 = tt_eval - @divTrunc(@as(i32, @intCast(depth)) * tp.se_margin, 100);
+                const s_depth: usize = (depth - 1) / 2;
+
+                self.excluded_moves[self.ply] = move;
+                const s_score = self.negamax(board, color, s_depth, s_beta - 1, s_beta, false, NodeType.NonPV, cutnode);
+                self.excluded_moves[self.ply] = mvs.EncodedMove.fromU32(0);
+
+                if (self.time_stop) return 0;
+
+                if (s_score < s_beta) {
+                    extension = 1;
+                }
+            }
 
             if (!is_root and self.ply <= depth and hash_move.capture == 0) {
                 if (is_capture and last_move.capture == 1 and move.end_square == last_move.end_square) {
