@@ -1136,7 +1136,6 @@ pub const Searcher = struct {
 
        if ((!skip_quiet or best_score >= beta) and self.excluded_moves[self.ply].toU32() == 0) {
             var tt_flag = tt.EstimationType.Over;
-            const truncated = skip_quiet and best_score < beta;
             if (best_score >= beta) {
                 tt_flag = tt.EstimationType.Under;
             } else if (alpha != alpha_) {
@@ -1149,7 +1148,7 @@ pub const Searcher = struct {
                     .eval = scoreToTT(best_score, self.ply),
                     .move = best_move,
                     .static_eval = raw_static_eval,
-                    .flag = if (truncated) .None else tt_flag,
+                    .flag = tt_flag,
                     .depth = @as(u8, @intCast(depth)),
                     .age = self.tt_table.getAge(),
                     .in_check = in_check,
