@@ -1006,7 +1006,7 @@ pub const Searcher = struct {
                     extension = 1;
                 }
                 else if (s_beta >= beta) {
-                    return s_beta;
+                    return s_score;
                 }
 
             }
