@@ -1007,6 +1007,9 @@ pub const Searcher = struct {
                 }
                 else if (s_beta >= beta) {
                     return s_score;
+                } 
+                else if (tt_eval >= beta) {
+                    extension = -1;
                 }
 
             }
