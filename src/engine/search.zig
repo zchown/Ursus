@@ -1004,14 +1004,13 @@ pub const Searcher = struct {
 
                 if (s_score < s_beta) {
                     extension = 1;
-                }
-                else if (s_beta >= beta) {
-                    return s_score;
-                } 
-                else if (tt_eval >= beta) {
+                } else if (s_beta >= beta) {
+                    return s_beta ; 
+                } else if (tt_eval >= beta) {
+                    extension = -2;
+                } else if (cutnode) {
                     extension = -1;
                 }
-
             }
 
             if (!is_root and self.ply <= depth and hash_move.capture == 0) {
