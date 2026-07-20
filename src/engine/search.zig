@@ -556,7 +556,7 @@ pub const Searcher = struct {
 
     pub fn negamax(self: *Searcher, board: *brd.Board, color: brd.Color, depth_: usize, alpha_: i32, beta_: i32, is_null: bool, comptime node_type: NodeType, cutnode: bool) i32 {
         var alpha = alpha_;
-        var beta = beta_;
+        const beta = beta_;
         var depth = depth_;
 
         if (self.nodes & 2047 == 0 and self.should_stop()) {
@@ -627,13 +627,13 @@ pub const Searcher = struct {
             }
 
             if (!is_null and !on_pv and !is_root and self.excluded_moves[self.ply].toU32() == 0 and e.depth >= @as(u8, @intCast(depth))) {
-                switch (e.flag) {
-                    .Exact => return tt_eval,
-                    .Under => alpha = @max(alpha, tt_eval),
-                    .Over => beta = @min(beta, tt_eval),
-                    .None => {},
-                }
-                if (alpha >= beta) {
+                const cut = switch (e.flag) {
+                    .Exact => true,
+                    .Under => tt_eval >= beta,
+                    .Over => tt_eval <= alpha,
+                    .None => false,
+                };
+                if (cut) {
                     return tt_eval;
                 }
             }
