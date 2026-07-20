@@ -1355,6 +1355,18 @@ pub const Searcher = struct {
                     alpha = best_score;
 
                     if (score >= beta) {
+                        self.tt_table.set(tt.Entry{
+                            .hash = board.game_state.zobrist,
+                            .eval = scoreToTT(best_score, self.ply),
+                            .move = best_move,
+                            .static_eval = raw_static,
+                            .flag = tt.EstimationType.Under,
+                            .depth = 0,
+                            .age = self.tt_table.getAge(),
+                            .in_check = in_check,
+                            .is_pv = false,
+                            .static_eval_valid = !in_check,
+                        });
                         return beta;
                     }
                 }
