@@ -11,6 +11,7 @@ const tb = @import("tb");
 
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
+pub const eval_none: i32 = std.math.minInt(i32);
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 
@@ -622,7 +623,6 @@ pub const Searcher = struct {
             hash_move = e.move;
 
             if (is_root) {
-                self.best_move = hash_move;
                 self.best_move_score = tt_eval;
             }
 
@@ -691,27 +691,35 @@ pub const Searcher = struct {
 
         var static_eval: i32 = undefined;
         var raw_static_eval: i32 = 0;
+
         if (in_check) {
             static_eval = -eval.mate_score + @as(i32, @intCast(self.ply));
+            self.eval_history[self.ply] = eval_none;
+        } else if (self.excluded_moves[self.ply].toU32() != 0) {
+            static_eval = self.eval_history[self.ply];
         } else if (tt_hit and tt_static_eval_valid) {
-            // Only reuse the stored static eval when it was produced by a real
-            // NNUE call. TB entries store 0 as a placeholder, so static_eval_valid
-            // guards us against silently using that as a real evaluation.
             raw_static_eval = tt_static_eval;
             static_eval = raw_static_eval + hist.getCorrection(self, color, board);
-        } else if (self.excluded_moves[self.ply].toU32() != 0) {
-            raw_static_eval = self.eval_history[self.ply];
-            static_eval = raw_static_eval + hist.getCorrection(self, color, board);
+            self.eval_history[self.ply] = static_eval;
         } else {
             raw_static_eval = board.evaluateNNUE();
             static_eval = raw_static_eval + hist.getCorrection(self, color, board);
+            self.eval_history[self.ply] = static_eval;
         }
 
         var best_score: i32 = static_eval;
+        
+        var improving = false;
+        if (!in_check) {
+            if (self.ply >= 2 and self.eval_history[self.ply - 2] != eval_none) {
+                improving = static_eval > self.eval_history[self.ply - 2];
+            } else if (self.ply >= 4 and self.eval_history[self.ply - 4] != eval_none) {
+                improving = static_eval > self.eval_history[self.ply - 4];
+            } else {
+                improving = false;
+            }
+        }
 
-        self.eval_history[self.ply] = raw_static_eval;
-
-        const improving: bool = !in_check and self.ply >= 2 and static_eval > self.eval_history[self.ply - 2];
 
         const has_non_pawns = board.hasNonPawnMaterial(color);
 
@@ -724,7 +732,7 @@ pub const Searcher = struct {
             last_last_last_move = self.move_history[self.ply - 3];
         }
 
-        if (depth >= 3 and !in_check and !tt_hit and self.excluded_moves[self.ply].toU32() == 0 and (on_pv or cutnode)) {
+        if (depth >= 3 and !in_check and hash_move.toU32() == 0 and self.excluded_moves[self.ply].toU32() == 0 and (on_pv or cutnode)) {
             var r = @divTrunc(depth, 4);
             if (r < 1) {
                 r = 1;
@@ -885,7 +893,7 @@ pub const Searcher = struct {
                         .hash = board.game_state.zobrist,
                         .eval = scoreToTT(score, self.ply),
                         .move = move,
-                        .static_eval = static_eval,
+                        .static_eval = raw_static_eval,
                         .flag = tt.EstimationType.Under,
                         .depth = @intCast(probcut_depth),
                         .age = self.tt_table.getAge(),
