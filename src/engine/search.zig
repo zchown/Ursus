@@ -716,7 +716,7 @@ pub const Searcher = struct {
             } else if (self.ply >= 4 and self.eval_history[self.ply - 4] != eval_none) {
                 improving = static_eval > self.eval_history[self.ply - 4];
             } else {
-                improving = false;
+                improving = true;
             }
         }
 
