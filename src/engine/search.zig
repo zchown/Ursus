@@ -623,7 +623,6 @@ pub const Searcher = struct {
             hash_move = e.move;
 
             if (is_root) {
-                self.best_move = hash_move;
                 self.best_move_score = tt_eval;
             }
 
@@ -733,7 +732,7 @@ pub const Searcher = struct {
             last_last_last_move = self.move_history[self.ply - 3];
         }
 
-        if (depth >= 3 and !in_check and !tt_hit and self.excluded_moves[self.ply].toU32() == 0 and (on_pv or cutnode)) {
+        if (depth >= 3 and !in_check and hash_move.toU32() == 0 and self.excluded_moves[self.ply].toU32() == 0 and (on_pv or cutnode)) {
             var r = @divTrunc(depth, 4);
             if (r < 1) {
                 r = 1;
@@ -894,7 +893,7 @@ pub const Searcher = struct {
                         .hash = board.game_state.zobrist,
                         .eval = scoreToTT(score, self.ply),
                         .move = move,
-                        .static_eval = static_eval,
+                        .static_eval = raw_static_eval,
                         .flag = tt.EstimationType.Under,
                         .depth = @intCast(probcut_depth),
                         .age = self.tt_table.getAge(),
