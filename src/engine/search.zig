@@ -1013,8 +1013,8 @@ pub const Searcher = struct {
                 if (s_score < s_beta) {
                     extension = 1;
                 }
-                else if (tt_eval >= beta and !on_pv) {
-                    extension = -2;
+                else if (s_beta >= beta and !on_pv) {
+                    extension = -1;
                 }
             }
 
