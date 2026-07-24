@@ -1013,7 +1013,7 @@ pub const Searcher = struct {
                 if (s_score < s_beta) {
                     extension = 1;
                 }
-                else if (s_score >= beta) {
+                else if (s_score >= beta and !on_pv) {
                     extension = -1;
                 }
             }
