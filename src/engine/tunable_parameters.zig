@@ -35,7 +35,7 @@ pub var lmr_pv_min: usize = 3;
 pub var lmr_non_pv_min: usize = 1;
 
 pub const se_min_depth: usize = 7;
-pub const se_margin: i32 = 300;
+pub const se_margin: i32 = 200;
 
 pub var history_div: i32 = 4107;
 
