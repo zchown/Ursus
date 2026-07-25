@@ -220,6 +220,8 @@ pub const UciProtocol = struct {
             try self.printBoard();
         } else if (std.mem.eql(u8, commandName, "datagen")) {
             try self.handleDatagen(args);
+        } else if (std.mem.eql(u8, commandName, "genfens")) {
+            try self.handleGenFens(args);
         } else if (std.mem.eql(u8, commandName, "eval")) {
             const eval_score = self.board.evaluateNNUE();
             try respond(try std.fmt.allocPrint(self.allocator, "Evaluation: {d}", .{eval_score}));
@@ -803,6 +805,12 @@ pub const UciProtocol = struct {
         _ = self;
         const config = datagen.parseCommand(args);
         try datagen.run(config);
+    }
+
+    fn handleGenFens(self: *UciProtocol, args: [][]const u8) !void {
+        _ = self;
+        const config = datagen.parseGenfensCommand(args);
+        try datagen.runGenfens(config);
     }
 
     pub fn sendInfo(self: *UciProtocol, comptime fmt: []const u8, args: anytype) !void {
