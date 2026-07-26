@@ -132,7 +132,7 @@ pub const NetworkWeights = struct {
     out_biases: [NUM_OUTPUT_BUCKETS]i16,
 };
 
-const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("q12kb8o.bin").*;
+const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("q12kb8o2.bin").*;
 var net_weights: ?*const NetworkWeights = null;
 
 pub fn initWeights() void {
