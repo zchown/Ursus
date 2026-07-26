@@ -324,6 +324,14 @@ pub const UciProtocol = struct {
         self.searcher.time_stop = false;
         tt.stop_signal.store(false, .release);
 
+        if (limits.nodes) |n| {
+            self.searcher.soft_max_nodes = n;
+            self.searcher.max_nodes = n *| 32;
+        } else {
+            self.searcher.soft_max_nodes = null;
+            self.searcher.max_nodes = null;
+        }
+
         if (limits.ponder) {
             var real_limits = limits;
             real_limits.ponder = false;
