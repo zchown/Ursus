@@ -1322,15 +1322,12 @@ pub const Searcher = struct {
         for (0..move_size) |i| {
             const move = mp.getNextBest(&move_list, &eval_list, i);
 
-            if (move.capture == 1) {
+            if (move.capture == 1 and !in_check) {
                 const see_value = eval_list[i].see_val;
 
                 if (see_value < tp.q_see_min) {
                     continue;
                 }
-
-                // var captured_piece_value: i32 = 0;
-                // captured_piece_value = see.see_values[@as(usize, @intCast(move.captured_piece))];
 
                 if (see_value < tp.q_see_margin and
                     static_eval + see_value + tp.q_delta_margin < alpha)
