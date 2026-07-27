@@ -1,7 +1,7 @@
 .{
     .name = .Ursus,
 
-    .version = "1.0.0",
+    .version = "1.0.1",
 
     .fingerprint = 0x3a14a48db81df32e,
 
