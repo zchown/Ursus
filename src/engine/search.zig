@@ -932,7 +932,7 @@ pub const Searcher = struct {
                 lmp_threshold += self.thread_id;
 
                 if (improving and !on_pv) {
-                    lmp_threshold += tp.lmp_improve;
+                    lmp_threshold += @divTrunc(tp.lmp_improve, 100);
                 }
 
                 // Prune if we have searched enough quiet moves
