@@ -626,7 +626,7 @@ pub const Searcher = struct {
                 self.best_move_score = tt_eval;
             }
 
-            if (!is_null and !on_pv and !is_root and self.excluded_moves[self.ply].toU32() == 0 and e.depth >= @as(u8, @intCast(depth))) {
+            if (!on_pv and !is_root and self.excluded_moves[self.ply].toU32() == 0 and e.depth >= @as(u8, @intCast(depth))) {
                 const cut = switch (e.flag) {
                     .Exact => true,
                     .Under => tt_eval >= beta,
@@ -880,8 +880,16 @@ pub const Searcher = struct {
 
                 var score = -self.qsearch(board, brd.flipColor(color), -probcut_beta, -probcut_beta+1);
 
+                if (self.time_stop) {
+                    return 0;
+                }
+
                 if (score >= probcut_beta) {
                     score = -self.negamax(board, brd.flipColor(color), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, true);
+                }
+
+                if (self.time_stop) {
+                    return 0;
                 }
 
                 if (score >= probcut_beta) {
