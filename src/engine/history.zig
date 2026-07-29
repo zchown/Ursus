@@ -204,7 +204,7 @@ pub fn updateCaptureHistory(
     _ = board;
     const captured_piece_idx = @as(usize, @intCast(best_move.captured_piece));
 
-    if (captured_piece_idx < 6) {
+    if (best_move.capture == 1 and captured_piece_idx < 6) {
         const bonus = @as(i32, @intCast(@min(16384, depth * depth * 16)));
         const max_cap_hist: i32 = 16384;
 
