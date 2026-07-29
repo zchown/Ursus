@@ -1021,6 +1021,9 @@ pub const Searcher = struct {
                 if (s_score < s_beta) {
                     extension = 1;
                 }
+                else if (tt_eval >= beta) {
+                    extension = -2;
+                }
             }
 
             if (!is_root and self.ply <= depth and hash_move.capture == 0) {
