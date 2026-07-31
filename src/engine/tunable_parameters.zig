@@ -21,7 +21,7 @@ pub var lmp_mul: usize = 229;
 
 pub var futility_mul: i32 = 170;
 
-pub var q_see_min: i32 = -25;
+pub var q_see_min: i32 = -144;
 pub var q_see_margin: i32 = -45;
 pub var q_delta_margin: i32 = 213;
 
@@ -34,8 +34,8 @@ pub var lmr_noisy_div: i32 = 332;
 pub var lmr_pv_min: usize = 3;
 pub var lmr_non_pv_min: usize = 1;
 
-pub const se_min_depth: usize = 7;
-pub const se_margin: i32 = 300;
+pub var se_double_threshold: i32 = 27;
+pub var se_triple_threshold: i32 = 46;
 
 pub var history_div: i32 = 4107;
 
@@ -55,10 +55,3 @@ pub var tb_probe_depth: usize = 1;
 pub var probcut_margin: i32 = 259;
 pub var probcut_improve: i32 = 1046;
 pub var probcut_min_see: i32 = 206;
-
-pub var tm_stability_scale = [_]f32{ 1.60, 1.25, 1.10, 1.00, 0.94, 0.88, 0.83, 0.78, 0.75 };
-pub var tm_nodetm_min_depth: usize = 5;
-pub var tm_nodetm_base: f32 = 1.40;
-pub var tm_nodetm_mul: f32 = 1.33;
-pub var tm_horizon_div: u64 = 5;
-pub var tm_horizon_min: u64 = 14;

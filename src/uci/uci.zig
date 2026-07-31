@@ -14,7 +14,7 @@ const tb = @import("tb");
 
 var move_overhead: u64 = 15;
 
-pub const EXPECTED_BENCH_NODES: u64 = 5213741;
+pub const EXPECTED_BENCH_NODES: u64 = 4232113;
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
@@ -127,7 +127,6 @@ pub const UciProtocol = struct {
     is_pondering: bool = false,
     ponder_limits: SearchLimits = .{},
     ponder_side: brd.Color = .White,
-    game_ply: u32 = 0,
 
     pub fn init(a: std.mem.Allocator) !*UciProtocol {
         const protocol = try a.create(UciProtocol);
@@ -155,7 +154,6 @@ pub const UciProtocol = struct {
 
         protocol.tt_table = try tt.TranspositionTable.init(a, protocol.hash_size_mb);
         searcher_ptr.tt_table = &protocol.tt_table;
-        protocol.game_ply = 0;
 
         srch.quiet_lmr = srch.initQuietLMR();
         srch.noisy_lmr = srch.initNoisyLMR();
@@ -220,8 +218,6 @@ pub const UciProtocol = struct {
             try self.printBoard();
         } else if (std.mem.eql(u8, commandName, "datagen")) {
             try self.handleDatagen(args);
-        } else if (std.mem.eql(u8, commandName, "genfens")) {
-            try self.handleGenFens(args);
         } else if (std.mem.eql(u8, commandName, "eval")) {
             const eval_score = self.board.evaluateNNUE();
             try respond(try std.fmt.allocPrint(self.allocator, "Evaluation: {d}", .{eval_score}));
@@ -269,11 +265,6 @@ pub const UciProtocol = struct {
         @atomicStore(bool, &self.is_pondering, false, .release);
     }
 
-    fn parseClockMs(s: []const u8) u64 {
-        const v = std.fmt.parseInt(i64, s, 10) catch 0;
-        return if (v > 0) @intCast(v) else 0;
-    }
-
     fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
         if (self.search_thread != null) {
             self.stopSearch();
@@ -286,31 +277,31 @@ pub const UciProtocol = struct {
             const arg = args[i];
 
             if (std.mem.eql(u8, arg, "wtime") and i + 1 < args.len) {
-                limits.wtime = parseClockMs(args[i + 1]);
+                limits.wtime = try std.fmt.parseInt(u64, args[i + 1], 10);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "btime") and i + 1 < args.len) {
-                limits.btime = parseClockMs(args[i + 1]);
+                limits.btime = try std.fmt.parseInt(u64, args[i + 1], 10);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "winc") and i + 1 < args.len) {
-                limits.winc = parseClockMs(args[i + 1]);
+                limits.winc = try std.fmt.parseInt(u64, args[i + 1], 10);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "binc") and i + 1 < args.len) {
-                limits.binc = parseClockMs(args[i + 1]);
+                limits.binc = try std.fmt.parseInt(u64, args[i + 1], 10);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "movestogo") and i + 1 < args.len) {
-                limits.movestogo = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
+                limits.movestogo = try std.fmt.parseInt(u32, args[i + 1], 10);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "depth") and i + 1 < args.len) {
-                limits.depth = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
+                limits.depth = try std.fmt.parseInt(u32, args[i + 1], 10);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "nodes") and i + 1 < args.len) {
-                limits.nodes = std.fmt.parseInt(u64, args[i + 1], 10) catch 0;
+                limits.nodes = try std.fmt.parseInt(u64, args[i + 1], 10);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "mate") and i + 1 < args.len) {
-                limits.mate = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
+                limits.mate = try std.fmt.parseInt(u32, args[i + 1], 10);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "movetime") and i + 1 < args.len) {
-                limits.movetime = std.fmt.parseInt(u64, args[i + 1], 10) catch 0;
+                limits.movetime = try std.fmt.parseInt(u64, args[i + 1], 10);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "infinite")) {
                 limits.infinite = true;
@@ -328,14 +319,6 @@ pub const UciProtocol = struct {
         self.searcher.stop = false;
         self.searcher.time_stop = false;
         tt.stop_signal.store(false, .release);
-
-        if (limits.nodes) |n| {
-            self.searcher.soft_max_nodes = n;
-            self.searcher.max_nodes = n *| 32;
-        } else {
-            self.searcher.soft_max_nodes = null;
-            self.searcher.max_nodes = null;
-        }
 
         if (limits.ponder) {
             var real_limits = limits;
@@ -763,7 +746,6 @@ pub const UciProtocol = struct {
                         return;
                     };
                     mvs.makeMove(&self.board, move);
-                    self.game_ply += 1;
                 }
             }
         } else if (std.mem.eql(u8, args[0], "fen")) {
@@ -781,15 +763,6 @@ pub const UciProtocol = struct {
             try fen.parseFEN(&self.board, fen_str);
             self.board.refreshNNUE();
 
-            self.game_ply = 0;
-            if (fen_parts.items.len >= 6) {
-                const fullmove = std.fmt.parseInt(u32, fen_parts.items[5], 10) catch 1;
-                self.game_ply = (fullmove -| 1) *| 2;
-            }
-            if (fen_parts.items.len >= 2 and std.mem.eql(u8, fen_parts.items[1], "b")) {
-                self.game_ply += 1;
-            }
-
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
                 j += 1;
                 for (args[j..]) |move_str| {
@@ -800,7 +773,6 @@ pub const UciProtocol = struct {
                         return;
                     };
                     mvs.makeMove(&self.board, move);
-                    self.game_ply += 1;
                 }
             }
         } else {
@@ -818,12 +790,6 @@ pub const UciProtocol = struct {
         _ = self;
         const config = datagen.parseCommand(args);
         try datagen.run(config);
-    }
-
-    fn handleGenFens(self: *UciProtocol, args: [][]const u8) !void {
-        _ = self;
-        const config = datagen.parseGenfensCommand(args);
-        try datagen.runGenfens(config);
     }
 
     pub fn sendInfo(self: *UciProtocol, comptime fmt: []const u8, args: anytype) !void {
@@ -856,6 +822,7 @@ pub const UciProtocol = struct {
     }
 
     fn calculateTimeAllocation(self: *const UciProtocol, limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {
+        _ = self;
         if (limits.movetime) |mt| {
             return .{ .max_ms = mt, .ideal_ms = mt };
         }
@@ -867,20 +834,10 @@ pub const UciProtocol = struct {
         if (our_time) |time| {
             const safe_time = time -| move_overhead;
             const increment = our_inc orelse 0;
-            // const moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else blk: {
-            //     if (increment == 0) break :blk @as(u64, 35);
-            //     if (increment < 200) break :blk @as(u64, 30);
-            //     break :blk @as(u64, 25);
-            // };
-                        const moves_remaining: u64 = if (limits.movestogo) |mtg| @max(mtg, 1) else blk: {
-                var horizon: u64 = 35;
-                if (increment >= 200) {
-                    horizon = 25;
-                } else if (increment > 0) {
-                    horizon = 30;
-                }
-                horizon = @max(horizon -| (self.game_ply / tp.tm_horizon_div), tp.tm_horizon_min);
-                break :blk horizon;
+            const moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else blk: {
+                if (increment == 0) break :blk @as(u64, 35);
+                if (increment < 200) break :blk @as(u64, 30);
+                break :blk @as(u64, 25);
             };
             // if (self.tt_table.getFillPermill() > 800) {
             //     moves_remaining -= 5;
