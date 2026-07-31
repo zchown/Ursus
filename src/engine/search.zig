@@ -1033,9 +1033,9 @@ pub const Searcher = struct {
                 }
             }
 
-            if (in_check) {
-                extension += 1;
-            }
+            // if (in_check) {
+            //     extension += 1;
+            // }
 
             self.move_history[self.ply] = move;
             if (board.getPieceFromSquare(move.start_square)) |p| {
