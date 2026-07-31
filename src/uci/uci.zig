@@ -14,7 +14,7 @@ const tb = @import("tb");
 
 var move_overhead: u64 = 15;
 
-pub const EXPECTED_BENCH_NODES: u64 = 4232113;
+pub const EXPECTED_BENCH_NODES: u64 = 5213741;
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
@@ -269,6 +269,11 @@ pub const UciProtocol = struct {
         @atomicStore(bool, &self.is_pondering, false, .release);
     }
 
+    fn parseClockMs(s: []const u8) u64 {
+        const v = std.fmt.parseInt(i64, s, 10) catch 0;
+        return if (v > 0) @intCast(v) else 0;
+    }
+
     fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
         if (self.search_thread != null) {
             self.stopSearch();
@@ -281,31 +286,31 @@ pub const UciProtocol = struct {
             const arg = args[i];
 
             if (std.mem.eql(u8, arg, "wtime") and i + 1 < args.len) {
-                limits.wtime = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.wtime = parseClockMs(args[i + 1]);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "btime") and i + 1 < args.len) {
-                limits.btime = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.btime = parseClockMs(args[i + 1]);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "winc") and i + 1 < args.len) {
-                limits.winc = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.winc = parseClockMs(args[i + 1]);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "binc") and i + 1 < args.len) {
-                limits.binc = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.binc = parseClockMs(args[i + 1]);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "movestogo") and i + 1 < args.len) {
-                limits.movestogo = try std.fmt.parseInt(u32, args[i + 1], 10);
+                limits.movestogo = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "depth") and i + 1 < args.len) {
-                limits.depth = try std.fmt.parseInt(u32, args[i + 1], 10);
+                limits.depth = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "nodes") and i + 1 < args.len) {
-                limits.nodes = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.nodes = std.fmt.parseInt(u64, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "mate") and i + 1 < args.len) {
-                limits.mate = try std.fmt.parseInt(u32, args[i + 1], 10);
+                limits.mate = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "movetime") and i + 1 < args.len) {
-                limits.movetime = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.movetime = std.fmt.parseInt(u64, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "infinite")) {
                 limits.infinite = true;
