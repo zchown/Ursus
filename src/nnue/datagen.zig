@@ -332,7 +332,7 @@ board: *brd.Board,
         _ = searcher.iterativeDeepening(board, null) catch return false;
         const opening_eval = searcher.best_move_score;
         const abs_eval = if (opening_eval < 0) -opening_eval else opening_eval;
-        if (abs_eval > 400) return false;
+        if (abs_eval > 600) return false;
     }
 
     game.setStartingBoard(board);
@@ -764,3 +764,197 @@ pub fn parseCommand(args: [][]const u8) DatagenConfig {
 
     return config;
 }
+
+pub const GenfensConfig = struct {
+    count: u64 = 0,
+    seed: u64 = 0,
+    book_path: ?[]const u8 = null,
+    /// Random-walk openings from the start position: uniform ply count in
+    /// [min_plies, max_plies]. Wider than the old 10 +/- 1 for more variety.
+    min_plies: u32 = 8,
+    max_plies: u32 = 12,
+    /// When a book is given, append 0..=book_extra_plies random plies on top
+    /// of the book position so repeated book lines still diverge.
+    book_extra_plies: u32 = 4,
+    /// Reject openings the engine already considers decided. 0 disables.
+    max_eval: i32 = 400,
+    /// Soft node budget for the verification search.
+    verify_nodes: u64 = 10_000,
+};
+
+pub fn parseGenfensCommand(args: [][]const u8) GenfensConfig {
+    var config = GenfensConfig{};
+
+    // Format: N seed S book X [key value]...
+    if (args.len >= 1) {
+        config.count = std.fmt.parseInt(u64, args[0], 10) catch 0;
+    }
+
+    var i: usize = 1;
+    while (i < args.len) : (i += 1) {
+        if (std.mem.eql(u8, args[i], "seed") and i + 1 < args.len) {
+            config.seed = std.fmt.parseInt(u64, args[i + 1], 10) catch 0;
+            i += 1;
+        } else if (std.mem.eql(u8, args[i], "book") and i + 1 < args.len) {
+            if (!std.ascii.eqlIgnoreCase(args[i + 1], "none")) {
+                config.book_path = args[i + 1];
+            }
+            i += 1;
+        } else if (std.mem.eql(u8, args[i], "min_plies") and i + 1 < args.len) {
+            config.min_plies = std.fmt.parseInt(u32, args[i + 1], 10) catch config.min_plies;
+            i += 1;
+        } else if (std.mem.eql(u8, args[i], "max_plies") and i + 1 < args.len) {
+            config.max_plies = std.fmt.parseInt(u32, args[i + 1], 10) catch config.max_plies;
+            i += 1;
+        } else if (std.mem.eql(u8, args[i], "book_extra_plies") and i + 1 < args.len) {
+            config.book_extra_plies = std.fmt.parseInt(u32, args[i + 1], 10) catch config.book_extra_plies;
+            i += 1;
+        } else if (std.mem.eql(u8, args[i], "max_eval") and i + 1 < args.len) {
+            config.max_eval = std.fmt.parseInt(i32, args[i + 1], 10) catch config.max_eval;
+            i += 1;
+        } else if (std.mem.eql(u8, args[i], "verify_nodes") and i + 1 < args.len) {
+            config.verify_nodes = std.fmt.parseInt(u64, args[i + 1], 10) catch config.verify_nodes;
+            i += 1;
+        }
+    }
+
+    if (config.max_plies < config.min_plies) config.max_plies = config.min_plies;
+    return config;
+}
+
+fn pickRandomLegalMove(
+    searcher: *srch.Searcher,
+    board: *brd.Board,
+    rng: *Rng,
+) ?mvs.EncodedMove {
+    var move_list = searcher.move_gen.generateMoves(board, false);
+    var legal_count: usize = 0;
+    var legal_moves: [256]mvs.EncodedMove = undefined;
+    for (move_list.items[0..move_list.len]) |move_data| {
+        mvs.makeMove(board, move_data);
+        if (!searcher.move_gen.isInCheck(board, board.justMoved())) {
+            if (legal_count < 256) {
+                legal_moves[legal_count] = move_data;
+                legal_count += 1;
+            }
+        }
+        mvs.undoMove(board, move_data);
+    }
+    if (legal_count == 0) return null;
+    return legal_moves[rng.bounded(legal_count)];
+}
+
+fn hasLegalMove(searcher: *srch.Searcher, board: *brd.Board) bool {
+    var move_list = searcher.move_gen.generateMoves(board, false);
+    for (move_list.items[0..move_list.len]) |move_data| {
+        mvs.makeMove(board, move_data);
+        const legal = !searcher.move_gen.isInCheck(board, board.justMoved());
+        mvs.undoMove(board, move_data);
+        if (legal) return true;
+    }
+    return false;
+}
+
+// Builds one candidate opening on `board`. Returns false if the candidate
+// was rejected (illegal, terminal, or too lopsided) and should be retried.
+fn buildOpening(
+    searcher: *srch.Searcher,
+    rng: *Rng,
+    config: *const GenfensConfig,
+    book: ?*const OpeningBook,
+    board: *brd.Board,
+) bool {
+    board.initInPlace();
+
+    var target_plies: u32 = 0;
+    if (book) |b| {
+        const fen = b.pick(rng);
+        fen_mod.parseFEN(board, fen) catch return false;
+        board.refreshNNUE();
+        if (config.book_extra_plies > 0) {
+            target_plies = @intCast(rng.bounded(config.book_extra_plies + 1));
+        }
+    } else {
+        fen_mod.setupStartingPosition(board);
+        const span: usize = config.max_plies - config.min_plies + 1;
+        target_plies = config.min_plies + @as(u32, @intCast(rng.bounded(span)));
+    }
+
+    for (0..target_plies) |_| {
+        const move = pickRandomLegalMove(searcher, board, rng) orelse return false;
+        mvs.makeMove(board, move);
+    }
+
+    if (board.isDraw(0)) return false;
+    if (!hasLegalMove(searcher, board)) return false;
+
+    if (config.max_eval > 0 and config.verify_nodes > 0) {
+        searcher.stop = false;
+        searcher.is_searching = true;
+        searcher.time_stop = false;
+        searcher.silent_output = true;
+        searcher.max_ms = std.math.maxInt(u64);
+        searcher.ideal_ms = std.math.maxInt(u64);
+        searcher.max_nodes = null;
+        searcher.force_think = false;
+        tt.stop_signal.store(false, .release);
+
+        searcher.soft_max_nodes = config.verify_nodes;
+        _ = searcher.iterativeDeepening(board, null) catch return false;
+        const opening_eval = searcher.best_move_score;
+        const abs_eval = if (opening_eval < 0) -opening_eval else opening_eval;
+        if (abs_eval > config.max_eval) return false;
+    }
+
+    return true;
+}
+
+pub fn runGenfens(config: GenfensConfig) !void {
+    if (config.count == 0) return;
+
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    if (!pawn_tt.pawn_tt_initialized) {
+        try pawn_tt.TranspositionTable.initGlobal(16);
+    }
+
+    var thread_tt = try tt.TranspositionTable.init(allocator, 16);
+
+    const board = try allocator.create(brd.Board);
+    var searcher = try allocator.create(srch.Searcher);
+    searcher.* = srch.Searcher{};
+    searcher.initInPlace();
+    searcher.tt_table = &thread_tt;
+    searcher.silent_output = true;
+    searcher.thread_id = 0;
+    defer searcher.deinit();
+
+    var maybe_book: ?OpeningBook = null;
+    defer if (maybe_book) |*b| b.deinit();
+    if (config.book_path) |book_path| {
+        maybe_book = try OpeningBook.load(allocator, book_path);
+    }
+    const book_ptr: ?*const OpeningBook = if (maybe_book != null) &maybe_book.? else null;
+
+    // The OB seed is in [0, 2^31); offset it so a zero seed cannot produce an
+    // all-zero xoshiro state.
+    var rng = Rng.init(config.seed +% 0x9E3779B97F4A7C15);
+
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    var produced: u64 = 0;
+    while (produced < config.count) {
+        searcher.tt_table.reset();
+        if (!buildOpening(searcher, &rng, &config, book_ptr, board)) continue;
+
+        const fen = try fen_mod.toFEN(board, allocator);
+        try stdout.print("info string genfens {s}\n", .{fen});
+        try stdout.flush();
+        produced += 1;
+    }
+}
+

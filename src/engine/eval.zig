@@ -4,8 +4,8 @@ const mvs = @import("moves");
 const zob = @import("zobrist");
 const pawn_tt = @import("pawn_tt");
 
-pub const mate_score: i32 = 888888;
-pub const tb_win_score: i32 = mate_score - 1024;
+pub const mate_score: i32 = 32000;
+pub const tb_win_score: i32 = mate_score;
 
 pub var lazy_margin: i32 = 810;
 

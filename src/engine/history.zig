@@ -205,7 +205,7 @@ pub fn updateCaptureHistory(
     const captured_piece_idx = @as(usize, @intCast(best_move.captured_piece));
 
     if (captured_piece_idx < 6) {
-        const bonus = @as(i32, @intCast(@min(1024, depth * depth * 16)));
+        const bonus = @as(i32, @intCast(@min(16384, depth * depth * 16)));
         const max_cap_hist: i32 = 16384;
 
         var attacking_piece: brd.Pieces = @enumFromInt(best_move.piece);
