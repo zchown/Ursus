@@ -740,7 +740,8 @@ pub const Searcher = struct {
             depth = depth - r;
         }
 
-        if (!in_check and !on_pv and self.excluded_moves[self.ply].toU32() == 0) {
+        const is_singular_search = self.excluded_moves[self.ply].toU32() != 0;
+        if (!in_check and !on_pv) {
             var pruning_eval = static_eval;
             if (tt_hit and !in_check and tt_eval < eval.mate_score - 256 and tt_eval > -eval.mate_score + 256) {
                 const use_tt = switch (tt_e_flag) {
@@ -781,9 +782,8 @@ pub const Searcher = struct {
                 nmp_static_eval += tp.nmp_improve;
             }
 
-            if (!is_null and depth >= 3 and nmp_static_eval >= beta and has_non_pawns) {
+            if (!is_singular_search and !is_null and depth >= 3 and nmp_static_eval >= beta and has_non_pawns) {
                 var r = tp.nmp_base + depth / tp.nmp_depth_div;
-                // r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
                 const diff = pruning_eval - beta;
                 const div = @divTrunc(diff, @as(i32, @intCast(tp.nmp_beta_div)));
                 r += @as(usize, @intCast(@max(0, @min(4, div))));
