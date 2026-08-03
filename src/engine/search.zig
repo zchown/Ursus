@@ -580,7 +580,7 @@ pub const Searcher = struct {
         const on_pv = comptime (node_type != NodeType.NonPV);
 
         if (depth == 0) {
-            return self.qsearch(board, color, alpha, beta);
+            return self.qsearch(board, color, alpha, beta, on_pv);
         }
 
         // mate distance pruning
@@ -639,6 +639,7 @@ pub const Searcher = struct {
 
         // Use cached in_check from TT on hits; fall back to computing it otherwise.
         const in_check: bool = if (tt_hit) tt_in_check else self.move_gen.isInCheck(board, color);
+        const tt_pv: bool = on_pv or (tt_hit and tt_is_pv);
 
         if (!is_root and self.excluded_moves[self.ply].toU32() == 0 and depth >= tp.tb_probe_depth) {
             const tb_max = tb.largest();
@@ -769,7 +770,7 @@ pub const Searcher = struct {
             if (depth <= 4) {
                 const threshold = tp.razoring_base + (tp.razoring_mul * @as(i32, @intCast(depth)));
                 if (pruning_eval + threshold < alpha) {
-                    return self.qsearch(board, color, alpha, beta);
+                    return self.qsearch(board, color, alpha, beta, false);
                 }
             }
 
@@ -876,7 +877,7 @@ pub const Searcher = struct {
                 mvs.makeMove(board, move);
                 self.ply += 1;
 
-                var score = -self.qsearch(board, brd.flipColor(color), -probcut_beta, -probcut_beta+1);
+                var score = -self.qsearch(board, brd.flipColor(color), -probcut_beta, -probcut_beta+1, false);
 
                 if (self.time_stop) {
                     return 0;
@@ -1094,7 +1095,7 @@ pub const Searcher = struct {
                         reduction += 1;
                     }
 
-                    if (tt_is_pv) {
+                    if (tt_pv) {
                         reduction -= 1;
                     }
 
@@ -1190,7 +1191,7 @@ pub const Searcher = struct {
                     .depth = @as(u8, @intCast(depth)),
                     .age = self.tt_table.getAge(),
                     .in_check = in_check,
-                    .is_pv = on_pv,
+                    .is_pv = tt_pv,
                     .static_eval_valid = !in_check and self.excluded_moves[self.ply].toU32() == 0,
                 },
             );
@@ -1198,7 +1199,14 @@ pub const Searcher = struct {
         return best_score;
     }
 
-    pub fn qsearch(self: *Searcher, board: *brd.Board, color: brd.Color, alpha_: i32, beta_: i32) i32 {
+    pub fn qsearch(
+    self: *Searcher,
+    board: *brd.Board,
+    color: brd.Color,
+    alpha_: i32,
+    beta_: i32,
+    comptime is_pv: bool,
+) i32 {
         var alpha = alpha_;
         const beta = beta_;
 
@@ -1228,6 +1236,7 @@ pub const Searcher = struct {
         var qs_tt_static_eval_valid: bool = false;
         var qs_tt_in_check: bool = false;
         var qs_tt_hit: bool = false;
+        var qs_tt_is_pv: bool = false;
         const entry = self.tt_table.get(board.game_state.zobrist);
 
         if (entry) |e| {
@@ -1236,16 +1245,22 @@ pub const Searcher = struct {
             qs_tt_in_check = e.in_check;
             qs_tt_static_eval = e.static_eval;
             qs_tt_static_eval_valid = e.static_eval_valid;
-            const tt_score = scoreFromTT(e.eval, self.ply);
-            if (e.flag == .Exact) {
-                return tt_score;
-            } else if (e.flag == .Under and tt_score >= beta) {
-                return tt_score;
-            } else if (e.flag == .Over and tt_score <= alpha) {
-                return tt_score;
+            qs_tt_is_pv = e.is_pv;
+
+            if (!is_pv) {
+                const tt_score = scoreFromTT(e.eval, self.ply);
+                if (e.flag == .Exact) {
+                    return tt_score;
+                } else if (e.flag == .Under and tt_score >= beta) {
+                    return tt_score;
+                } else if (e.flag == .Over and tt_score <= alpha) {
+                    return tt_score;
+                }
             }
         }
 
+
+        const q_tt_pv: bool = is_pv or (qs_tt_hit and qs_tt_is_pv);
         const in_check: bool = if (qs_tt_hit) qs_tt_in_check else self.move_gen.isInCheck(board, color);
 
         var best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
@@ -1289,7 +1304,7 @@ pub const Searcher = struct {
                     .depth = 0,
                     .age = self.tt_table.getAge(),
                     .in_check = in_check,
-                    .is_pv = false,
+                    .is_pv = q_tt_pv,
                     .static_eval_valid = true,
                 });
                 return best_score;
@@ -1355,7 +1370,7 @@ pub const Searcher = struct {
             mvs.makeMove(board, move);
 
             self.tt_table.prefetch(board.game_state.zobrist);
-            const score = -self.qsearch(board, brd.flipColor(color), -beta, -alpha);
+            const score = -self.qsearch(board, brd.flipColor(color), -beta, -alpha, is_pv);
             self.ply -= 1;
             mvs.undoMove(board, move);
 
@@ -1375,7 +1390,7 @@ pub const Searcher = struct {
                             .depth = 0,
                             .age = self.tt_table.getAge(),
                             .in_check = in_check,
-                            .is_pv = false,
+                            .is_pv = q_tt_pv,
                             .static_eval_valid = !in_check,
                         });
                         return beta;
@@ -1426,7 +1441,7 @@ pub const Searcher = struct {
             .depth = 0,
             .age = self.tt_table.getAge(),
             .in_check = in_check,
-            .is_pv = false,
+            .is_pv = q_tt_pv,
             .static_eval_valid = !in_check,
         });
 
