@@ -425,9 +425,7 @@ pub const Searcher = struct {
             while (true) {
                 if (depth == outer_depth) {
                     score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.Root, false);
-                } else {
-                    score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.PV, false);
-                }
+                } 
 
                 if (self.time_stop or self.should_stop()) {
                     self.time_stop = true;
@@ -939,7 +937,7 @@ pub const Searcher = struct {
 
                 lmp_threshold += self.thread_id;
 
-                if (improving and !on_pv) {
+                if (improving) {
                     lmp_threshold += @divTrunc(tp.lmp_improve, 100);
                 }
 
@@ -977,7 +975,7 @@ pub const Searcher = struct {
             }
 
             // SEE pruning
-            if (!is_capture and !in_check and !on_pv and !is_important and depth <= 6 and searched_moves >= 2 and !is_important) {
+            if (!is_capture and !in_check and !on_pv and !is_important and depth <= 6 and searched_moves >= 2) {
                 if (!see.seeAtLeast(board, self.move_gen, move, -@as(i32, @intCast(depth)) * 25)) {
                     continue;
                 }
