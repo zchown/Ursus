@@ -62,3 +62,11 @@ pub var tm_nodetm_base: f32 = 1.40;
 pub var tm_nodetm_mul: f32 = 1.33;
 pub var tm_horizon_div: u64 = 5;
 pub var tm_horizon_min: u64 = 14;
+
+pub var hist_bonus_mul: i32 = 300;
+pub var hist_bonus_offset: i32 = 300;
+pub var hist_bonus_max: i32 = 2500;
+
+pub var hist_malus_mul: i32 = 250;
+pub var hist_malus_offset: i32 = 250;
+pub var hist_malus_max: i32 = 1200;
