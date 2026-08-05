@@ -9,6 +9,9 @@ const Searcher = search.Searcher;
 const max_ply = search.max_ply;
 const PieceColor = Searcher.PieceColor;
 
+const max_history: i32 = 16384;
+const max_cap_history: i32 = 16384;
+
 pub fn resetHeuristics(self: *Searcher, total: bool) void {
     @memset(std.mem.asBytes(&self.killer), 0);
     @memset(std.mem.asBytes(&self.pv_length), 0);
@@ -46,6 +49,18 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
             entry.* -= (entry.* >> 2);
         }
     }
+}
+
+inline fn historyBonus(depth: i32) i32 {
+    return @max(1, @min(tp.hist_bonus_max, tp.hist_bonus_mul * depth - tp.hist_bonus_offset));
+}
+
+inline fn historyMalus(depth: i32) i32 {
+    return @max(0, @min(tp.hist_malus_max, tp.hist_malus_mul * depth - tp.hist_malus_offset));
+}
+
+inline fn applyBonus(entry: *i32, delta: i32, max: i32) void {
+    entry.* += delta - @divTrunc(entry.* * @as(i32, @intCast(@abs(delta))), max);
 }
 
 inline fn applyCorrBonus(entry: *i32, bonus: i32, comptime limit: i32) void {
@@ -149,8 +164,8 @@ pub fn updateQuietHistory(
     }
 
     const depth_i32 = @as(i32, @intCast(depth));
-    const bonus = @min(16384, 32 * depth_i32 * depth_i32);
-    const max_history: i32 = 16384;
+    const bonus = historyBonus(depth_i32);
+    const malus = historyMalus(depth_i32);
 
     if (!is_null and self.ply >= 1) {
         const last = self.move_history[self.ply - 1];
@@ -160,17 +175,12 @@ pub fn updateQuietHistory(
     const b = best_move.toU32();
 
     for (quiet_moves.items) |m| {
-        const h = &self.history[@intFromEnum(color)][m.start_square][m.end_square];
-
         const is_best = m.toU32() == b;
 
-        const clamped_bonus = if (is_best)
-            bonus
-        else
-            -bonus;
+        const delta = if (is_best) bonus else -malus;
 
-        // Gravity update:
-        h.* += clamped_bonus - @divTrunc(h.* * @as(i32, @intCast(@abs(clamped_bonus))), max_history);
+        const h = &self.history[@intFromEnum(color)][m.start_square][m.end_square];
+        applyBonus(h, delta, max_history);
 
         if (!is_null and self.ply >= 1) {
             const plies: [3]usize = .{ 0, 1, 3 };
@@ -181,12 +191,9 @@ pub fn updateQuietHistory(
 
                     const piece_color = self.moved_piece_history[self.ply - p - 1];
                     const pc_index = @as(usize, @intCast(@intFromEnum(piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(piece_color.piece)));
-                    const cont_hist = self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square] * bonus;
-                    if (is_best) {
-                        self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square] += bonus - @divTrunc(cont_hist, max_history);
-                    } else {
-                        self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square] += -bonus - @divTrunc(cont_hist, max_history);
-                    }
+
+                    const cont = &self.continuation[pc_index][prev.start_square][prev.end_square][m.end_square];
+                    applyBonus(cont, delta, max_history);
                 }
             }
         }
@@ -205,30 +212,27 @@ pub fn updateCaptureHistory(
     const captured_piece_idx = @as(usize, @intCast(best_move.captured_piece));
 
     if (captured_piece_idx < 6) {
-        const bonus = @as(i32, @intCast(@min(16384, depth * depth * 16)));
-        const max_cap_hist: i32 = 16384;
+        const depth_i32 = @as(i32, @intCast(depth));
+        const bonus = historyBonus(depth_i32);
+        const malus = historyMalus(depth_i32);
 
-        var attacking_piece: brd.Pieces = @enumFromInt(best_move.piece);
-        var attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
+        const best_attacker: brd.Pieces = @enumFromInt(best_move.piece);
+        const best_attacker_idx = @as(usize, @intCast(@intFromEnum(best_attacker)));
 
-        const old_value = self.capture_history[@intFromEnum(color)][attacking_piece_idx][best_move.end_square][captured_piece_idx];
-        const hist = old_value * bonus;
-        self.capture_history[@intFromEnum(color)][attacking_piece_idx][best_move.end_square][captured_piece_idx] +=
-            bonus - @divTrunc(hist, max_cap_hist);
+        const best_entry = &self.capture_history[@intFromEnum(color)][best_attacker_idx][best_move.end_square][captured_piece_idx];
+        applyBonus(best_entry, bonus, max_cap_history);
 
         // Penalize other captures that were tried but didn't cause cutoff
         for (other_moves.items) |m| {
             if (m.capture == 1 and m.toU32() != best_move.toU32()) {
                 const cap_p_idx = @as(usize, @intCast(m.captured_piece));
 
-                attacking_piece = @enumFromInt(m.piece);
-                attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
-
                 if (cap_p_idx < 6) {
-                    const old_val = self.capture_history[@intFromEnum(color)][attacking_piece_idx][m.end_square][cap_p_idx];
-                    const h = old_val * bonus;
-                    self.capture_history[@intFromEnum(color)][attacking_piece_idx][m.end_square][cap_p_idx] +=
-                        -bonus - @divTrunc(h, max_cap_hist);
+                    const attacker: brd.Pieces = @enumFromInt(m.piece);
+                    const attacker_idx = @as(usize, @intCast(@intFromEnum(attacker)));
+
+                    const entry = &self.capture_history[@intFromEnum(color)][attacker_idx][m.end_square][cap_p_idx];
+                    applyBonus(entry, -malus, max_cap_history);
                 }
             }
         }
