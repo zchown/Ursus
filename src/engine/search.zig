@@ -698,7 +698,9 @@ pub const Searcher = struct {
             static_eval = self.eval_history[self.ply];
         } else if (tt_hit and tt_static_eval_valid) {
             raw_static_eval = tt_static_eval;
-            static_eval = raw_static_eval + hist.getCorrection(self, color, board);
+            const corrected = raw_static_eval + hist.getCorrection(self, color, board);
+            static_eval = std.math.clamp(corrected, -eval.mate_score + 257, eval.mate_score - 257);
+
             self.eval_history[self.ply] = static_eval;
         } else {
             raw_static_eval = board.evaluateNNUE();
@@ -1296,7 +1298,9 @@ pub const Searcher = struct {
             } else {
                 raw_static = board.evaluateNNUE();
             }
-            static_eval = raw_static + hist.getCorrection(self, color, board);
+            const corrected = raw_static + hist.getCorrection(self, color, board);
+            static_eval = std.math.clamp(corrected, -eval.mate_score + 257, eval.mate_score - 257);
+
             best_score = static_eval;
 
             if (best_score >= beta) {
