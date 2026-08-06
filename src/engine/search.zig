@@ -118,7 +118,7 @@ pub const Searcher = struct {
     history: [2][64][64]i32 = undefined,
     counter_moves: [2][64][64]mvs.EncodedMove = undefined,
     excluded_moves: [max_ply]mvs.EncodedMove = undefined,
-    continuation: *[12][64][64][64]i32 = undefined,
+    continuation: *[12][64][12][64]i16= undefined,
     correction: [2][16384]i32 = undefined,
     np_white_correction: [2][16384]i32 = undefined,
     np_black_correction: [2][16384]i32 = undefined,
@@ -143,7 +143,7 @@ pub const Searcher = struct {
         self.timer = std.time.Timer.start() catch unreachable;
         self.move_gen = std.heap.smp_allocator.create(mvs.MoveGen) catch unreachable;
         self.move_gen.init();
-        self.continuation = std.heap.smp_allocator.create([12][64][64][64]i32) catch unreachable;
+        self.continuation = std.heap.smp_allocator.create([12][64][12][64]i16) catch unreachable;
         hist.resetHeuristics(self, true);
     }
 
