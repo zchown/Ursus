@@ -793,6 +793,11 @@ pub const Searcher = struct {
 
                 r = @min(r, depth);
 
+                self.move_history[self.ply] = mvs.EncodedMove.fromU32(0);
+                self.moved_piece_history[self.ply] = PieceColor{
+                    .piece = .None,
+                    .color = .White
+                };
                 self.ply += 1;
                 board.makeNullMove();
                 var null_score = -self.negamax(board, brd.flipColor(color), depth - r, -beta, -beta + 1, true, NodeType.NonPV, false);
