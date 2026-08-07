@@ -63,8 +63,10 @@ inline fn applyBonus(entry: *i32, delta: i32, max: i32) void {
     entry.* += delta - @divTrunc(entry.* * @as(i32, @intCast(@abs(delta))), max);
 }
 
-inline fn applyContBonus(entry: *i16, delta: i16, max: i16) void {
-    entry.* += delta - @divTrunc(entry.* * @as(i16, @intCast(@abs(delta))), max);
+inline fn applyContBonus(entry: *i16, delta: i32, max: i32) void {
+    const v: i32 = entry.*;
+    const updated = v + delta - @divTrunc(v * @as(i32, @intCast(@abs(delta))), max);
+    entry.* = @intCast(std.math.clamp(updated, -max, max));
 }
 
 inline fn applyCorrBonus(entry: *i32, bonus: i32, comptime limit: i32) void {
@@ -196,10 +198,10 @@ pub fn updateQuietHistory(
                     const prev_piece_color = self.moved_piece_history[self.ply - p - 1];
                     const prev_pc_index = @as(usize, @intCast(@intFromEnum(prev_piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(prev_piece_color.piece)));
 
-                    const cur_pc_index = @as(usize, @intCast(@intFromEnum(brd.flipColor(prev_piece_color.color)))) * 6 + @as(usize, @intCast(m.piece));
+                    const cur_pc_index = @as(usize, @intFromEnum(color)) * 6 + @as(usize, @intCast(m.piece));
 
                     const cont = &self.continuation[prev_pc_index][prev.end_square][cur_pc_index][m.end_square];
-                    applyContBonus(cont, @as(i16, @intCast(delta)), @as(i16, @intCast(max_history)));
+                    applyContBonus(cont, delta, max_history);
                 }
             }
         }

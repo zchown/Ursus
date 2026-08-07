@@ -88,7 +88,7 @@ pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList
                             const prev_piece_color = s.moved_piece_history[s.ply - p - 1];
                             const prev_pc_index = @as(usize, @intCast(@intFromEnum(prev_piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(prev_piece_color.piece)));
 
-                            const cur_pc_index = @as(usize, @intCast(@intFromEnum(brd.flipColor(prev_piece_color.color)))) * 6 + @as(usize, @intCast(move.piece));
+                            const cur_pc_index = @as(usize, @intCast(side)) * 6 + @as(usize, @intCast(move.piece));
 
                             score += s.continuation[prev_pc_index][prev.end_square][cur_pc_index][move.end_square];
                         }
