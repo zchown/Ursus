@@ -208,6 +208,21 @@ pub fn updateQuietHistory(
     }
 }
 
+pub fn penalizeQuiets(
+    self: *Searcher,
+    color: brd.Color,
+    quiet_moves: *const mvs.MoveList,
+    depth: usize,
+) void {
+    const depth_i32 = @as(i32, @intCast(depth));
+    const malus = historyMalus(depth_i32);
+
+    for (quiet_moves.items) |m| {
+        const h = &self.history[@intFromEnum(color)][m.start_square][m.end_square];
+        applyBonus(h, -malus, max_history);
+    }
+}
+
 pub fn updateCaptureHistory(
     self: *Searcher,
     board: *brd.Board,

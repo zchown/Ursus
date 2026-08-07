@@ -1172,11 +1172,12 @@ pub const Searcher = struct {
             hist.updateCorrection(self, color, board, best_move, best_score, static_eval, depth);
         }
 
-        if (alpha >= beta and !(best_move.capture == 1) and !(best_move.promoted_piece != 0)) {
-            hist.updateQuietHistory(self, color, best_move, &quiet_moves, is_null, depth);
-        }
-
         if (alpha >= beta) {
+            if (best_move.capture == 0 and best_move.promoted_piece == 0) {
+                hist.updateQuietHistory(self, color, best_move, &quiet_moves, is_null, depth); // bonus + malus
+            } else {
+                hist.penalizeQuiets(self, color, &quiet_moves, depth);                // malus only
+            }
             hist.updateCaptureHistory(self, board, color, best_move, &other_moves, depth);
         }
 
