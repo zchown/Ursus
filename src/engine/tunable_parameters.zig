@@ -70,3 +70,6 @@ pub var hist_bonus_max: i32 = 2500;
 pub var hist_malus_mul: i32 = 250;
 pub var hist_malus_offset: i32 = 250;
 pub var hist_malus_max: i32 = 1200;
+
+pub var mvv_weight: i32 = 100;
+pub var capthist_div: i32 = 4;

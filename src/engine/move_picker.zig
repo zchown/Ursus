@@ -3,6 +3,7 @@ const brd = @import("board");
 const mvs = @import("moves");
 const see = @import("see");
 const srch = @import("search");
+const tp = @import("tunable_parameters");
 
 pub const ScoredMove = struct {
     score: i32,
@@ -45,25 +46,19 @@ pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList
         if (move.matchesTTKey(hash_move)) {
             score = score_hash;
         } else if (move.capture == 1) {
-            if (see_val > 0) {
-                score = score_winning_capture + (see_val * 100);
-            } else if (see_val == 0) {
-                score = score_equal_capture + @as(i32, move.captured_piece);
-            } else {
-                score = see_val;
-            }
+            const capture_piece_idx = @as(usize, @intCast(move.captured_piece));
+            const attacking_piece = board.getPieceFromSquare(move.start_square).?;
+            const attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
+            const capthist = s.capture_history[side][attacking_piece_idx][move.end_square][capture_piece_idx];
+
+            const ordering = tp.mvv_weight * see.see_values[capture_piece_idx] +
+            @divTrunc(capthist, tp.capthist_div);
+
+            score = if (see_val >= 0) score_winning_capture + ordering else see_val + ordering;
 
             if (move.promoted_piece == @intFromEnum(brd.Pieces.Queen)) {
                 score += score_promotion;
             }
-
-            const capture_piece_idx = @as(usize, @intCast(move.captured_piece));
-            const color_idx = @as(usize, @intCast(@intFromEnum(board.toMove())));
-
-            const attacking_piece = board.getPieceFromSquare(move.start_square).?;
-            const attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
-
-            score += s.capture_history[color_idx][attacking_piece_idx][move.end_square][capture_piece_idx];
         } else {
             if (move.promoted_piece != 0) {
                 if (move.promoted_piece == @intFromEnum(brd.Pieces.Queen)) {
