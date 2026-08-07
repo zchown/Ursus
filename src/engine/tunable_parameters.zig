@@ -71,5 +71,5 @@ pub var hist_malus_mul: i32 = 250;
 pub var hist_malus_offset: i32 = 250;
 pub var hist_malus_max: i32 = 1200;
 
-pub var mvv_weight: i32 = 100;
+pub var see_weight : i32 = 50;
 pub var capthist_div: i32 = 4;

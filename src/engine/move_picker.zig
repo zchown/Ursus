@@ -51,7 +51,7 @@ pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList
             const attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
             const capthist = s.capture_history[side][attacking_piece_idx][move.end_square][capture_piece_idx];
 
-            const ordering = tp.mvv_weight * see.see_values[capture_piece_idx] +
+            const ordering = tp.see_weight * see_val +
             @divTrunc(capthist, tp.capthist_div);
 
             score = if (see_val >= 0) score_winning_capture + ordering else see_val + ordering;
