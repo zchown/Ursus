@@ -63,7 +63,7 @@ pub var lmp_mul = Tunable(usize, .{ .min = 100, .max = 500 }){ .value = 229 };
 
 pub var futility_mul = Tunable(i32, .{ .min = 60, .max = 350 }){ .value = 170 };
 
-pub var q_see_min = Tunable(i32, .{ .min = -300, .max = 0 }){ .value = -144 };
+pub var q_see_min = Tunable(i32, .{ .min = -300, .max = 0 }){ .value = -25 };
 pub var q_see_margin = Tunable(i32, .{ .min = -200, .max = 0 }){ .value = -45 };
 pub var q_delta_margin = Tunable(i32, .{ .min = 50, .max = 500 }){ .value = 213 };
 
@@ -87,7 +87,6 @@ pub var corr_major_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .valu
 pub var corr_minor_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .value = 117 };
 
 pub var corr_read_divisor = Tunable(i32, .{ .min = 65536, .max = 327680 }){ .value = 156991 };
-
 
 pub var probcut_margin = Tunable(i32, .{ .min = 100, .max = 500 }){ .value = 259 };
 pub var probcut_improve = Tunable(i32, .{ .min = 400, .max = 2000 }){ .value = 1046 };
