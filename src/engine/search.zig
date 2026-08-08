@@ -16,8 +16,8 @@ pub const eval_none: i32 = std.math.minInt(i32);
 pub var quiet_lmr: [64][64]i32 = undefined;
 
 pub fn initQuietLMR() [64][64]i32 {
-    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base)) / 100.0;
-    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_div)) / 100.0;
+    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base.value)) / 100.0;
+    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_div.value)) / 100.0;
     var table: [64][64]i32 = undefined;
     for (0..64) |d| {
         for (0..64) |m| {
@@ -44,8 +44,8 @@ inline fn scoreFromTT(score: i32, ply: usize) i32 {
 pub var noisy_lmr: [64][64]i32 = undefined;
 
 pub fn initNoisyLMR() [64][64]i32 {
-    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_base)) / 100.0;
-    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_div)) / 100.0;
+    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_base.value)) / 100.0;
+    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_div.value)) / 100.0;
     var table: [64][64]i32 = undefined;
     for (0..64) |d| {
         for (0..64) |m| {
@@ -415,9 +415,9 @@ pub const Searcher = struct {
             self.seldepth = 0;
             self.search_depth = outer_depth;
 
-            var alpha = if (outer_depth > 1) prev_score - tp.aspiration_window else -eval.mate_score;
-            var beta = if (outer_depth > 1) prev_score + tp.aspiration_window else eval.mate_score;
-            var delta: i32 = tp.aspiration_window;
+            var alpha = if (outer_depth > 1) prev_score - tp.aspiration_window.value else -eval.mate_score;
+            var beta = if (outer_depth > 1) prev_score + tp.aspiration_window.value else eval.mate_score;
+            var delta: i32 = tp.aspiration_window.value;
 
             const depth = outer_depth;
 
@@ -470,24 +470,19 @@ pub const Searcher = struct {
                 self.printInfo(total_nodes, total_tb_hits, score, best_pv[0..best_pv_length], std.heap.smp_allocator);
             }
 
-            // var factor: f32 = @max(0.65, 1.3 - 0.03 * @as(f32, @floatFromInt(stability)));
-            //
-            // if (stability == 0) {
-            //     factor = @min(factor * 1.2, 1.5);
-            // }
-            const stability_idx = @min(stability, tp.tm_stability_scale.len - 1);
-            var factor: f32 = tp.tm_stability_scale[stability_idx];
+            const stability_idx = @min(stability, tp.tm_stability_scale.values.len - 1);
+            var factor: f32 = tp.tm_stability_scale.values[stability_idx];
 
-            if (score - prev_score > tp.aspiration_window) {
+            if (score - prev_score > tp.aspiration_window.value) {
                 factor *= 1.3;
-            } else if (prev_score - score > tp.aspiration_window) {
+            } else if (prev_score - score > tp.aspiration_window.value) {
                 factor *= 1.5;
             }
 
-            if (outer_depth >= tp.tm_nodetm_min_depth and bm.toU32() != 0 and self.nodes > 0) {
+            if (outer_depth >= tp.tm_nodetm_min_depth.value and bm.toU32() != 0 and self.nodes > 0) {
                 const bm_nodes = self.root_node_counts[bm.start_square][bm.end_square];
                 const bm_frac = @as(f32, @floatFromInt(bm_nodes)) / @as(f32, @floatFromInt(self.nodes));
-                factor *= std.math.clamp((tp.tm_nodetm_base - bm_frac) * tp.tm_nodetm_mul, 0.55, 1.80);
+                factor *= std.math.clamp((tp.tm_nodetm_base.value - bm_frac) * tp.tm_nodetm_mul.value, 0.55, 1.80);
             }
 
             factor = std.math.clamp(factor, 0.35, 2.75);
@@ -757,10 +752,10 @@ pub const Searcher = struct {
             if (@abs(beta) < eval.mate_score - 256 and
                 depth <= @as(usize, @intCast(tp.rfp_depth)))
             {
-                var n: i32 = @as(i32, @intCast(depth)) * tp.rfp_mul;
+                var n: i32 = @as(i32, @intCast(depth)) * tp.rfp_mul.value;
 
                 if (improving) {
-                    n -= tp.rfp_improve;
+                    n -= tp.rfp_improve.value;
                 }
 
                 if (pruning_eval - n >= beta) {
@@ -770,7 +765,7 @@ pub const Searcher = struct {
 
             // razoring
             if (depth <= 4) {
-                const threshold = tp.razoring_base + (tp.razoring_mul * @as(i32, @intCast(depth)));
+                const threshold = tp.razoring_base.value + (tp.razoring_mul.value * @as(i32, @intCast(depth)));
                 if (pruning_eval + threshold < alpha) {
                     return self.qsearch(board, color, alpha, beta, false);
                 }
@@ -779,14 +774,13 @@ pub const Searcher = struct {
             // null move pruning
             var nmp_static_eval: i32 = pruning_eval;
             if (improving) {
-                nmp_static_eval += tp.nmp_improve;
+                nmp_static_eval += tp.nmp_improve.value;
             }
 
             if (!is_null and depth >= 3 and nmp_static_eval >= beta and has_non_pawns) {
-                var r = tp.nmp_base + depth / tp.nmp_depth_div;
-                // r += @as(usize, @intCast(@min(4, @divTrunc(static_eval - beta, @as(i32, @intCast(tp.nmp_beta_div))))));
+                var r = tp.nmp_base.value + depth / tp.nmp_depth_div.value;
                 const diff = pruning_eval - beta;
-                const div = @divTrunc(diff, @as(i32, @intCast(tp.nmp_beta_div)));
+                const div = @divTrunc(diff, @as(i32, @intCast(tp.nmp_beta_div.value)));
                 r += @as(usize, @intCast(@max(0, @min(4, div))));
 
                 if (cutnode) {
@@ -846,10 +840,10 @@ pub const Searcher = struct {
 
 
         // Probcut
-        var probcut_beta = beta + tp.probcut_margin;
+        var probcut_beta = beta + tp.probcut_margin.value;
 
         if (improving) {
-            probcut_beta += (tp.probcut_improve - 1000);
+            probcut_beta += (tp.probcut_improve.value - 1000);
         }
 
 
@@ -865,7 +859,7 @@ pub const Searcher = struct {
                         break;
                     }
                 }
-                else if (see_score < tp.probcut_min_see) {
+                else if (see_score < tp.probcut_min_see.value) {
                     break;
                 }
 
@@ -939,14 +933,14 @@ pub const Searcher = struct {
             const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
 
             if (!is_root and i > 1 and !in_check and !on_pv) {
-                var lmp_threshold: usize = tp.lmp_base + depth * tp.lmp_mul;
+                var lmp_threshold: usize = tp.lmp_base.value + depth * tp.lmp_mul.value;
 
                 lmp_threshold = @divTrunc(lmp_threshold, 100);
 
                 lmp_threshold += self.thread_id;
 
                 if (improving) {
-                    lmp_threshold += @divTrunc(tp.lmp_improve, 100);
+                    lmp_threshold += @divTrunc(tp.lmp_improve.value, 100);
                 }
 
                 // Prune if we have searched enough quiet moves
@@ -978,7 +972,7 @@ pub const Searcher = struct {
             }
 
             // futility pruning
-            if (searched_moves >= 1 and move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and static_eval + ((@as(i32, @intCast(depth)) + 1) * tp.futility_mul) <= alpha) {
+            if (searched_moves >= 1 and move.capture == 0 and depth <= 8 and !in_check and !on_pv and !is_important and static_eval + ((@as(i32, @intCast(depth)) + 1) * tp.futility_mul.value) <= alpha) {
                 continue;
             }
 
@@ -1015,7 +1009,7 @@ pub const Searcher = struct {
             tt_eval < eval.mate_score - 256 and
             tt_eval > -eval.mate_score + 256)
         {
-                const s_beta: i32 = tt_eval - @divTrunc(@as(i32, @intCast(depth)) * tp.se_margin, 100);
+                const s_beta: i32 = tt_eval - @divTrunc(@as(i32, @intCast(depth)) * tp.se_margin.value, 100);
                 const s_depth: usize = (depth - 1) / 2;
 
                 self.excluded_moves[self.ply] = move;
@@ -1107,7 +1101,7 @@ pub const Searcher = struct {
                     }
 
                     if (!is_capture) {
-                        reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div);
+                        reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div.value);
                     }
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth + 1))));
@@ -1325,7 +1319,7 @@ pub const Searcher = struct {
         const queen_val = 950;
 
         if (!in_check) {
-            if (static_eval + queen_val + tp.q_delta_margin < alpha) {
+            if (static_eval + queen_val + tp.q_delta_margin.value < alpha) {
                 return alpha;
             }
         }
@@ -1355,12 +1349,12 @@ pub const Searcher = struct {
             if (move.capture == 1 and !in_check) {
                 const see_value = eval_list[i].see_val;
 
-                if (see_value < tp.q_see_min) {
+                if (see_value < tp.q_see_min.value) {
                     continue;
                 }
 
-                if (see_value < tp.q_see_margin and
-                    static_eval + see_value + tp.q_delta_margin < alpha)
+                if (see_value < tp.q_see_margin.value and
+                    static_eval + see_value + tp.q_delta_margin.value < alpha)
                 {
                     continue;
                 }

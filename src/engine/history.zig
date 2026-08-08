@@ -52,11 +52,11 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
 }
 
 inline fn historyBonus(depth: i32) i32 {
-    return @max(1, @min(tp.hist_bonus_max, tp.hist_bonus_mul * depth - tp.hist_bonus_offset));
+    return @max(1, @min(tp.hist_bonus_max.value, tp.hist_bonus_mul.value * depth - tp.hist_bonus_offset.value));
 }
 
 inline fn historyMalus(depth: i32) i32 {
-    return @max(0, @min(tp.hist_malus_max, tp.hist_malus_mul * depth - tp.hist_malus_offset));
+    return @max(0, @min(tp.hist_malus_max.value, tp.hist_malus_mul.value * depth - tp.hist_malus_offset.value));
 }
 
 inline fn applyBonus(entry: *i32, delta: i32, max: i32) void {
@@ -146,14 +146,14 @@ pub fn getCorrection(self: *Searcher, color: brd.Color, board: *brd.Board) i32 {
     const major_val= self.major_correction[c][@as(usize, @intCast(major_corr_idx))];
     const minor_val = self.minor_correction[c][@as(usize, @intCast(minor_corr_idx))];
 
-    const combined = pawn_val * tp.corr_pawn_read_weight +
-        npw_val * tp.corr_np_read_weight +
-        npb_val * tp.corr_np_read_weight +
-        major_val * tp.corr_major_read_weight +
-        minor_val * tp.corr_minor_read_weight;
+    const combined = pawn_val * tp.corr_pawn_read_weight.value +
+        npw_val * tp.corr_np_read_weight.value +
+        npb_val * tp.corr_np_read_weight.value +
+        major_val * tp.corr_major_read_weight.value +
+        minor_val * tp.corr_minor_read_weight.value;
 
 
-    return @divTrunc(combined, tp.corr_read_divisor);
+    return @divTrunc(combined, tp.corr_read_divisor.value);
 }
 
 pub fn updateQuietHistory(
