@@ -52,7 +52,7 @@ pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList
             const capthist = s.capture_history[side][attacking_piece_idx][move.end_square][capture_piece_idx];
 
             const ordering = tp.see_weight * see_val +
-            @divTrunc(capthist, tp.capthist_div);
+            @divTrunc(capthist * 10, tp.capthist_div);
 
             score = if (see_val >= 0) score_winning_capture + ordering else see_val + ordering;
 
