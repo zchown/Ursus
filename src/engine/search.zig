@@ -885,7 +885,7 @@ pub const Searcher = struct {
                 }
 
                 if (score >= probcut_beta) {
-                    score = -self.negamax(board, brd.flipColor(color), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, true);
+                    score = -self.negamax(board, brd.flipColor(color), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, !cutnode);
                 }
 
                 if (self.time_stop) {
