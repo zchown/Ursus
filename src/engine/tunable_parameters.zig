@@ -118,8 +118,8 @@ pub var hist_malus_mul = Tunable(i32, .{ .min = 100, .max = 600 }){ .value = 250
 pub var hist_malus_offset = Tunable(i32, .{ .min = 0, .max = 800 }){ .value = 250 };
 pub var hist_malus_max = Tunable(i32, .{ .min = 500, .max = 3000 }){ .value = 1200 };
 
-pub var see_weight = Tunable(i32, .{ .min = 100, .max = 2000 }){ .value = 1000};
-pub var capthist_div = Tunable(i32, .{ .min = 100, .max = 1000 }){ .value = 400 };
+pub var see_weight = Tunable(i32, .{ .min = 10, .max = 200 }){ .value = 100};
+pub var capthist_div = Tunable(i32, .{ .min = 10, .max = 100 }){ .value = 39};
 
 pub const TunableRef = struct {
     name: []const u8,

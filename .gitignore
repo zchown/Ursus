@@ -5,6 +5,7 @@ zig-out/
 
 *.py
 temp.*
+tmp
 spsa*
 notes.typ
 patches.md
