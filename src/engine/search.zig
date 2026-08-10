@@ -759,7 +759,7 @@ pub const Searcher = struct {
                 }
 
                 if (pruning_eval - n >= beta) {
-                    return beta;
+                    return pruning_eval;
                 }
             }
 
@@ -1320,7 +1320,7 @@ pub const Searcher = struct {
 
         if (!in_check) {
             if (static_eval + queen_val + tp.q_delta_margin.value < alpha) {
-                return alpha;
+                return best_score;
             }
         }
 
@@ -1396,7 +1396,7 @@ pub const Searcher = struct {
                             .is_pv = q_tt_pv,
                             .static_eval_valid = !in_check,
                         });
-                        return beta;
+                        return best_score;
                     }
                 }
             }
