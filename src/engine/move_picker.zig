@@ -21,18 +21,11 @@ const score_promotion: i32 = 950_000;
 const score_equal_capture: i32 = 900_000;
 const score_killer_1: i32 = 700_000;
 const score_killer_2: i32 = 690_000;
-const score_counter: i32 = 600_000;
 
 pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList, hash_move: mvs.EncodedMove, is_null: bool) [218]ScoredMove {
     var evals: [218]ScoredMove = undefined;
 
     const side = @intFromEnum(board.toMove());
-    var counter_move_u32: u32 = 0;
-
-    if (s.ply > 0) {
-        const last = s.move_history[s.ply - 1];
-        counter_move_u32 = s.counter_moves[side][last.start_square][last.end_square].toU32();
-    }
 
     for (move_list.items[0..move_list.len], 0..) |move, i| {
         var score: i32 = 0;
@@ -70,8 +63,6 @@ pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList
                 score = score_killer_1;
             } else if (move_u32 == s.killer[s.ply][1].toU32()) {
                 score = score_killer_2;
-            } else if (move_u32 == counter_move_u32) {
-                score = score_counter;
             } else {
                 score = s.history[side][move.start_square][move.end_square];
                 if (!is_null and s.ply >= 1) {

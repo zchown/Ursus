@@ -173,11 +173,6 @@ pub fn updateQuietHistory(
     const bonus = historyBonus(depth_i32);
     const malus = historyMalus(depth_i32);
 
-    if (!is_null and self.ply >= 1) {
-        const last = self.move_history[self.ply - 1];
-        self.counter_moves[@intFromEnum(color)][last.start_square][last.end_square] = best_move;
-    }
-
     const b = best_move.toU32();
 
     for (quiet_moves.items) |m| {

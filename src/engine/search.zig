@@ -116,7 +116,6 @@ pub const Searcher = struct {
     moved_piece_history: [max_ply]PieceColor = undefined,
     killer: [max_ply][2]mvs.EncodedMove = undefined,
     history: [2][64][64]i32 = undefined,
-    counter_moves: [2][64][64]mvs.EncodedMove = undefined,
     excluded_moves: [max_ply]mvs.EncodedMove = undefined,
     continuation: *[12][64][12][64]i16= undefined,
     correction: [2][16384]i32 = undefined,
@@ -1075,16 +1074,6 @@ pub const Searcher = struct {
                         quiet_lmr[@min(depth, 63)][@min(searched_moves, 63)];
 
                     if (improving) {
-                        reduction -= 1;
-                    }
-
-                    // if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
-                    //     reduction -= 1;
-                    // }
-                    //
-                    if (last_move.toU32() != 0 and
-                    self.counter_moves[@intFromEnum(color)][last_move.start_square][last_move.end_square].toU32() == move.toU32())
-                {
                         reduction -= 1;
                     }
 
