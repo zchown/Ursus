@@ -796,7 +796,7 @@ pub const Searcher = struct {
                 };
                 self.ply += 1;
                 board.makeNullMove();
-                var null_score = -self.negamax(board, brd.flipColor(color), depth - r, -beta, -beta + 1, true, NodeType.NonPV, false);
+                var null_score = -self.negamax(board, brd.flipColor(color), depth - r, -beta, -beta + 1, true, NodeType.NonPV, !cutnode);
                 self.ply -= 1;
                 board.unmakeNullMove();
 
