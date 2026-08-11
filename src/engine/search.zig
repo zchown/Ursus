@@ -1011,8 +1011,7 @@ pub const Searcher = struct {
 
                 if (s_score < s_beta) {
                     extension = 1;
-                }
-                else if (!on_pv and s_score >= beta and !eval.almostMate(s_score)) {
+                } else if (!on_pv and s_score >= beta and !eval.almostMate(s_score)) {
                     return s_score;
                 }
             }
