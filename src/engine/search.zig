@@ -632,8 +632,7 @@ pub const Searcher = struct {
             }
         }
 
-        // Use cached in_check from TT on hits; fall back to computing it otherwise.
-        const in_check: bool = if (tt_hit) tt_in_check else self.move_gen.isInCheck(board, color);
+        const in_check: bool = self.move_gen.isInCheck(board, color);
         const tt_pv: bool = on_pv or (tt_hit and tt_is_pv);
 
         if (!is_root and self.excluded_moves[self.ply].toU32() == 0 and depth >= tp.tb_probe_depth) {

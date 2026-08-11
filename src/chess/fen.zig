@@ -6,7 +6,7 @@ const Board = brd.Board;
 pub fn parseFEN(board: *Board, fen: []const u8) !void {
     var it = std.mem.tokenizeAny(u8, fen, " ");
 
-    board.* = Board.init();
+    board.initInPlace();
 
     const piece_placement = it.next() orelse return error.InvalidFEN;
     try parsePiecePlacement(board, piece_placement);
