@@ -153,7 +153,7 @@ pub const MovePicker = struct {
 
                 const capture_piece_idx = @as(usize, @intCast(move.captured_piece));
                 const attacking_piece_idx = @as(usize, @intCast(move.piece));
-                const capthist = s.capture_history[side][attacking_piece_idx][move.end_square][capture_piece_idx];
+                const capthist:i32 = s.capture_history[side][attacking_piece_idx][move.end_square][capture_piece_idx];
 
                 const ordering = tp.see_weight.value * sv +
                     @divTrunc(capthist * 10, tp.capthist_div.value);
