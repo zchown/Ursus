@@ -17,10 +17,6 @@ const dark_squares: Bitboard = 0xaa55aa55aa55aa55;
 pub const allMoves = false;
 pub const onlyCaptures = true;
 
-/// Generation modes for the staged move picker.
-/// .captures ("noisy") = captures + queen promotions (incl. capture promos, en passant).
-/// .quiets = everything else (incl. under-promotions and castling).
-/// .all    = .captures ∪ .quiets, in the same relative order as before.
 pub const GenMode = enum { all, captures, quiets };
 
 pub const EncodedMove = packed struct(u32) {

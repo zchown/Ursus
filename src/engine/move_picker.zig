@@ -5,6 +5,14 @@ const see = @import("see");
 const srch = @import("search");
 const tp = @import("tunable_parameters");
 
+const score_hash: i32 = 2_000_000_000;
+const score_winning_capture: i32 = 1_000_000;
+const score_promotion: i32 = 950_000;
+const score_equal_capture: i32 = 900_000;
+const score_killer_1: i32 = 700_000;
+const score_killer_2: i32 = 690_000;
+const score_counter: i32 = 600_000;
+
 pub const ScoredMove = struct {
     score: i32,
     see_val: i32,
@@ -382,123 +390,3 @@ pub fn verifyPicker(s: *srch.Searcher, board: *brd.Board, hash_move: mvs.Encoded
     return ok;
 }
 
-// Legacy
-const score_hash: i32 = 2_000_000_000;
-const score_winning_capture: i32 = 1_000_000;
-const score_promotion: i32 = 950_000;
-const score_equal_capture: i32 = 900_000;
-const score_killer_1: i32 = 700_000;
-const score_killer_2: i32 = 690_000;
-const score_counter: i32 = 600_000;
-
-pub fn scoreMoves(s: *srch.Searcher, board: *brd.Board, move_list: *mvs.MoveList, hash_move: mvs.EncodedMove, is_null: bool) [218]ScoredMove {
-    var evals: [218]ScoredMove = undefined;
-
-    const side = @intFromEnum(board.toMove());
-    var counter_move_u32: u32 = 0;
-
-    if (s.ply > 0) {
-        const last = s.move_history[s.ply - 1];
-        counter_move_u32 = s.counter_moves[side][last.start_square][last.end_square].toU32();
-    }
-
-    for (move_list.items[0..move_list.len], 0..) |move, i| {
-        var score: i32 = 0;
-        var see_val: i32 = std.math.minInt(i32);
-        const move_u32 = move.toU32();
-
-        if (move.capture == 1) {
-            see_val = see.seeCapture(board, s.move_gen, move);
-        }
-
-        if (move.matchesTTKey(hash_move)) {
-            score = score_hash;
-        } else if (move.capture == 1) {
-            const capture_piece_idx = @as(usize, @intCast(move.captured_piece));
-            const attacking_piece = board.getPieceFromSquare(move.start_square).?;
-            const attacking_piece_idx = @as(usize, @intCast(@intFromEnum(attacking_piece)));
-            const capthist = s.capture_history[side][attacking_piece_idx][move.end_square][capture_piece_idx];
-
-            const ordering = tp.see_weight.value * see_val +
-            @divTrunc(capthist * 10, tp.capthist_div.value);
-
-            score = if (see_val >= 0) score_winning_capture + ordering else see_val + ordering;
-
-            if (move.promoted_piece == @intFromEnum(brd.Pieces.Queen)) {
-                score += score_promotion;
-            }
-        } else {
-            if (move.promoted_piece != 0) {
-                if (move.promoted_piece == @intFromEnum(brd.Pieces.Queen)) {
-                    score = score_promotion;
-                } else {
-                    score = -5_000;
-                }
-            } else if (move_u32 == s.killer[s.ply][0].toU32()) {
-                score = score_killer_1;
-            } else if (move_u32 == s.killer[s.ply][1].toU32()) {
-                score = score_killer_2;
-            } else if (move_u32 == counter_move_u32) {
-                score = score_counter;
-            } else {
-                score = s.history[side][move.start_square][move.end_square];
-                if (!is_null and s.ply >= 1) {
-                    const plies: [3]usize = .{ 0, 1, 3 };
-                    for (plies) |p| {
-                        if (s.ply >= p + 1) {
-                            const prev = s.move_history[s.ply - p - 1];
-                            if (prev.toU32() == 0) continue;
-                            const prev_piece_color = s.moved_piece_history[s.ply - p - 1];
-                            const prev_pc_index = @as(usize, @intCast(@intFromEnum(prev_piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(prev_piece_color.piece)));
-
-                            const cur_pc_index = @as(usize, @intCast(side)) * 6 + @as(usize, @intCast(move.piece));
-
-                            score += s.continuation[prev_pc_index][prev.end_square][cur_pc_index][move.end_square];
-                        }
-                    }
-                }
-            }
-        }
-        evals[i] = .{ .score = score, .see_val = see_val };
-    }
-    return evals;
-}
-
-pub fn getNextBest(move_list: *mvs.MoveList, evals: *[218]ScoredMove, start_index: usize) mvs.EncodedMove {
-    var best_idx = start_index;
-    var j = start_index + 1;
-
-    while (j < move_list.len) : (j += 1) {
-        if (evals[j].score > evals[best_idx].score) {
-            best_idx = j;
-        }
-    }
-
-    if (best_idx != start_index) {
-        std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[best_idx]);
-        std.mem.swap(ScoredMove, &evals[start_index], &evals[best_idx]);
-    }
-
-    return move_list.items[start_index];
-}
-
-pub fn getNextBestWithSee(move_list: *mvs.MoveList, evals: *[218]ScoredMove, start_index: usize) MoveWithSee {
-    var best_idx = start_index;
-    var j = start_index + 1;
-
-    while (j < move_list.len) : (j += 1) {
-        if (evals[j].score > evals[best_idx].score) {
-            best_idx = j;
-        }
-    }
-
-    if (best_idx != start_index) {
-        std.mem.swap(mvs.EncodedMove, &move_list.items[start_index], &move_list.items[best_idx]);
-        std.mem.swap(ScoredMove, &evals[start_index], &evals[best_idx]);
-    }
-
-    return MoveWithSee{
-        .move = move_list.items[start_index],
-        .see_val = evals[start_index].see_val,
-    };
-}
