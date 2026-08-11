@@ -17,6 +17,12 @@ const dark_squares: Bitboard = 0xaa55aa55aa55aa55;
 pub const allMoves = false;
 pub const onlyCaptures = true;
 
+/// Generation modes for the staged move picker.
+/// .captures ("noisy") = captures + queen promotions (incl. capture promos, en passant).
+/// .quiets = everything else (incl. under-promotions and castling).
+/// .all    = .captures ∪ .quiets, in the same relative order as before.
+pub const GenMode = enum { all, captures, quiets };
+
 pub const EncodedMove = packed struct(u32) {
     start_square: u6 = 0,
     end_square: u6 = 0,
@@ -230,7 +236,7 @@ pub const MoveGen = struct {
     pinned_by_us: Bitboard = 0,
     pinned_by_them: Bitboard = 0,
 
-    const MoveGenInfo = struct {
+    pub const MoveGenInfo = struct {
         king_sq: brd.Square,
         checkers: Bitboard, 
         check_mask: Bitboard, 
@@ -253,23 +259,32 @@ pub const MoveGen = struct {
     }
 
     pub fn generateMoves(self: *MoveGen, board: *Board, comptime move_flag: bool) MoveList {
+        return self.generateMovesMode(board, if (move_flag) GenMode.captures else GenMode.all);
+    }
+
+    pub fn generateMovesMode(self: *MoveGen, board: *Board, comptime mode: GenMode) MoveList {
+        var info = self.computeMoveGenInfo(board);
+        return self.generateMovesWithInfo(board, mode, &info);
+    }
+
+    pub fn generateMovesWithInfo(self: *MoveGen, board: *Board, comptime mode: GenMode, info: *MoveGenInfo) MoveList {
         var move_list = MoveList.init();
         const color = board.game_state.side_to_move;
-        var info = self.computeMoveGenInfo(board);
 
-        self.generateKingMoves(board, &move_list, color, move_flag, &info);
+        self.generateKingMoves(board, &move_list, color, mode, info);
 
         if (@popCount(info.checkers) < 2) {
             if (color == .White) {
-            self.generatePawnMoves(board, &move_list, .White, move_flag, &info);
+            self.generatePawnMoves(board, &move_list, .White, mode, info);
             }
             else {
-                self.generatePawnMoves(board, &move_list, .Black, move_flag, &info);
+                self.generatePawnMoves(board, &move_list, .Black, mode, info);
             }
-            self.generateKnightMoves(board, &move_list, color, move_flag, &info);
-            self.generateSlideMoves(board, &move_list, color, move_flag, &info);
+            self.generateKnightMoves(board, &move_list, color, mode, info);
+            self.generateSlideMoves(board, &move_list, color, mode, info);
 
-            if (info.checkers == 0) {
+            // Castling is quiet: not generated in captures-only mode.
+            if (info.checkers == 0 and mode != .captures) {
                 if (color == .White) {
                     self.generateCastleMoves(board, &move_list, .White);
                 }
@@ -280,6 +295,10 @@ pub const MoveGen = struct {
         }
 
         return move_list;
+    }
+
+    pub fn generateQuietMoves(self: *MoveGen, board: *Board) MoveList {
+        return self.generateMovesMode(board, GenMode.quiets);
     }
 
     pub fn isInCheck(self: *MoveGen, board: *Board, color: brd.Color) bool {
@@ -301,7 +320,7 @@ pub const MoveGen = struct {
         return self.generateMoves(board, onlyCaptures);
     }
 
-    pub fn generatePawnMoves(self: *MoveGen, board: *Board, move_list: *MoveList, comptime color: brd.Color, comptime move_flag: bool, info: *MoveGenInfo) void {
+    pub fn generatePawnMoves(self: *MoveGen, board: *Board, move_list: *MoveList, comptime color: brd.Color, comptime mode: GenMode, info: *MoveGenInfo) void {
         const enemy = brd.flipColor(color);
         var bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.Pawn)];
 
@@ -315,76 +334,85 @@ pub const MoveGen = struct {
             const legal_mask = info.check_mask & pin_ray;
 
             const end_sq_signed: isize = @as(isize, @intCast(start_square)) + end_square_update;
-            if (!move_flag and end_sq_signed >= 0 and end_sq_signed <= 63) {
+            if (end_sq_signed >= 0 and end_sq_signed <= 63) {
                 const esq: u64 = @intCast(end_sq_signed);
 
                 if (!brd.getBit(board.occupancy(), esq)) {
 
                     if (brd.getBit(legal_mask, esq)) {
                         if (start_square < pawn_promo_1 and start_square > pawn_promo_2) {
-                            move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Queen, false, null, false, false, false);
-                            move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Rook, false, null, false, false, false);
-                            move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Bishop, false, null, false, false, false);
-                            move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Knight, false, null, false, false, false);
-                        } else {
+                            // Queen promotion pushes count as noisy; under-promotions stay quiet.
+                            if (mode != .quiets) {
+                                move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Queen, false, null, false, false, false);
+                            }
+                            if (mode != .captures) {
+                                move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Rook, false, null, false, false, false);
+                                move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Bishop, false, null, false, false, false);
+                                move_list.addMove(start_square, esq, brd.Pieces.Pawn, brd.Pieces.Knight, false, null, false, false, false);
+                            }
+                        } else if (mode != .captures) {
                             move_list.addEasyMove(start_square, esq, brd.Pieces.Pawn, false, null);
                         }
                     }
 
-                    if (color == brd.Color.White) {
-                        if (start_square < @intFromEnum(brd.Squares.a3)) {
-                            const dbl: u64 = @intCast(end_sq_signed + 8);
-                            if (!brd.getBit(board.occupancy(), dbl) and brd.getBit(legal_mask, dbl)) {
-                                move_list.addMove(start_square, dbl, brd.Pieces.Pawn, null, false, null, true, false, false);
+                    if (mode != .captures) {
+                        if (color == brd.Color.White) {
+                            if (start_square < @intFromEnum(brd.Squares.a3)) {
+                                const dbl: u64 = @intCast(end_sq_signed + 8);
+                                if (!brd.getBit(board.occupancy(), dbl) and brd.getBit(legal_mask, dbl)) {
+                                    move_list.addMove(start_square, dbl, brd.Pieces.Pawn, null, false, null, true, false, false);
+                                }
                             }
-                        }
-                    } else {
-                        if (start_square > @intFromEnum(brd.Squares.h6)) {
-                            const dbl: u64 = @intCast(end_sq_signed - 8);
-                            if (!brd.getBit(board.occupancy(), dbl) and brd.getBit(legal_mask, dbl)) {
-                                move_list.addMove(start_square, dbl, brd.Pieces.Pawn, null, false, null, true, false, false);
+                        } else {
+                            if (start_square > @intFromEnum(brd.Squares.h6)) {
+                                const dbl: u64 = @intCast(end_sq_signed - 8);
+                                if (!brd.getBit(board.occupancy(), dbl) and brd.getBit(legal_mask, dbl)) {
+                                    move_list.addMove(start_square, dbl, brd.Pieces.Pawn, null, false, null, true, false, false);
+                                }
                             }
                         }
                     }
                 }
             }
 
-            var attacks = self.pawns[@as(usize, @intFromEnum(color)) * 64 + start_square] &
-            board.color_bb[@intFromEnum(enemy)] &
-            legal_mask;
+            if (mode != .quiets) {
+                var attacks = self.pawns[@as(usize, @intFromEnum(color)) * 64 + start_square] &
+                board.color_bb[@intFromEnum(enemy)] &
+                legal_mask;
 
-            while (attacks != 0) {
-                const end_square: brd.Square = brd.getLSB(attacks);
-                const captured_piece: ?brd.Pieces = board.getPieceFromSquare(end_square);
+                while (attacks != 0) {
+                    const end_square: brd.Square = brd.getLSB(attacks);
+                    const captured_piece: ?brd.Pieces = board.getPieceFromSquare(end_square);
 
-                if (start_square < pawn_promo_1 and start_square > pawn_promo_2) {
-                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Queen, true, captured_piece, false, false, false);
-                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Rook, true, captured_piece, false, false, false);
-                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Bishop, true, captured_piece, false, false, false);
-                    move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Knight, true, captured_piece, false, false, false);
-                } else {
-                    move_list.addEasyMove(start_square, end_square, brd.Pieces.Pawn, true, captured_piece);
+                    if (start_square < pawn_promo_1 and start_square > pawn_promo_2) {
+                        move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Queen, true, captured_piece, false, false, false);
+                        move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Rook, true, captured_piece, false, false, false);
+                        move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Bishop, true, captured_piece, false, false, false);
+                        move_list.addMove(start_square, end_square, brd.Pieces.Pawn, brd.Pieces.Knight, true, captured_piece, false, false, false);
+                    } else {
+                        move_list.addEasyMove(start_square, end_square, brd.Pieces.Pawn, true, captured_piece);
+                    }
+                    brd.popBit(&attacks, end_square);
                 }
-                brd.popBit(&attacks, end_square);
-            }
 
-            if (board.game_state.en_passant_square != null) {
-                const ep_square: brd.Square = board.game_state.en_passant_square.?;
-                const ep_attacks = self.pawns[@as(usize, @intFromEnum(color)) * 64 + start_square] &
-                brd.getSquareBB(ep_square);
+                if (board.game_state.en_passant_square != null) {
+                    const ep_square: brd.Square = board.game_state.en_passant_square.?;
+                    const ep_attacks = self.pawns[@as(usize, @intFromEnum(color)) * 64 + start_square] &
+                    brd.getSquareBB(ep_square);
 
-                if (ep_attacks != 0) {
-                    const captured_sq: brd.Square = if (color == brd.Color.White) ep_square - 8 else ep_square + 8;
+                    if (ep_attacks != 0) {
+                        const captured_sq: brd.Square = if (color == brd.Color.White) ep_square - 8 else ep_square + 8;
 
-                    const ep_resolves_check = (brd.getSquareBB(ep_square) & info.check_mask != 0) or
-                (brd.getSquareBB(captured_sq) & info.check_mask != 0);
+                        const ep_resolves_check = (brd.getSquareBB(ep_square) & info.check_mask != 0) or
+                    (brd.getSquareBB(captured_sq) & info.check_mask != 0);
 
-                    const ep_respects_pin = brd.getSquareBB(ep_square) & pin_ray != 0;
+                        const ep_respects_pin = brd.getSquareBB(ep_square) & pin_ray != 0;
 
-                    if (ep_resolves_check and ep_respects_pin and
-                    self.isEpLegal(board, info.king_sq, start_square, ep_square, color))
-                {
-                        move_list.addMove(start_square, ep_square, brd.Pieces.Pawn, null, true, brd.Pieces.Pawn, false, true, false);
+                        if (ep_resolves_check and ep_respects_pin and
+                        self.isEpLegal(board, info.king_sq, start_square, ep_square, color))
+                    {
+                            move_list.addMove(start_square, ep_square, brd.Pieces.Pawn, null, true, brd.Pieces.Pawn, false, true, false);
+                        }
                     }
                 }
             }
@@ -392,7 +420,7 @@ pub const MoveGen = struct {
         }
     }
 
-    pub fn generateKingMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime move_flag: bool, info: *MoveGenInfo) void {
+    pub fn generateKingMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime mode: GenMode, info: *MoveGenInfo) void {
         const enemy = brd.flipColor(color);
         const king_sq = info.king_sq;
         var attacks = self.kings[king_sq] & ~board.color_bb[@intFromEnum(color)];
@@ -403,9 +431,11 @@ pub const MoveGen = struct {
             const end_square = brd.getLSB(attacks);
 
             if (!self.isAttackedOcc(end_square, enemy, board, occ_without_king)) {
-                if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
-                    move_list.addEasyMove(king_sq, end_square, brd.Pieces.King, false, null);
-                } else if (brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                if (!brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                    if (mode != .captures) {
+                        move_list.addEasyMove(king_sq, end_square, brd.Pieces.King, false, null);
+                    }
+                } else if (mode != .quiets) {
                     move_list.addEasyMove(king_sq, end_square, brd.Pieces.King, true, board.getPieceFromSquare(end_square));
                 }
             }
@@ -414,7 +444,7 @@ pub const MoveGen = struct {
         }
     }
 
-    pub fn generateSlideMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime move_flag: bool, info: *MoveGenInfo) void {
+    pub fn generateSlideMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime mode: GenMode, info: *MoveGenInfo) void {
         const enemy = brd.flipColor(color);
         var bb: Bitboard = undefined;
         var start_square: brd.Square = undefined;
@@ -431,9 +461,11 @@ pub const MoveGen = struct {
             info.pin_rays[start_square];
             while (attacks != 0) {
                 end_square = brd.getLSB(attacks);
-                if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
-                    move_list.addEasyMove(start_square, end_square, brd.Pieces.Bishop, false, null);
-                } else if (brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                if (!brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                    if (mode != .captures) {
+                        move_list.addEasyMove(start_square, end_square, brd.Pieces.Bishop, false, null);
+                    }
+                } else if (mode != .quiets) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Bishop, true, board.getPieceFromSquare(end_square));
                 }
                 brd.popBit(&attacks, end_square);
@@ -451,9 +483,11 @@ pub const MoveGen = struct {
             info.pin_rays[start_square];
             while (attacks != 0) {
                 end_square = brd.getLSB(attacks);
-                if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
-                    move_list.addEasyMove(start_square, end_square, brd.Pieces.Rook, false, null);
-                } else if (brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                if (!brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                    if (mode != .captures) {
+                        move_list.addEasyMove(start_square, end_square, brd.Pieces.Rook, false, null);
+                    }
+                } else if (mode != .quiets) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Rook, true, board.getPieceFromSquare(end_square));
                 }
                 brd.popBit(&attacks, end_square);
@@ -471,9 +505,11 @@ pub const MoveGen = struct {
             info.pin_rays[start_square];
             while (attacks != 0) {
                 end_square = brd.getLSB(attacks);
-                if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
-                    move_list.addEasyMove(start_square, end_square, brd.Pieces.Queen, false, null);
-                } else if (brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                if (!brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                    if (mode != .captures) {
+                        move_list.addEasyMove(start_square, end_square, brd.Pieces.Queen, false, null);
+                    }
+                } else if (mode != .quiets) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Queen, true, board.getPieceFromSquare(end_square));
                 }
                 brd.popBit(&attacks, end_square);
@@ -482,7 +518,7 @@ pub const MoveGen = struct {
         }
     }
 
-    pub fn generateKnightMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime move_flag: bool, info: *MoveGenInfo) void {
+    pub fn generateKnightMoves(self: *MoveGen, board: *Board, move_list: *MoveList, color: brd.Color, comptime mode: GenMode, info: *MoveGenInfo) void {
         const enemy = brd.flipColor(color);
         var bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.Knight)];
 
@@ -499,9 +535,11 @@ pub const MoveGen = struct {
             while (attacks != 0) {
                 const end_square = brd.getLSB(attacks);
 
-                if (!move_flag and !brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
-                    move_list.addEasyMove(start_square, end_square, brd.Pieces.Knight, false, null);
-                } else if (brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                if (!brd.getBit(board.color_bb[@intFromEnum(enemy)], end_square)) {
+                    if (mode != .captures) {
+                        move_list.addEasyMove(start_square, end_square, brd.Pieces.Knight, false, null);
+                    }
+                } else if (mode != .quiets) {
                     move_list.addEasyMove(start_square, end_square, brd.Pieces.Knight, true, board.getPieceFromSquare(end_square));
                 }
 
@@ -685,7 +723,7 @@ pub const MoveGen = struct {
         return true;
     }
 
-    fn computeMoveGenInfo(self: *MoveGen, board: *Board) MoveGenInfo {
+    pub fn computeMoveGenInfo(self: *MoveGen, board: *Board) MoveGenInfo {
         const color = board.game_state.side_to_move;
         const enemy = brd.flipColor(color);
         const king_bb = board.piece_bb[@intFromEnum(color)][@intFromEnum(brd.Pieces.King)];
@@ -767,6 +805,152 @@ pub const MoveGen = struct {
             .check_mask = check_mask,
             .pin_rays = pin_rays,
         };
+    }
+
+    pub fn isLegalMove(self: *MoveGen, board: *Board, move: EncodedMove) bool {
+        var info = self.computeMoveGenInfo(board);
+        return self.isLegalMoveWithInfo(board, move, &info);
+    }
+
+    pub fn isLegalMoveWithInfo(self: *MoveGen, board: *Board, move: EncodedMove, info: *const MoveGenInfo) bool {
+        if (move.toU32() == 0) return false;
+        if (move.start_square == move.end_square) return false;
+
+        const color = board.game_state.side_to_move;
+        const enemy = brd.flipColor(color);
+        const start = move.start_square;
+        const end = move.end_square;
+
+        // A piece of ours must sit on the start square and match the encoding.
+        const piece = board.getPieceFromSquare(start) orelse return false;
+        const pcolor = board.getColorFromSquare(start) orelse return false;
+        if (pcolor != color) return false;
+        if (@as(u4, @intCast(@intFromEnum(piece))) != move.piece) return false;
+
+        if (piece != .Pawn and move.promoted_piece != 0) return false;
+        if (piece != .Pawn and (move.en_passant == 1 or move.double_pawn_push == 1)) return false;
+
+        // Castling.
+        if (move.castling == 1) {
+            if (piece != .King) return false;
+            if (move.capture == 1 or move.promoted_piece != 0 or move.en_passant == 1 or move.double_pawn_push == 1) return false;
+            if (info.checkers != 0) return false;
+
+            const gs = &board.game_state;
+            const ks_dest = brd.GameState.kingCastleDest(color, true);
+            const qs_dest = brd.GameState.kingCastleDest(color, false);
+            const kingside = end == ks_dest;
+            if (!kingside and end != qs_dest) return false;
+
+            const right = if (color == .White)
+                (if (kingside) brd.CastleRights.WhiteKingside else brd.CastleRights.WhiteQueenside)
+            else
+                (if (kingside) brd.CastleRights.BlackKingside else brd.CastleRights.BlackQueenside);
+            if ((gs.castling_rights & @intFromEnum(right)) == 0) return false;
+
+            const rook_sq = gs.rookSquare(color, kingside);
+            const rook_dest = brd.GameState.rookCastleDest(color, kingside);
+            const occ_no_king = board.occupancy() ^ brd.getSquareBB(info.king_sq);
+            return self.isCastleLegal(board, info.king_sq, rook_sq, end, rook_dest, enemy, occ_no_king);
+        }
+
+        const end_bb = brd.getSquareBB(end);
+        if (end_bb & board.color_bb[@intFromEnum(color)] != 0) return false;
+
+        // Capture flags must agree with the board (en passant handled separately).
+        if (move.en_passant == 0) {
+            if (move.capture == 1) {
+                if (end_bb & board.color_bb[@intFromEnum(enemy)] == 0) return false;
+                const cap = board.getPieceFromSquare(end) orelse return false;
+                if (@as(u4, @intCast(@intFromEnum(cap))) != move.captured_piece) return false;
+            } else {
+                if (end_bb & board.occupancy() != 0) return false;
+            }
+        }
+
+        // King moves: only need evasion legality, not check/pin masks.
+        if (piece == .King) {
+            if (self.kings[start] & end_bb == 0) return false;
+            const occ_no_king = board.occupancy() ^ brd.getSquareBB(start);
+            return !self.isAttackedOcc(end, enemy, board, occ_no_king);
+        }
+
+        // In double check only king moves are legal.
+        if (@popCount(info.checkers) >= 2) return false;
+
+        const legal_mask = info.check_mask & info.pin_rays[start];
+
+        switch (piece) {
+            .Knight => {
+                if (info.pin_rays[start] != ~@as(Bitboard, 0)) return false;
+                return (self.knights[start] & legal_mask & end_bb) != 0;
+            },
+            .Bishop => {
+                return (self.getBishopAttacks(start, board.occupancy()) & legal_mask & end_bb) != 0;
+            },
+            .Rook => {
+                return (self.getRookAttacks(start, board.occupancy()) & legal_mask & end_bb) != 0;
+            },
+            .Queen => {
+                return (self.getQueenAttacks(start, board.occupancy()) & legal_mask & end_bb) != 0;
+            },
+            .Pawn => {
+                // Promotion consistency.
+                const promo_start = if (color == .White)
+                    (start < @intFromEnum(brd.Squares.a8) and start > @intFromEnum(brd.Squares.h6))
+                else
+                    (start < @intFromEnum(brd.Squares.a3) and start > @intFromEnum(brd.Squares.h1));
+
+                if (promo_start) {
+                    if (move.promoted_piece == 0 or move.promoted_piece > @intFromEnum(brd.Pieces.Queen)) return false;
+                } else if (move.promoted_piece != 0) {
+                    return false;
+                }
+
+                // En passant.
+                if (move.en_passant == 1) {
+                    if (move.capture != 1 or move.double_pawn_push == 1) return false;
+                    const ep_square = board.game_state.en_passant_square orelse return false;
+                    if (end != ep_square) return false;
+                    if (self.pawns[@as(usize, @intFromEnum(color)) * 64 + start] & end_bb == 0) return false;
+
+                    const captured_sq: brd.Square = if (color == .White) end - 8 else end + 8;
+                    const resolves_check = (end_bb & info.check_mask != 0) or
+                        (brd.getSquareBB(captured_sq) & info.check_mask != 0);
+                    const respects_pin = end_bb & info.pin_rays[start] != 0;
+                    return resolves_check and respects_pin and
+                        self.isEpLegal(board, info.king_sq, start, end, color);
+                }
+
+                // Regular pawn capture.
+                if (move.capture == 1) {
+                    if (move.double_pawn_push == 1) return false;
+                    return (self.pawns[@as(usize, @intFromEnum(color)) * 64 + start] &
+                        board.color_bb[@intFromEnum(enemy)] & legal_mask & end_bb) != 0;
+                }
+
+                // Pushes (end square emptiness verified above).
+                const fwd: isize = if (color == .White) 8 else -8;
+                const s_i: isize = @intCast(start);
+                const e_i: isize = @intCast(end);
+
+                if (move.double_pawn_push == 1) {
+                    if (e_i != s_i + 2 * fwd) return false;
+                    const dpp_rank_ok = if (color == .White)
+                        start < @intFromEnum(brd.Squares.a3)
+                    else
+                        start > @intFromEnum(brd.Squares.h6);
+                    if (!dpp_rank_ok) return false;
+                    const mid: u64 = @intCast(s_i + fwd);
+                    if (brd.getBit(board.occupancy(), mid)) return false;
+                    return (legal_mask & end_bb) != 0;
+                }
+
+                if (e_i != s_i + fwd) return false;
+                return (legal_mask & end_bb) != 0;
+            },
+            else => return false,
+        }
     }
 
     pub fn printAttackedSquares(self: *MoveGen, color: brd.Color, board: *Bitboard) void {
@@ -1127,6 +1311,57 @@ pub fn undoMove(board: *Board, move: EncodedMove) void {
         const previous_state = board.history.history_list[board.history.history_count];
         board.game_state = previous_state;
     }
+}
+
+pub fn materializeMove(board: *brd.Board, m: EncodedMove) ?EncodedMove {
+    if (m.toU32() == 0) return null;
+    if (m.start_square == m.end_square) return null;
+
+    const stm = board.toMove();
+    const piece = board.getPieceFromSquare(m.start_square) orelse return null;
+    const pcolor = board.getColorFromSquare(m.start_square) orelse return null;
+    if (pcolor != stm) return null;
+
+    var out = m;
+    out._padding = 0;
+    out.piece = @intCast(@intFromEnum(piece));
+    out.double_pawn_push = 0;
+
+    if (m.castling == 1) {
+        if (piece != .King) return null;
+        out.capture = 0;
+        out.captured_piece = 0;
+        out.en_passant = 0;
+        out.promoted_piece = 0;
+        return out;
+    }
+
+    if (piece == .Pawn and m.en_passant == 1) {
+        out.capture = 1;
+        out.captured_piece = @intCast(@intFromEnum(brd.Pieces.Pawn));
+    } else {
+        out.en_passant = 0;
+        if (board.getColorFromSquare(m.end_square)) |target_color| {
+            if (target_color == stm) return null;
+            out.capture = 1;
+            out.captured_piece = @intCast(@intFromEnum(board.getPieceFromSquare(m.end_square).?));
+        } else {
+            out.capture = 0;
+            out.captured_piece = 0;
+        }
+    }
+
+    if (piece == .Pawn) {
+        const s_i: i32 = m.start_square;
+        const e_i: i32 = m.end_square;
+        if (stm == .White and e_i - s_i == 16) out.double_pawn_push = 1;
+        if (stm == .Black and s_i - e_i == 16) out.double_pawn_push = 1;
+    } else {
+        if (m.en_passant == 1) return null;
+        if (m.promoted_piece != 0) return null;
+    }
+
+    return out;
 }
 
 pub fn parseMove(board: *brd.Board, moveStr: []const u8, chess960: bool) ?EncodedMove {

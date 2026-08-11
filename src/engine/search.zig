@@ -813,27 +813,11 @@ pub const Searcher = struct {
             }
         }
 
-        // Actually run search
-        var move_list = self.move_gen.generateMoves(board, false);
-        const move_count: usize = move_list.len;
-
         var quiet_moves: mvs.MoveList = mvs.MoveList.init();
         var other_moves: mvs.MoveList = mvs.MoveList.init();
 
         self.killer[self.ply + 1][0] = mvs.EncodedMove.fromU32(0);
         self.killer[self.ply + 1][1] = mvs.EncodedMove.fromU32(0);
-
-        if (move_count == 0) {
-            // checkmate
-            if (in_check) {
-                return -eval.mate_score + @as(i32, @intCast(self.ply));
-            } else {
-                // stalemate
-                return 0;
-            }
-        }
-
-        var eval_moves = mp.scoreMoves(self, board, &move_list, hash_move, is_null);
 
         var best_move = mvs.EncodedMove.fromU32(0);
         best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
@@ -849,14 +833,18 @@ pub const Searcher = struct {
 
         if (cutnode and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].toU32() == 0) {
             const probcut_depth = depth - 3;
-            for (0..move_count) |i| {
-                const move_see = mp.getNextBestWithSee(&move_list, &eval_moves, i);
-                const move = move_see.move;
-                const see_score = move_see.see_val;
+            var pc_picker = mp.MovePicker.initProbcut(hash_move, tp.probcut_min_see.value);
+            while (pc_picker.next(self, board)) |pc_picked| {
+                const move = pc_picked.move;
+                const see_score = pc_picked.see_val;
 
+                // Losing captures signal there is nothing left worth probing.
+                if (pc_picked.stage == .bad_noisy) {
+                    break;
+                }
                 if (move.capture == 0) {
                     if (!move.matchesTTKey(hash_move)) {
-                        break;
+                        continue;
                     }
                 }
                 else if (see_score < tp.probcut_min_see.value) {
@@ -921,9 +909,13 @@ pub const Searcher = struct {
         var quiet_count: usize = 0;
         var other_count: usize = 0;
         var searched_moves: usize = 0;
+        var moves_seen: usize = 0;
 
-        for (0..move_count) |i| {
-            var move = mp.getNextBest(&move_list, &eval_moves, i);
+        var picker = mp.MovePicker.init(hash_move, is_null);
+
+        while (picker.next(self, board)) |picked| {
+            const move = picked.move;
+            moves_seen += 1;
 
             if (move.matchesTTKey(self.excluded_moves[self.ply])) {
                 continue;
@@ -932,7 +924,7 @@ pub const Searcher = struct {
             const is_capture = move.capture == 1;
             const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
 
-            if (!is_root and i > 1 and !in_check and !on_pv) {
+            if (!is_root and moves_seen > 2 and !in_check and !on_pv) {
                 var lmp_threshold: usize = tp.lmp_base.value + depth * tp.lmp_mul.value;
 
                 lmp_threshold = @divTrunc(lmp_threshold, 100);
@@ -943,9 +935,9 @@ pub const Searcher = struct {
                     lmp_threshold += @divTrunc(tp.lmp_improve.value, 100);
                 }
 
-                // Prune if we have searched enough quiet moves
                 if (quiet_count > lmp_threshold) {
                     skip_quiet = true;
+                    picker.skip_quiets = true;
                 }
             }
 
@@ -1033,10 +1025,6 @@ pub const Searcher = struct {
                 }
             }
 
-            // if (in_check) {
-            //     extension += 1;
-            // }
-
             self.move_history[self.ply] = move;
             if (board.getPieceFromSquare(move.start_square)) |p| {
                 self.moved_piece_history[self.ply] = .{ .piece = p, .color = board.getColorFromSquare(move.start_square).? };
@@ -1078,10 +1066,6 @@ pub const Searcher = struct {
                         reduction -= 1;
                     }
 
-                    // if (self.counter_moves[@intFromEnum(color)][move.start_square][move.end_square].toU32() == move.toU32()) {
-                    //     reduction -= 1;
-                    // }
-                    //
                     if (last_move.toU32() != 0 and
                     self.counter_moves[@intFromEnum(color)][last_move.start_square][last_move.end_square].toU32() == move.toU32())
                 {
@@ -1117,7 +1101,7 @@ pub const Searcher = struct {
                     score = -self.negamax(board, brd.flipColor(color), new_depth, -alpha - 1, -alpha, false, NodeType.NonPV, !cutnode);
                 }
 
-                if (on_pv and ((score > alpha and score < beta) or i == 0)) {
+                if (on_pv and ((score > alpha and score < beta) or searched_moves == 1)) {
                     score = -self.negamax(board, brd.flipColor(color), new_depth, -beta, -alpha, false, NodeType.PV, false);
                 }
             }
@@ -1156,6 +1140,15 @@ pub const Searcher = struct {
                     }
                 }
             }
+        }
+
+        if (moves_seen == 0) {
+            if (in_check) {
+                // checkmate
+                return -eval.mate_score + @as(i32, @intCast(self.ply));
+            }
+            // stalemate
+            return 0;
         }
 
         if (searched_moves == 0) {
@@ -1268,23 +1261,6 @@ pub const Searcher = struct {
         var best_move = mvs.EncodedMove.fromU32(0);
         var static_eval: i32 = best_score;
 
-        // / if (!in_check) {
-        //     if (qs_tt_hit and qs_tt_static_eval_valid) {
-        //         static_eval = qs_tt_static_eval + hist.getCorrection(self, color, board);
-        //     } else {
-        //         static_eval = board.evaluateNNUE();
-        //         static_eval += hist.getCorrection(self, color, board);
-        //     }
-        //
-        //     best_score = static_eval;
-        //
-        //     if (best_score >= beta) {
-        //         return best_score;
-        //     }
-        //     if (best_score > alpha) {
-        //         alpha = best_score;
-        //     }
-        // }
         var raw_static: i32 = 0;
         if (!in_check) {
             if (qs_tt_hit and qs_tt_static_eval_valid) {
@@ -1324,30 +1300,19 @@ pub const Searcher = struct {
             }
         }
 
-        var move_list: mvs.MoveList = undefined;
-        if (in_check) {
-            move_list = self.move_gen.generateMoves(board, false);
-            if (move_list.len == 0) {
-                // checkmate
-                if (in_check) {
-                    return -eval.mate_score + @as(i32, @intCast(self.ply));
-                } else {
-                    return 0;
-                }
-            }
-        } else {
-            move_list = self.move_gen.generateCaptureMoves(board, color);
-        }
+        var picker = if (in_check)
+            mp.MovePicker.init(hash_move, false)
+        else
+            mp.MovePicker.initNoisy(hash_move);
 
-        const move_size = move_list.len;
+        var moves_seen: usize = 0;
 
-        var eval_list = mp.scoreMoves(self, board, &move_list, hash_move, false);
-
-        for (0..move_size) |i| {
-            const move = mp.getNextBest(&move_list, &eval_list, i);
+        while (picker.next(self, board)) |picked| {
+            const move = picked.move;
+            moves_seen += 1;
 
             if (move.capture == 1 and !in_check) {
-                const see_value = eval_list[i].see_val;
+                const see_value = picked.see_val;
 
                 if (see_value < tp.q_see_min.value) {
                     continue;
@@ -1402,7 +1367,12 @@ pub const Searcher = struct {
             }
         }
 
-        if (!in_check and move_size == 0 and self.ply > 0) {
+        if (in_check and moves_seen == 0) {
+            // checkmate
+            return -eval.mate_score + @as(i32, @intCast(self.ply));
+        }
+
+        if (!in_check and moves_seen == 0 and self.ply > 0) {
             const last = self.move_history[self.ply - 1];
             const has_non_pawns_us = board.hasNonPawnMaterial(color);
 
