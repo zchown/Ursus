@@ -9,6 +9,7 @@ tmp
 spsa*
 notes.typ
 patches.md
+patches2.md
 tt_patches.md
 fastchess_test.sh
 gauntlet.sh

@@ -205,7 +205,6 @@ pub const Board = struct {
         self.nnue_stack.push();
         self.clearEnPassantSquare();
         self.flipSideToMove();
-        self.game_state.halfmove_clock += 1;
         if (self.game_state.side_to_move == Color.Black) {
             self.game_state.fullmove_number += 1;
         }

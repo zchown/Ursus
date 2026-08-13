@@ -121,6 +121,20 @@ pub var hist_malus_max = Tunable(i32, .{ .min = 500, .max = 3000 }){ .value = 12
 pub var see_weight = Tunable(i32, .{ .min = 10, .max = 200 }){ .value = 100 };
 pub var capthist_div = Tunable(i32, .{ .min = 10, .max = 100 }){ .value = 39 };
 
+pub var scale_pawn = Tunable(i32, .{ .min = 20, .max = 200}){ .value = 48 };
+pub var scale_knight = Tunable(i32, .{ .min = 300, .max = 700}){ .value = 442};
+pub var scale_bishop = Tunable(i32, .{ .min = 300, .max = 700}){ .value = 461};
+pub var scale_rook = Tunable(i32, .{ .min = 400, .max = 1000}){ .value = 637};
+pub var scale_queen = Tunable(i32, .{ .min = 800, .max = 1600}){ .value = 1223};
+pub var material_scale_base = Tunable(i32, .{ .min = 10000, .max = 40000}){ .value = 26000};
+pub var material_scale_div = Tunable(i32, .{ .min = 10000, .max = 40000}){ .value = 35374};
+pub var fifty_scale_base = Tunable(i32, .{ .min = 120, .max = 400}){ .value = 200};
+pub var optimism_base = Tunable(i32, .{ .min = 0, .max = 12000}){ .value = 2024};
+pub var optimism_mat_scale = Tunable(i32, .{ .min = 0, .max = 2048}){ .value = 1005};
+pub var optimism_scale = Tunable(i32, .{ .min = 50, .max = 300}){ .value = 147};
+pub var optimism_stretch = Tunable(i32, .{ .min = 50, .max = 200}){ .value = 101};
+
+
 pub const TunableRef = struct {
     name: []const u8,
     ptr: Value,

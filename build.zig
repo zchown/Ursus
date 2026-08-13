@@ -189,6 +189,7 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
     eval_module.addImport("moves", moves_module);
     eval_module.addImport("pawn_tt", pawn_tt_module);
     eval_module.addImport("zobrist", zobrist_module);
+    eval_module.addImport("tunable_parameters", tunable_parameters_module);
 
     see_module.addImport("board", board_module);
     see_module.addImport("moves", moves_module);

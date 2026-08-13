@@ -127,6 +127,10 @@ pub const Searcher = struct {
     capture_history: [2][7][64][7]i16 = undefined,
     root_node_counts: [64][64]u64 = undefined,
 
+    optimism: [2]i32 = .{0, 0},
+    avg_root_score: i32 = 0,
+    avg_root_valid: bool = false,
+
     thread_id: usize = 0,
     root_board: *brd.Board = undefined,
     silent_output: bool = false,
@@ -350,6 +354,10 @@ pub const Searcher = struct {
         self.search_score = 0;
         self.root_board = board;
 
+        self.optimism = .{0, 0};
+        self.avg_root_score = 0;
+        self.avg_root_valid = false;
+
         if (self.thread_id == 0 and tb.isLoaded()) blk: {
             var tb_occupied: u64 = 0;
             inline for (0..2) |c| {
@@ -422,6 +430,15 @@ pub const Searcher = struct {
             const depth = outer_depth;
 
             var window_failed = false;
+
+            if (self.avg_root_valid) {
+                const avg = self.avg_root_score;
+                const abs_avg: i32 = @intCast(@abs(avg));
+                const o = @divTrunc(tp.optimism_scale.value * avg, abs_avg + tp.optimism_stretch.value);
+                self.optimism[@intFromEnum(self.perspective)] = o;
+                self.optimism[@intFromEnum(brd.flipColor(self.perspective))] = -o;
+            }
+
             while (true) {
                 if (depth == outer_depth) {
                     score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.Root, false);
@@ -486,6 +503,13 @@ pub const Searcher = struct {
             }
 
             factor = std.math.clamp(factor, 0.35, 2.75);
+
+            if (!self.avg_root_valid) {
+                self.avg_root_score = score;
+                self.avg_root_valid = true;
+            } else {
+                self.avg_root_score = @divTrunc(self.avg_root_score + score, 2);
+            }
 
             prev_score = score;
             self.search_score = score;
@@ -562,7 +586,7 @@ pub const Searcher = struct {
         self.pv_length[self.ply] = 0;
 
         if (self.ply >= max_ply - 1) {
-            return board.evaluateNNUE();
+            return eval.adjustEval(board, self.optimism[@intFromEnum(color)], board.evaluateNNUE(), 0);
         }
 
         if (board.isDraw(self.ply)) {
@@ -692,18 +716,19 @@ pub const Searcher = struct {
             static_eval = self.eval_history[self.ply];
         } else if (tt_hit and tt_static_eval_valid) {
             raw_static_eval = tt_static_eval;
-            const corrected = raw_static_eval + hist.getCorrection(self, color, board);
-            static_eval = std.math.clamp(corrected, -eval.mate_score + 257, eval.mate_score - 257);
+            const corrected = hist.getCorrection(self, color, board);
+            static_eval = eval.adjustEval(board, self.optimism[@intFromEnum(color)], raw_static_eval, corrected);
 
             self.eval_history[self.ply] = static_eval;
         } else {
             raw_static_eval = board.evaluateNNUE();
-            static_eval = raw_static_eval + hist.getCorrection(self, color, board);
+            const correction = hist.getCorrection(self, color, board);
+            static_eval = eval.adjustEval(board, self.optimism[@intFromEnum(color)], raw_static_eval, correction);
             self.eval_history[self.ply] = static_eval;
         }
 
         var best_score: i32 = static_eval;
-        
+
         var improving = false;
         if (!in_check) {
             if (self.ply >= 2 and self.eval_history[self.ply - 2] != eval_none) {
@@ -1215,7 +1240,7 @@ pub const Searcher = struct {
         }
 
         if (self.ply >= max_ply - 1) {
-            return board.evaluateNNUE();
+            return eval.adjustEval(board, self.optimism[@intFromEnum(color)], board.evaluateNNUE(), 0);
         }
 
         if (self.ply > self.seldepth) {
@@ -1269,8 +1294,9 @@ pub const Searcher = struct {
             } else {
                 raw_static = board.evaluateNNUE();
             }
-            const corrected = raw_static + hist.getCorrection(self, color, board);
-            static_eval = std.math.clamp(corrected, -eval.mate_score + 257, eval.mate_score - 257);
+            const correction = hist.getCorrection(self, color, board);
+            static_eval = eval.adjustEval(board, self.optimism[@intFromEnum(color)], raw_static, correction);
+
 
             best_score = static_eval;
 
