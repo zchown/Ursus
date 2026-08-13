@@ -32,7 +32,7 @@ pub inline fn scalingMaterial(board: *const brd.Board) i32 {
 
 pub fn adjustEval(board: *const brd.Board, optimism: i32, raw: i32, correction: i32) i32 {
     _ = optimism;
-    _ = board;
+    var v: i64 = raw;
     // const mat: i64 = scalingMaterial(board);
     //
     // const mat_mul: i64 = @as(i64, tp.material_scale_base.value) + mat;
@@ -44,16 +44,12 @@ pub fn adjustEval(board: *const brd.Board, optimism: i32, raw: i32, correction: 
     //     @as(i64, tp.material_scale_div.value),
     // );
     //
-    // const hm: i64 = board.game_state.halfmove_clock;
-    // const fifty: i64 = tp.fifty_scale_base.value;
-    // v = @divTrunc(v * (fifty - hm), fifty);
-    //
-    // v += correction;
+    const hm: i64 = board.game_state.halfmove_clock;
+    const fifty: i64 = tp.fifty_scale_base.value;
+    v = @divTrunc(v * (fifty - hm), fifty);
 
-    // return @intCast(std.math.clamp(v, -adjust_limit, adjust_limit));
-    const v = std.math.clamp(raw + correction, -mate_score + 257, mate_score - 257);
-
-    return v;
+    v += correction;
+    return @intCast(std.math.clamp(v, -mate_score + 257, mate_score - 257));
 }
 
 pub var lazy_margin: i32 = 810;
