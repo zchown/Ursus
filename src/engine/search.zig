@@ -1039,6 +1039,9 @@ pub const Searcher = struct {
                 } else if (!on_pv and s_score >= beta and !eval.almostMate(s_score)) {
                     return s_score;
                 }
+                else if (cutnode) {
+                    extension = -2;
+                }
             }
 
             if (!is_root and self.ply <= depth and hash_move.capture == 0) {
