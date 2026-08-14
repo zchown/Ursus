@@ -121,11 +121,11 @@ pub var hist_malus_max = Tunable(i32, .{ .min = 500, .max = 3000 }){ .value = 12
 pub var see_weight = Tunable(i32, .{ .min = 10, .max = 200 }){ .value = 100 };
 pub var capthist_div = Tunable(i32, .{ .min = 10, .max = 100 }){ .value = 39 };
 
-const d_scale_pawn:          i32 = 48;
-const d_scale_knight:        i32 = 442;
-const d_scale_bishop:        i32 = 461;
-const d_scale_rook:          i32 = 637;
-const d_scale_queen:         i32 = 1223;
+const d_scale_pawn:          i32 = 93;
+const d_scale_knight:        i32 = 308;
+const d_scale_bishop:        i32 = 346;
+const d_scale_rook:          i32 = 521;
+const d_scale_queen:         i32 = 994;
 const d_material_scale_base: i32 = 26000;
 
 pub var scale_pawn   = Tunable(i32, .{ .min = 20,  .max = 200,  .hook = .material_scale }){ .value = d_scale_pawn };
@@ -157,10 +157,10 @@ pub fn recomputeMaterialScaleDiv() void {
 }
 
 pub var fifty_scale_base = Tunable(i32, .{ .min = 120, .max = 400}){ .value = 200};
-pub var optimism_base = Tunable(i32, .{ .min = 0, .max = 12000}){ .value = 2024};
-pub var optimism_mat_scale = Tunable(i32, .{ .min = 0, .max = 2048}){ .value = 1005};
-pub var optimism_scale = Tunable(i32, .{ .min = 50, .max = 300}){ .value = 147};
-pub var optimism_stretch = Tunable(i32, .{ .min = 50, .max = 200}){ .value = 101};
+pub var optimism_base = Tunable(i32, .{ .min = 0, .max = 12000}){ .value = 2048};
+pub var optimism_mat_scale = Tunable(i32, .{ .min = 0, .max = 2048}){ .value = 1000};
+pub var optimism_scale = Tunable(i32, .{ .min = 50, .max = 300}){ .value = 100};
+pub var optimism_stretch = Tunable(i32, .{ .min = 50, .max = 200}){ .value = 100};
 
 
 pub const TunableRef = struct {
