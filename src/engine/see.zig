@@ -1,16 +1,8 @@
 const brd = @import("board");
 const mvs = @import("moves");
 const std = @import("std");
+const tp = @import("tunable_parameters");
 
-pub const see_values = [_]i32{
-    93, // Pawn
-    308, // Knight
-    346, // Bishop
-    521, // Rook
-    994, // Queen
-    20000, // King
-    0,
-};
 
 fn seeSwap(
     board: *brd.Board,
@@ -44,7 +36,7 @@ fn seeSwap(
         depth += 1;
         if (depth >= 32) break;
 
-        gain[depth] = see_values[@intFromEnum(piece)] - gain[depth - 1];
+        gain[depth] = tp.see_values.values[@intFromEnum(piece)] - gain[depth - 1];
 
         if (@max(-gain[depth - 1], gain[depth]) < 0) break;
 
@@ -93,7 +85,7 @@ pub fn seeCapture(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
             move.start_square,
             attacker,
             attacker_color,
-            see_values[@intFromEnum(brd.Pieces.Pawn)],
+            tp.see_values.values[@intFromEnum(brd.Pieces.Pawn)],
         );
     }
 
@@ -107,7 +99,7 @@ pub fn seeCapture(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
         move.start_square,
         attacker,
         attacker_color,
-        see_values[@intFromEnum(target_piece)],
+        tp.see_values.values[@intFromEnum(target_piece)],
     );
 }
 
@@ -123,13 +115,13 @@ pub fn seeMove(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove)
             move.start_square,
             attacker,
             attacker_color,
-            see_values[@intFromEnum(brd.Pieces.Pawn)],
+            tp.see_values.values[@intFromEnum(brd.Pieces.Pawn)],
         );
     }
 
     const target_piece: ?brd.Pieces = if (move.capture == 1) @enumFromInt(move.captured_piece) else null;
 
-    if (target_piece) |tp| {
+    if (target_piece) |p| {
         return seeSwap(
             board,
             move_gen,
@@ -137,7 +129,7 @@ pub fn seeMove(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove)
             move.start_square,
             attacker,
             attacker_color,
-            see_values[@intFromEnum(tp)],
+            tp.see_values.values[@intFromEnum(p)],
         );
     }
 
@@ -159,16 +151,16 @@ pub fn seeAtLeast(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
     const attacker: brd.Pieces = @enumFromInt(move.piece);
 
     var swap: i32 = blk: {
-        if (move.en_passant == 1) break :blk see_values[@intFromEnum(brd.Pieces.Pawn)] - threshold;
+        if (move.en_passant == 1) break :blk tp.see_values.values[@intFromEnum(brd.Pieces.Pawn)] - threshold;
         if (move.capture == 1) {
             const captured: brd.Pieces = @enumFromInt(move.captured_piece);
-            break :blk see_values[@intFromEnum(captured)] - threshold;
+            break :blk tp.see_values.values[@intFromEnum(captured)] - threshold;
         }
         break :blk -threshold;
     };
     if (swap < 0) return false;
 
-    swap = see_values[@intFromEnum(attacker)] - swap;
+    swap = tp.see_values.values[@intFromEnum(attacker)] - swap;
     if (swap <= 0) return true;
 
     var occ = board.occupancy();
@@ -203,7 +195,7 @@ pub fn seeAtLeast(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
             break;
         }
 
-        swap = see_values[@intFromEnum(na.piece)] - swap;
+        swap = tp.see_values.values[@intFromEnum(na.piece)] - swap;
         if (swap < res) break;
 
         occ ^= (@as(u64, 1) << @intCast(na.square));
@@ -233,7 +225,7 @@ pub fn see(board: *brd.Board, move_gen: *mvs.MoveGen, target_sq: usize, attacker
         attacker_sq,
         attacker_piece,
         attacker_color,
-        see_values[@intFromEnum(target_piece)],
+        tp.see_values.values[@intFromEnum(target_piece)],
     );
 }
 

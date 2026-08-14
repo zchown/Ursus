@@ -193,6 +193,7 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
 
     see_module.addImport("board", board_module);
     see_module.addImport("moves", moves_module);
+    see_module.addImport("tunable_parameters", tunable_parameters_module);
 
     datagen_module.addImport("board", board_module);
     datagen_module.addImport("moves", moves_module);
