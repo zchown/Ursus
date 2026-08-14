@@ -31,13 +31,16 @@ pub inline fn scalingMaterial(board: *const brd.Board) i32 {
 }
 
 pub fn adjustEval(board: *const brd.Board, optimism: i32, raw: i32, correction: i32) i32 {
+
+    _ = optimism; 
     const mat: i64 = scalingMaterial(board);
 
-    const opt_mul: i64 = @as(i64, tp.optimism_base.value)
-    + @divTrunc(mat * @as(i64, tp.optimism_mat_scale.value), 1024);
+    const mat_mul: i64 = @as(i64, tp.material_scale_base.value) + mat;
 
-    var v: i64 = @as(i64, raw)
-    + @divTrunc(@as(i64, optimism) * opt_mul, @as(i64, tp.material_scale_div));
+    var v: i64 = @divTrunc(
+        @as(i64, raw) * mat_mul,
+        @as(i64, tp.material_scale_div),
+    );
 
     const hm: i64 = board.game_state.halfmove_clock;
     const fifty: i64 = tp.fifty_scale_base.value;
