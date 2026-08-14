@@ -13,7 +13,7 @@ pub const lmr_pv_min = 3;
 pub const lmr_non_pv_min = 1;
 
 
-pub const Hook = enum { none, quiet_lmr, noisy_lmr };
+pub const Hook = enum { none, quiet_lmr, noisy_lmr, material_scale };
 
 pub const Value = union(enum) {
     int: *i32,
@@ -121,13 +121,41 @@ pub var hist_malus_max = Tunable(i32, .{ .min = 500, .max = 3000 }){ .value = 12
 pub var see_weight = Tunable(i32, .{ .min = 10, .max = 200 }){ .value = 100 };
 pub var capthist_div = Tunable(i32, .{ .min = 10, .max = 100 }){ .value = 39 };
 
-pub var scale_pawn = Tunable(i32, .{ .min = 20, .max = 200}){ .value = 48 };
-pub var scale_knight = Tunable(i32, .{ .min = 300, .max = 700}){ .value = 442};
-pub var scale_bishop = Tunable(i32, .{ .min = 300, .max = 700}){ .value = 461};
-pub var scale_rook = Tunable(i32, .{ .min = 400, .max = 1000}){ .value = 637};
-pub var scale_queen = Tunable(i32, .{ .min = 800, .max = 1600}){ .value = 1223};
-pub var material_scale_base = Tunable(i32, .{ .min = 10000, .max = 40000}){ .value = 26000};
-pub var material_scale_div = Tunable(i32, .{ .min = 10000, .max = 40000}){ .value = 35374};
+const d_scale_pawn:          i32 = 48;
+const d_scale_knight:        i32 = 442;
+const d_scale_bishop:        i32 = 461;
+const d_scale_rook:          i32 = 637;
+const d_scale_queen:         i32 = 1223;
+const d_material_scale_base: i32 = 26000;
+
+pub var scale_pawn   = Tunable(i32, .{ .min = 20,  .max = 200,  .hook = .material_scale }){ .value = d_scale_pawn };
+pub var scale_knight = Tunable(i32, .{ .min = 300, .max = 700,  .hook = .material_scale }){ .value = d_scale_knight };
+pub var scale_bishop = Tunable(i32, .{ .min = 300, .max = 700,  .hook = .material_scale }){ .value = d_scale_bishop };
+pub var scale_rook   = Tunable(i32, .{ .min = 400, .max = 1000, .hook = .material_scale }){ .value = d_scale_rook };
+pub var scale_queen  = Tunable(i32, .{ .min = 800, .max = 1600, .hook = .material_scale }){ .value = d_scale_queen };
+
+pub var material_scale_base = Tunable(i32, .{ .min = 10000, .max = 40000, .hook = .material_scale }){ .value = d_material_scale_base };
+
+
+// not spsa tunable, but derived from the above tunables
+pub var material_scale_div: i32 = d_material_scale_base + startposMaterial(
+    d_scale_pawn, d_scale_knight, d_scale_bishop, d_scale_rook, d_scale_queen,
+);
+
+fn startposMaterial(p: i32, n: i32, b: i32, r: i32, q: i32) i32 {
+    return 16 * p + 4 * n + 4 * b + 4 * r + 2 * q;
+}
+
+pub fn recomputeMaterialScaleDiv() void {
+    material_scale_div = material_scale_base.value + startposMaterial(
+        scale_pawn.value,
+        scale_knight.value,
+        scale_bishop.value,
+        scale_rook.value,
+        scale_queen.value,
+    );
+}
+
 pub var fifty_scale_base = Tunable(i32, .{ .min = 120, .max = 400}){ .value = 200};
 pub var optimism_base = Tunable(i32, .{ .min = 0, .max = 12000}){ .value = 2024};
 pub var optimism_mat_scale = Tunable(i32, .{ .min = 0, .max = 2048}){ .value = 1005};

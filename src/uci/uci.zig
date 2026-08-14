@@ -522,6 +522,7 @@ pub const UciProtocol = struct {
             .none => {},
             .quiet_lmr => srch.quiet_lmr = srch.initQuietLMR(),
             .noisy_lmr => srch.noisy_lmr = srch.initNoisyLMR(),
+            .material_scale => tp.recomputeMaterialScaleDiv(),
         }
         return true;
     }
