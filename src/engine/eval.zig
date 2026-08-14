@@ -33,6 +33,7 @@ pub inline fn scalingMaterial(board: *const brd.Board) i32 {
 pub fn adjustEval(board: *const brd.Board, optimism: i32, raw: i32, correction: i32) i32 {
 
     _ = optimism; 
+
     const mat: i64 = scalingMaterial(board);
 
     const mat_mul: i64 = @as(i64, tp.material_scale_base.value) + mat;
