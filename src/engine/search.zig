@@ -8,10 +8,20 @@ const mp = @import("move_picker");
 const tp = @import("tunable_parameters");
 const hist = @import("history");
 const tb = @import("tb");
+const policy = @import("policy");
 
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
 pub const eval_none: i32 = std.math.minInt(i32);
+
+pub var g_policy_net: policy.PolicyNet = .{};
+
+pub fn initPolicy(alloc: std.mem.Allocator) void {
+    g_policy_net.loadEmbedded(alloc) catch |err| {
+        std.debug.print("info string policy load failed: {s}\n", .{@errorName(err)});
+        g_policy_net.loaded = false;
+    };
+}
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 
@@ -90,6 +100,10 @@ pub const Searcher = struct {
     chess960: bool = false,
 
     move_gen: *mvs.MoveGen = undefined,
+
+    policy_net: *policy.PolicyNet = &g_policy_net,
+    root_policy: policy.RootPolicy = .{},
+    policy_ready: bool = false,
 
     soft_max_nodes: ?u64 = null,
     max_nodes: ?u64 = null,
@@ -353,6 +367,12 @@ pub const Searcher = struct {
         self.perspective = board.toMove();
         self.search_score = 0;
         self.root_board = board;
+
+        self.policy_ready = false;
+        if (self.policy_net.loaded) {
+            self.root_policy.compute(self.policy_net, board, self.move_gen);
+            self.policy_ready = self.root_policy.ok;
+        }
 
         self.optimism = .{0, 0};
         self.avg_root_score = 0;
@@ -1112,6 +1132,10 @@ pub const Searcher = struct {
 
                     if (!is_capture) {
                         reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div.value);
+                    }
+
+                    if (is_root and self.policy_ready) {
+                        reduction += self.root_policy.lmrDelta(move, depth);
                     }
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth + 1))));

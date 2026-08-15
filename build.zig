@@ -109,6 +109,12 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
         .optimize = optimize,
     });
 
+    const policy_module = b.createModule(.{
+        .root_source_file = b.path("src/engine/policy.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "Ursus",
         .root_module = b.createModule(.{
@@ -154,6 +160,11 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
     search_module.addImport("move_picker", move_picker);
     search_module.addImport("tunable_parameters", tunable_parameters_module);
     search_module.addImport("history", history_module);
+    search_module.addImport("policy", policy_module);
+
+    policy_module.addImport("board", board_module);
+    policy_module.addImport("moves", moves_module);
+    policy_module.addImport("see", see_module);
 
     history_module.addImport("board", board_module);
     history_module.addImport("moves", moves_module);

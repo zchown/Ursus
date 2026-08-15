@@ -160,6 +160,8 @@ pub const UciProtocol = struct {
         srch.quiet_lmr = srch.initQuietLMR();
         srch.noisy_lmr = srch.initNoisyLMR();
 
+        srch.initPolicy(a);
+
         return protocol;
     }
 
@@ -393,9 +395,6 @@ pub const UciProtocol = struct {
         try self.newGame();
 
         try respond("uciok");
-
-        srch.quiet_lmr = srch.initQuietLMR();
-        srch.noisy_lmr = srch.initNoisyLMR();
     }
 
     fn handleSetOption(self: *UciProtocol, args: [][]const u8) !void {
