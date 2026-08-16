@@ -11,7 +11,7 @@ pub const max_active: usize = 32;
 
 pub const Act = enum(u32) { screlu = 0, pairwise = 1 };
 
-pub const hl: usize = 128;
+pub const hl: usize = 512;
 pub const act: Act = .screlu;
 pub const hw: usize = if (act == .screlu) hl else hl / 2;
 
