@@ -28,6 +28,7 @@ It is playing on an old Intel NUC with a Intel® Core™ i5-4250U configured for
 [![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=bullet)](https://lichess.org/@/Ursus_bot/perf/bullet)
 [![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=blitz)](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=blitz)
 [![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=rapid)](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=rapid)
+[![lichess-rapid](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=chess960)](https://lichess-shield.vercel.app/api?username=Ursus_bot&format=chess960)
 
 ---
 
