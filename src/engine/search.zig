@@ -893,6 +893,8 @@ pub const Searcher = struct {
                 var score = -self.qsearch(board, brd.flipColor(color), -probcut_beta, -probcut_beta+1, false);
 
                 if (self.time_stop) {
+                    mvs.undoMove(board, move);
+                    self.ply -= 1;
                     return 0;
                 }
 
@@ -901,6 +903,8 @@ pub const Searcher = struct {
                 }
 
                 if (self.time_stop) {
+                    mvs.undoMove(board, move);
+                    self.ply -= 1;
                     return 0;
                 }
 

@@ -580,17 +580,21 @@ pub const MoveGen = struct {
     }
 
     fn isCastleLegal(
-        self: *MoveGen,
-        board: *Board,
-        king_sq: brd.Square,
-        rook_sq: brd.Square,
-        king_dest: brd.Square,
-        rook_dest: brd.Square,
-        enemy: brd.Color,
-        occ_no_king: Bitboard,
-    ) bool {
+    self: *MoveGen,
+    board: *Board,
+    king_sq: brd.Square,
+    rook_sq: brd.Square,
+    king_dest: brd.Square,
+    rook_dest: brd.Square,
+    enemy: brd.Color,
+    occ_no_king: Bitboard,
+) bool {
         const king_bb = brd.getSquareBB(king_sq);
         const rook_bb = brd.getSquareBB(rook_sq);
+
+        const us = brd.flipColor(enemy);
+        const our_rooks = board.piece_bb[@intFromEnum(us)][@intFromEnum(brd.Pieces.Rook)];
+        if (our_rooks & rook_bb == 0) return false;
 
         const span_kr    = rankSpan(king_sq, rook_sq);
         const span_rdest = rankSpan(rook_sq, rook_dest);
@@ -609,7 +613,7 @@ pub const MoveGen = struct {
 
         return true;
     }
-
+    
     inline fn rankSpan(sq1: brd.Square, sq2: brd.Square) Bitboard {
         const lo = @min(sq1, sq2);
         const hi = @max(sq1, sq2);
