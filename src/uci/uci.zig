@@ -376,7 +376,7 @@ pub const UciProtocol = struct {
     }
 
     fn handleUci(self: *UciProtocol) !void {
-        try respond("id name Ursus 1.0 " ++ @tagName(nnue.TARGET));
+        try respond("id name Ursus 1.1.0 " ++ @tagName(nnue.TARGET));
         try respond("id author Zander");
 
         try respond("option name Ponder type check default false");
