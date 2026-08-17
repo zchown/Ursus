@@ -77,8 +77,6 @@ Ursus implements the core UCI protocol. The table below summarizes supported com
 | `setoption name SyzygyPath` | Path to directory containing Syzygy tablebases (`.rtbw` / `.rtbz`); multiple directories separated by `:` on Unix or `;` on Windows. Empty / `<empty>` unloads. |
 | `setoption name SyzygyProbeDepth` | Minimum depth at which in-tree WDL probing fires, default 1. Increase if TB probing causes a noticeable NPS drop. |
 | `datagen` | Used to run self-play data generation for training the NNUE |
-| `eval` / `hce` | Supported -- prints the current static NNUE or legacy HCE evaluation |
-
 ---
 
 ## Acknowledgements
