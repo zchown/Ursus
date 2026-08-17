@@ -6,6 +6,11 @@ It uses a bitboard-based board representation, alpha-beta search with many searc
 
 --------------------------------------------------
 
+Live ratings can be found here:
+[COPE](https://cope-chess.live/engines/43)
+[CCRL 40/15](https://computerchess.org.uk/4040/cgi/engine_details.cgi?eng=Ursus%201.0.1%2064-bit)
+[CCRL Blitz](https://computerchess.org.uk/404/cgi/engine_details.cgi?print=Details&each_game=1&eng=Ursus%201.0%2064-bit#Ursus_1_0_64-bit)
+
 Engine strength on rating lists and against previous versions of Ursus:
 
 | Version | CCRL Blitz | CCRL 40/15 | COPE | STC Self | LTC Self | 4CPU LTC Self |
@@ -14,6 +19,7 @@ Engine strength on rating lists and against previous versions of Ursus:
 | v1.0.x  |    3512   | 3448       | 3449 |  0       | 0        | 0             |
 
 --------------------------------------------------
+
 
 Available to play on lichess: [`Ursus_bot`](https://lichess.org/@/Ursus_bot)
 
@@ -88,6 +94,7 @@ Ursus implements the core UCI protocol. The table below summarizes supported com
 
 ## Special Thanks
 
+- All the people who have taken the time to test Ursus
 - [Sebastian Lague](https://www.youtube.com/c/SebastianLague) and [tom7](https://tom7.org/chess/) For their excellent chess programming videos that first got me interested in chess engine development
 - [Code Monkey King](https://www.youtube.com/@chessprogramming591) Whose [Bitboard CHESS ENGINE in C](https://www.youtube.com/playlist?list=PLmN0neTso3Jxh8ZIylk74JpwfiWNI76Cs) helped me through the early stages of development in particular with understanding bitboard move generation and board representation.
 - [Ciekce](https://github.com/Ciekce), author of [Stormphrax](https://github.com/Ciekce/Stormphrax) which I often used as a reference. Also for being a helpful resource for engine development.
