@@ -11,7 +11,7 @@ pub const max_active: usize = 32;
 
 pub const Act = enum(u32) { screlu = 0, pairwise = 1 };
 
-pub const hl: usize = 256;
+pub const hl: usize = 1024;
 pub const act: Act = .pairwise;
 pub const layers: usize = 3; // 2 or 3
 pub const hw: usize = if (act == .screlu) hl else hl / 2;
