@@ -127,10 +127,6 @@ pub const Searcher = struct {
     capture_history: [2][7][64][7]i16 = undefined,
     root_node_counts: [64][64]u64 = undefined,
 
-    optimism: [2]i32 = .{0, 0},
-    avg_root_score: i32 = 0,
-    avg_root_valid: bool = false,
-
     thread_id: usize = 0,
     root_board: *brd.Board = undefined,
     silent_output: bool = false,
@@ -354,9 +350,6 @@ pub const Searcher = struct {
         self.search_score = 0;
         self.root_board = board;
 
-        self.optimism = .{0, 0};
-        self.avg_root_score = 0;
-        self.avg_root_valid = false;
 
         if (self.thread_id == 0 and tb.isLoaded()) blk: {
             var tb_occupied: u64 = 0;
@@ -431,13 +424,6 @@ pub const Searcher = struct {
 
             var window_failed = false;
 
-            if (self.avg_root_valid) {
-                const avg = self.avg_root_score;
-                const abs_avg: i32 = @intCast(@abs(avg));
-                const o = @divTrunc(tp.optimism_scale.value * avg, abs_avg + tp.optimism_stretch.value);
-                self.optimism[@intFromEnum(self.perspective)] = o;
-                self.optimism[@intFromEnum(brd.flipColor(self.perspective))] = -o;
-            }
 
             while (true) {
                 if (depth == outer_depth) {
@@ -503,13 +489,6 @@ pub const Searcher = struct {
             }
 
             factor = std.math.clamp(factor, 0.35, 2.75);
-
-            if (!self.avg_root_valid) {
-                self.avg_root_score = score;
-                self.avg_root_valid = true;
-            } else {
-                self.avg_root_score = @divTrunc(self.avg_root_score + score, 2);
-            }
 
             prev_score = score;
             self.search_score = score;
@@ -586,7 +565,7 @@ pub const Searcher = struct {
         self.pv_length[self.ply] = 0;
 
         if (self.ply >= max_ply - 1) {
-            return eval.adjustEval(board, self.optimism[@intFromEnum(color)], board.evaluateNNUE(), 0);
+            return eval.adjustEval(board, board.evaluateNNUE(), 0);
         }
 
         if (board.isDraw(self.ply)) {
@@ -614,8 +593,6 @@ pub const Searcher = struct {
 
         self.nodes += 1;
 
-        // TT lookup happens before isInCheck so we can reuse the stored in_check flag
-        // on hits, saving an expensive bitboard traversal on the common TT-hit path.
         var hash_move = mvs.EncodedMove.fromU32(0);
         var tt_hit = false;
         var tt_eval: i32 = 0;
@@ -717,13 +694,13 @@ pub const Searcher = struct {
         } else if (tt_hit and tt_static_eval_valid) {
             raw_static_eval = tt_static_eval;
             const corrected = hist.getCorrection(self, color, board);
-            static_eval = eval.adjustEval(board, self.optimism[@intFromEnum(color)], raw_static_eval, corrected);
+            static_eval = eval.adjustEval(board, raw_static_eval, corrected);
 
             self.eval_history[self.ply] = static_eval;
         } else {
             raw_static_eval = board.evaluateNNUE();
             const correction = hist.getCorrection(self, color, board);
-            static_eval = eval.adjustEval(board, self.optimism[@intFromEnum(color)], raw_static_eval, correction);
+            static_eval = eval.adjustEval(board, raw_static_eval, correction);
             self.eval_history[self.ply] = static_eval;
         }
 
@@ -1244,7 +1221,7 @@ pub const Searcher = struct {
         }
 
         if (self.ply >= max_ply - 1) {
-            return eval.adjustEval(board, self.optimism[@intFromEnum(color)], board.evaluateNNUE(), 0);
+            return eval.adjustEval(board, board.evaluateNNUE(), 0);
         }
 
         if (self.ply > self.seldepth) {
@@ -1299,7 +1276,7 @@ pub const Searcher = struct {
                 raw_static = board.evaluateNNUE();
             }
             const correction = hist.getCorrection(self, color, board);
-            static_eval = eval.adjustEval(board, self.optimism[@intFromEnum(color)], raw_static, correction);
+            static_eval = eval.adjustEval(board, raw_static, correction);
 
 
             best_score = static_eval;
@@ -1470,7 +1447,6 @@ pub const Searcher = struct {
     pub fn printInfo(self: *Searcher, nodes: u64, tb_hits: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
         const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
         const nps: u64 = if (elapsed_ms > 0) (nodes * 1000) / elapsed_ms else 0;
-        // const hashfull = self.tt_table.getFillPermill();
 
         var stdout_writer = std.fs.File.stdout().writer(&self.stdout_buffer);
         const stdout = &stdout_writer.interface;

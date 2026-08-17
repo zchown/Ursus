@@ -4,24 +4,16 @@ Ursus is a UCI-compatible chess engine written in [Zig](https://ziglang.org/). I
 
 It uses a bitboard-based board representation, alpha-beta search with many search optimizations, and uses a NNUE for evaluation.
 
-Esitmated ELO: ~3470
-
-Estimation based on match played against Stash v37.
-
 --------------------------------------------------
 
-Results of Ursus vs Stash37 (60+0.6, 1t, 64MB, UHO_Lichess_4852_v1.epd):
+Engine strength on rating lists and against previous versions of Ursus:
 
-Elo: 53.76 +/- 9.70, nElo: 85.80 +/- 15.23
-
-LOS: 100.00 %, DrawRatio: 43.90 %, PairsRatio: 2.72
-
-Games: 2000, Wins: 801, Losses: 494, Draws: 705, Points: 1153.5 (57.67 %)
-
-Ptnml(0-2): [27, 124, 439, 335, 75], WL/DD Ratio: 2.57
+| Version | CCRL Blitz | CCRL 40/15 | COPE | STC Self | LTC Self | 4CPU LTC Self |
+|---------|-----------|------------|------|----------|----------|---------------|
+| v1.1.x  | TBD       | TBD        | TBD  | 71+-8    |          |               |
+| v1.0.x  |    3512   | 3448       | 3449 |  0       | 0        | 0             |
 
 --------------------------------------------------
-
 
 Available to play on lichess: [`Ursus_bot`](https://lichess.org/@/Ursus_bot)
 
@@ -49,7 +41,6 @@ zig build -Doptimize=ReleaseFast -Dtarget=native
 ```
 
 The resulting binary communicates over standard input/output using the UCI protocol and is compatible with any UCI chess GUI (Arena, CuteChess, etc.).
-There is also a secondary bindary `texel_tuner` for runing texel tuning on the legacy hand-crafted evaluation function, this is depricated and will eventually be removed.
 
 ---
 
@@ -85,7 +76,8 @@ Ursus implements the core UCI protocol. The table below summarizes supported com
 
 ## Acknowledgements
 
-- [fastchess](https://github.com/Disservin/fastchess) For being using to run my SPRT tests
+- [OpenBench](https://github.com/andygrant/openbench) For supporting development of Ursus post 1.0.0 release to run SPRT tests and more
+- [fastchess](https://github.com/Disservin/fastchess) For being using to run my SPRT tests pre 1.0.0 release
 - [cutechess](https://github.com/cutechess/cutechess) For being used to run tournaments and as a GUI for allowing me to play Ursus when it was much weaker.
 - [Fathom](https://github.com/jdart1/Fathom) For the Syzygy tablebase probing library.
 - [Syzygy tablebases](https://github.com/syzygy1/tb) by Ronald de Man, the underlying tablebase format Ursus probes.

@@ -14,7 +14,7 @@ const tb = @import("tb");
 
 var move_overhead: u64 = 15;
 
-pub const EXPECTED_BENCH_NODES: u64 = 5213741;
+pub const EXPECTED_BENCH_NODES: u64 = 5985347;
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
@@ -388,7 +388,8 @@ pub const UciProtocol = struct {
         try respond("option name Overhead type spin default 15 min 0 max 1000");
         try respond("option name Clear Hash type button");
 
-        try reportTunables();
+        // off for non dev
+        // try reportTunables();
 
         try self.newGame();
 
