@@ -665,6 +665,7 @@ pub const UciProtocol = struct {
     pub fn newGame(self: *UciProtocol) !void {
         self.tt_table.reset();
 
+        srch.quiet_lmr = srch.initQuietLMR();
 
         // Safely zero out the massive board directly in memory
         @memset(std.mem.asBytes(&self.board), 0);
