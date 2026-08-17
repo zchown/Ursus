@@ -160,7 +160,7 @@ pub const PackedEntry = extern struct {
 
 pub var stop_signal: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-pub const TT_BUCKET_SLOTS = 3;
+pub const TT_BUCKET_SLOTS = 4;
 
 const Slot = struct {
     lo: std.atomic.Value(u64),
@@ -357,59 +357,6 @@ pub const TranspositionTable = struct {
         );
 
         bucket.entries[target_idx].storePacked(@bitCast(new_packed));
-    }
-
-    pub fn compareAndSwap(
-        self: *TranspositionTable,
-        hash: zob.ZobristKey,
-        expected_entry: Entry,
-        new_entry: Entry,
-    ) bool {
-        const idx = self.index(hash);
-        const bucket = &self.buckets[idx];
-        const current_age = self.getAge();
-
-        const expected_packed = PackedEntry.pack(
-            expected_entry.hash,
-            expected_entry.eval,
-            expected_entry.move.toTTKey(),
-            expected_entry.static_eval,
-            expected_entry.flag,
-            expected_entry.depth,
-            current_age,
-            expected_entry.in_check,
-            expected_entry.is_pv,
-            expected_entry.static_eval_valid,
-        );
-
-        const new_packed = PackedEntry.pack(
-            new_entry.hash,
-            new_entry.eval,
-            new_entry.move.toTTKey(),
-            new_entry.static_eval,
-            new_entry.flag,
-            new_entry.depth,
-            current_age,
-            new_entry.in_check,
-            new_entry.is_pv,
-            new_entry.static_eval_valid,
-        );
-
-        // Find the matching expected entry in the bucket
-        for (&bucket.entries) |*atomic_entry| {
-            const current_data = atomic_entry.load(.acquire);
-            if (current_data == expected_packed.data) {
-                const result = atomic_entry.cmpxchgStrong(
-                    expected_packed.data,
-                    new_packed.data,
-                    .acqRel,
-                    .acquire,
-                );
-                return result == null;
-            }
-        }
-
-        return false;
     }
 
     pub fn getUsage(self: *TranspositionTable) struct { used: usize, total: usize } {

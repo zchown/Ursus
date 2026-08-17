@@ -22,7 +22,17 @@ pub fn main() !void {
             try engine.receiveCommand(cmd_line);
             return;
         }
-    }
+        try engine.newGame();
+        for (args[1..]) |arg| {
+            const trimmed = std.mem.trim(u8, arg, " \r\n");
+            if (trimmed.len == 0) continue;
+            if (std.mem.eql(u8, trimmed, "quit")) return;
+            engine.receiveCommand(trimmed) catch |err| {
+                std.debug.print("Command error: {} on: {s}\n", .{ err, trimmed });
+            };
+        }
+        return;
+     }
 
     var stdin_buf: [4096 * 2]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buf);

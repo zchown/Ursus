@@ -158,6 +158,9 @@ pub const Board = struct {
 
     pub fn initInPlace(self: *Board) void {
         self.mailbox = std.mem.zeroes(@TypeOf(self.mailbox));
+        for (0..num_squares) |i| {
+            self.mailbox[i] = .{ .color = Color.White, .piece = Pieces.None, .square = i };
+        }
         self.piece_bb = std.mem.zeroes(@TypeOf(self.piece_bb));
         self.color_bb = std.mem.zeroes(@TypeOf(self.color_bb));
         self.game_state = GameState.init();
@@ -202,7 +205,6 @@ pub const Board = struct {
         self.nnue_stack.push();
         self.clearEnPassantSquare();
         self.flipSideToMove();
-        self.game_state.halfmove_clock += 1;
         if (self.game_state.side_to_move == Color.Black) {
             self.game_state.fullmove_number += 1;
         }

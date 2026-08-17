@@ -14,7 +14,7 @@ const tb = @import("tb");
 
 var move_overhead: u64 = 15;
 
-pub const EXPECTED_BENCH_NODES: u64 = 4232113;
+pub const EXPECTED_BENCH_NODES: u64 = 5213741;
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,
@@ -127,6 +127,7 @@ pub const UciProtocol = struct {
     is_pondering: bool = false,
     ponder_limits: SearchLimits = .{},
     ponder_side: brd.Color = .White,
+    game_ply: u32 = 0,
 
     pub fn init(a: std.mem.Allocator) !*UciProtocol {
         const protocol = try a.create(UciProtocol);
@@ -154,6 +155,7 @@ pub const UciProtocol = struct {
 
         protocol.tt_table = try tt.TranspositionTable.init(a, protocol.hash_size_mb);
         searcher_ptr.tt_table = &protocol.tt_table;
+        protocol.game_ply = 0;
 
         srch.quiet_lmr = srch.initQuietLMR();
         srch.noisy_lmr = srch.initNoisyLMR();
@@ -218,6 +220,8 @@ pub const UciProtocol = struct {
             try self.printBoard();
         } else if (std.mem.eql(u8, commandName, "datagen")) {
             try self.handleDatagen(args);
+        } else if (std.mem.eql(u8, commandName, "genfens")) {
+            try self.handleGenFens(args);
         } else if (std.mem.eql(u8, commandName, "eval")) {
             const eval_score = self.board.evaluateNNUE();
             try respond(try std.fmt.allocPrint(self.allocator, "Evaluation: {d}", .{eval_score}));
@@ -228,6 +232,8 @@ pub const UciProtocol = struct {
             try self.handlePerft(args);
         } else if (std.mem.eql(u8, commandName, "bench")) {
             try self.handleBench(args);
+        } else if (std.mem.eql(u8, commandName, "spsa") or std.mem.eql(u8, commandName, "tunables")) {
+            try printSpsaInput();
         } else if (std.mem.eql(u8, commandName, "bench-expected")) {
             try respond(try std.fmt.allocPrint(self.allocator, "{d}", .{EXPECTED_BENCH_NODES}));
         } else {
@@ -265,6 +271,11 @@ pub const UciProtocol = struct {
         @atomicStore(bool, &self.is_pondering, false, .release);
     }
 
+    fn parseClockMs(s: []const u8) u64 {
+        const v = std.fmt.parseInt(i64, s, 10) catch 0;
+        return if (v > 0) @intCast(v) else 0;
+    }
+
     fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
         if (self.search_thread != null) {
             self.stopSearch();
@@ -277,31 +288,31 @@ pub const UciProtocol = struct {
             const arg = args[i];
 
             if (std.mem.eql(u8, arg, "wtime") and i + 1 < args.len) {
-                limits.wtime = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.wtime = parseClockMs(args[i + 1]);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "btime") and i + 1 < args.len) {
-                limits.btime = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.btime = parseClockMs(args[i + 1]);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "winc") and i + 1 < args.len) {
-                limits.winc = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.winc = parseClockMs(args[i + 1]);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "binc") and i + 1 < args.len) {
-                limits.binc = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.binc = parseClockMs(args[i + 1]);
                 i += 2;
             } else if (std.mem.eql(u8, arg, "movestogo") and i + 1 < args.len) {
-                limits.movestogo = try std.fmt.parseInt(u32, args[i + 1], 10);
+                limits.movestogo = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "depth") and i + 1 < args.len) {
-                limits.depth = try std.fmt.parseInt(u32, args[i + 1], 10);
+                limits.depth = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "nodes") and i + 1 < args.len) {
-                limits.nodes = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.nodes = std.fmt.parseInt(u64, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "mate") and i + 1 < args.len) {
-                limits.mate = try std.fmt.parseInt(u32, args[i + 1], 10);
+                limits.mate = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "movetime") and i + 1 < args.len) {
-                limits.movetime = try std.fmt.parseInt(u64, args[i + 1], 10);
+                limits.movetime = std.fmt.parseInt(u64, args[i + 1], 10) catch 0;
                 i += 2;
             } else if (std.mem.eql(u8, arg, "infinite")) {
                 limits.infinite = true;
@@ -320,6 +331,14 @@ pub const UciProtocol = struct {
         self.searcher.time_stop = false;
         tt.stop_signal.store(false, .release);
 
+        if (limits.nodes) |n| {
+            self.searcher.soft_max_nodes = n;
+            self.searcher.max_nodes = n *| 32;
+        } else {
+            self.searcher.soft_max_nodes = null;
+            self.searcher.max_nodes = null;
+        }
+
         if (limits.ponder) {
             var real_limits = limits;
             real_limits.ponder = false;
@@ -337,9 +356,6 @@ pub const UciProtocol = struct {
             self.searcher.ideal_ms = time_alloc.ideal_ms;
             @atomicStore(bool, &self.is_pondering, false, .release);
         }
-
-        // try srch.search_helpers.resize(self.allocator, self.threads);
-        // try srch.threads.resize(self.allocator, self.threads);
 
         self.is_searching = true;
 
@@ -372,44 +388,7 @@ pub const UciProtocol = struct {
         try respond("option name Overhead type spin default 15 min 0 max 1000");
         try respond("option name Clear Hash type button");
 
-        // Tunable search parameters.
-        // try respond("option name aspiration_window type spin default 22 min 5 max 100");
-        // try respond("option name rfp_mul type spin default 51 min 20 max 150");
-        // try respond("option name rfp_improve type spin default 55 min 20 max 150");
-        // try respond("option name nmp_improve type spin default 29 min 0 max 200");
-        // try respond("option name nmp_base type spin default 4 min 1 max 10");
-        // try respond("option name nmp_depth_div type spin default 3 min 1 max 10");
-        // try respond("option name nmp_beta_div type spin default 150 min 50 max 400");
-        // try respond("option name razoring_base type spin default 299 min 100 max 600");
-        // try respond("option name razoring_mul type spin default 73 min 20 max 200");
-        try respond("option name lmp_improve type spin default 219 min 50 max 500");
-        try respond("option name lmp_base type spin default 503 min 100 max 1000");
-        try respond("option name lmp_mul type spin default 185 min 50 max 500");
-        try respond("option name futility_mul type spin default 157 min 50 max 400");
-        // try respond("option name q_see_min type spin default -150 min -500 max 0");
-        // try respond("option name q_see_margin type spin default -41 min -200 max 0");
-        // try respond("option name q_delta_margin type spin default 201 min 50 max 500");
-        try respond("option name lmr_base type spin default 75 min 25 max 150");
-        try respond("option name lmr_div type spin default 225 min 100 max 400");
-        try respond("option name lmr_noisy_base type spin default -15 min -100 max 100");
-        try respond("option name lmr_noisy_div type spin default 315 min 100 max 500");
-
-        // try respond("option name lmr_pv_min type spin default 4 min 1 max 10");
-        // try respond("option name lmr_non_pv_min type spin default 2 min 1 max 10");
-        // try respond("option name se_double_threshold type spin default 35 min 0 max 200");
-        // try respond("option name se_triple_threshold type spin default 40 min 0 max 200");
-        try respond("option name history_div type spin default 8252 min 1024 max 32768");
-        // try respond("option name corr_div_bm type spin default 10 min 1 max 50");
-        // try respond("option name corr_div_nobm type spin default 8 min 1 max 50");
-        // try respond("option name corr_np_update_weight type spin default 178 min 32 max 512");
-        // try respond("option name corr_pawn_read_weight type spin default 188 min 32 max 512");
-        // try respond("option name corr_np_read_weight type spin default 122 min 32 max 512");
-        // try respond("option name corr_major_read_weight type spin default 102 min 32 max 512");
-        // try respond("option name corr_minor_read_weight type spin default 111 min 32 max 512");
-        // try respond("option name corr_read_divisor type spin default 127393 min 16384 max 524288");
-        // try respond("option name probcut_margin type spin default 250 min 0 max 1000");
-        // try respond("option name probcut_improve type spin default 1050 min 0 max 2000");
-        // try respond("option name probcut_min_see type spin default 150 min 0 max 500");
+        try reportTunables();
 
         try self.newGame();
 
@@ -505,166 +484,62 @@ pub const UciProtocol = struct {
                 move_overhead = try std.fmt.parseInt(u64, args[name_end + 1], 10);
             }
 
-        // } 
-        // else if (std.mem.eql(u8, option_name, "aspiration_window")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.aspiration_window = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 5, 100);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "rfp_mul")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.rfp_mul = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 20, 150);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "rfp_improve")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.rfp_improve = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 20, 150);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "nmp_improve")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.nmp_improve = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 200);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "nmp_base")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.nmp_base = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 10));
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "nmp_depth_div")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.nmp_depth_div = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 10));
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "nmp_beta_div")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.nmp_beta_div = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 400));
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "razoring_base")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.razoring_base = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 600);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "razoring_mul")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.razoring_mul = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 20, 200);
-        //     }
-        } else if (std.mem.eql(u8, option_name, "lmp_improve")) {
-            if (args.len >= name_end + 2) {
-                tp.lmp_improve = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500));
-            }
-        } else if (std.mem.eql(u8, option_name, "lmp_base")) {
-            if (args.len >= name_end + 2) {
-                tp.lmp_base = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 1000));
-            }
-        } else if (std.mem.eql(u8, option_name, "lmp_mul")) {
-            if (args.len >= name_end + 2) {
-                tp.lmp_mul = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500));
-            }
-        } else if (std.mem.eql(u8, option_name, "futility_mul")) {
-            if (args.len >= name_end + 2) {
-                tp.futility_mul = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 400);
-            }
-        // } else if (std.mem.eql(u8, option_name, "q_see_min")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.q_see_min = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), -500, 0);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "q_see_margin")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.q_see_margin = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), -200, 0);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "q_delta_margin")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.q_delta_margin = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 50, 500);
-        //     }
-        } else if (std.mem.eql(u8, option_name, "lmr_base")) {
-            if (args.len >= name_end + 2) {
-                tp.lmr_base = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 25, 150);
-                srch.quiet_lmr = srch.initQuietLMR();
-            }
-        } else if (std.mem.eql(u8, option_name, "lmr_div")) {
-            if (args.len >= name_end + 2) {
-                tp.lmr_div = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 400);
-                srch.quiet_lmr = srch.initQuietLMR();
-            }
-            else if (std.mem.eql(u8, option_name, "lmr_noisy_base")) {
-                if (args.len >= name_end + 2) {
-                    tp.lmr_noisy_base = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), -100, 100);
-                    srch.noisy_lmr = srch.initNoisyLMR();
-                }
-            } else if (std.mem.eql(u8, option_name, "lmr_noisy_div")) {
-                if (args.len >= name_end + 2) {
-                    tp.lmr_noisy_div = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 100, 500);
-                    srch.noisy_lmr = srch.initNoisyLMR();
-                }
-            }
-        // } else if (std.mem.eql(u8, option_name, "lmr_pv_min")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.lmr_pv_min = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 10));
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "lmr_non_pv_min")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.lmr_non_pv_min = @intCast(std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 10));
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "se_double_threshold")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.se_double_threshold = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 200);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "se_triple_threshold")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.se_triple_threshold = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 200);
-        //     }
-        } else if (std.mem.eql(u8, option_name, "history_div")) {
-            if (args.len >= name_end + 2) {
-                tp.history_div = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1024, 32768);
-            }
-        // } else if (std.mem.eql(u8, option_name, "corr_div_bm")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.corr_div_bm = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 50);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "corr_div_nobm")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.corr_div_nobm = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 1, 50);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "corr_np_update_weight")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.corr_np_update_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "corr_pawn_read_weight")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.corr_pawn_read_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "corr_np_read_weight")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.corr_np_read_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "corr_major_read_weight")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.corr_major_read_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "corr_minor_read_weight")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.corr_minor_read_weight = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 32, 512);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "corr_read_divisor")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.corr_read_divisor = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 16384, 524288);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "probcut_margin")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.probcut_margin = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 1000);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "probcut_improve")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.probcut_improve = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 2000);
-        //     }
-        // } else if (std.mem.eql(u8, option_name, "probcut_min_see")) {
-        //     if (args.len >= name_end + 2) {
-        //         tp.probcut_min_see = std.math.clamp(try std.fmt.parseInt(i32, args[name_end + 1], 10), 0, 500);
-        //     }
         } else {
-            if (self.debug_mode) {
-                try respond("Unknown option");
+            const value_str: []const u8 = if (args.len > name_end + 1) args[name_end + 1] else "";
+            if (!applyTunable(option_name, value_str)) {
+                if (self.debug_mode) {
+                    try respond("Unknown option");
+                }
             }
         }
 
-        // setup pawn_tt
-        // if (!pawn_tt.pawn_tt_initialized) {
-            // try pawn_tt.TranspositionTable.initGlobal(self.hash_size_mb / 8);
-        // }
+    }
+
+    fn reportTunables() !void {
+        var buf: [256]u8 = undefined;
+        for (tp.tunables) |t| {
+            const line = if (t.isFloat())
+                try std.fmt.bufPrint(&buf, "option name {s} type string default {d}", .{ t.name, t.get() })
+            else
+                try std.fmt.bufPrint(&buf, "option name {s} type spin default {d} min {d} max {d}", .{
+                    t.name,
+                    @as(i64, @intFromFloat(@round(t.get()))),
+                    @as(i64, @intFromFloat(t.min)),
+                    @as(i64, @intFromFloat(t.max)),
+                });
+            try respond(line);
+        }
+    }
+
+    fn applyTunable(name: []const u8, value_str: []const u8) bool {
+        const t = tp.find(name) orelse return false;
+        if (value_str.len == 0) return true;
+
+        const parsed = std.fmt.parseFloat(f64, value_str) catch return true;
+        t.set(parsed);
+
+        switch (t.hook) {
+            .none => {},
+            .quiet_lmr => srch.quiet_lmr = srch.initQuietLMR(),
+            .noisy_lmr => srch.noisy_lmr = srch.initNoisyLMR(),
+        }
+        return true;
+    }
+
+    fn printSpsaInput() !void {
+        var buf: [256]u8 = undefined;
+        for (tp.tunables) |t| {
+            const line = try std.fmt.bufPrint(&buf, "{s}, {s}, {d}, {d}, {d}, {d}, {d}", .{
+                t.name,
+                if (t.isFloat()) "float" else "int",
+                t.get(),
+                t.min,
+                t.max,
+                t.cEnd(),
+                t.r_end,
+            });
+            try respond(line);
+        }
     }
 
     fn respond(response: []const u8) !void {
@@ -679,10 +554,8 @@ pub const UciProtocol = struct {
         self.tt_table.reset();
 
 
-        // Safely zero out the massive board directly in memory
         @memset(std.mem.asBytes(&self.board), 0);
 
-        // Re-initialize only what's needed
         self.board.game_state = brd.GameState.init();
         fen.setupStartingPosition(&self.board);
         self.board.refreshNNUE();
@@ -730,7 +603,6 @@ pub const UciProtocol = struct {
         if (std.mem.eql(u8, args[0], "startpos")) {
             @memset(std.mem.asBytes(&self.board), 0);
 
-            // Re-initialize only what is needed
             self.board.game_state = brd.GameState.init();
             fen.setupStartingPosition(&self.board);
             self.board.refreshNNUE();
@@ -746,6 +618,7 @@ pub const UciProtocol = struct {
                         return;
                     };
                     mvs.makeMove(&self.board, move);
+                    self.game_ply += 1;
                 }
             }
         } else if (std.mem.eql(u8, args[0], "fen")) {
@@ -763,6 +636,15 @@ pub const UciProtocol = struct {
             try fen.parseFEN(&self.board, fen_str);
             self.board.refreshNNUE();
 
+            self.game_ply = 0;
+            if (fen_parts.items.len >= 6) {
+                const fullmove = std.fmt.parseInt(u32, fen_parts.items[5], 10) catch 1;
+                self.game_ply = (fullmove -| 1) *| 2;
+            }
+            if (fen_parts.items.len >= 2 and std.mem.eql(u8, fen_parts.items[1], "b")) {
+                self.game_ply += 1;
+            }
+
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
                 j += 1;
                 for (args[j..]) |move_str| {
@@ -773,6 +655,7 @@ pub const UciProtocol = struct {
                         return;
                     };
                     mvs.makeMove(&self.board, move);
+                    self.game_ply += 1;
                 }
             }
         } else {
@@ -790,6 +673,12 @@ pub const UciProtocol = struct {
         _ = self;
         const config = datagen.parseCommand(args);
         try datagen.run(config);
+    }
+
+    fn handleGenFens(self: *UciProtocol, args: [][]const u8) !void {
+        _ = self;
+        const config = datagen.parseGenfensCommand(args);
+        try datagen.runGenfens(config);
     }
 
     pub fn sendInfo(self: *UciProtocol, comptime fmt: []const u8, args: anytype) !void {
@@ -822,7 +711,6 @@ pub const UciProtocol = struct {
     }
 
     fn calculateTimeAllocation(self: *const UciProtocol, limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {
-        _ = self;
         if (limits.movetime) |mt| {
             return .{ .max_ms = mt, .ideal_ms = mt };
         }
@@ -834,17 +722,16 @@ pub const UciProtocol = struct {
         if (our_time) |time| {
             const safe_time = time -| move_overhead;
             const increment = our_inc orelse 0;
-            const moves_remaining: u64 = if (limits.movestogo) |mtg| mtg else blk: {
-                if (increment == 0) break :blk @as(u64, 35);
-                if (increment < 200) break :blk @as(u64, 30);
-                break :blk @as(u64, 25);
+                        const moves_remaining: u64 = if (limits.movestogo) |mtg| @max(mtg, 1) else blk: {
+                var horizon: u64 = 35;
+                if (increment >= 200) {
+                    horizon = 25;
+                } else if (increment > 0) {
+                    horizon = 30;
+                }
+                horizon = @max(horizon -| (self.game_ply / tp.tm_horizon_div.value), tp.tm_horizon_min.value);
+                break :blk horizon;
             };
-            // if (self.tt_table.getFillPermill() > 800) {
-            //     moves_remaining -= 5;
-            // } else if (self.tt_table.getFillPermill() < 200) {
-            //     moves_remaining += 5;
-            // }
-            //
             const total_time = safe_time + (increment * (moves_remaining - 1));
             const base_time = total_time / moves_remaining;
             var ideal_ms = @min(base_time * 9 / 10, safe_time -| 50);
