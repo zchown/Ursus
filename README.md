@@ -13,10 +13,10 @@ Live ratings can be found here:
 
 Engine strength on rating lists and against previous versions of Ursus:
 
-| Version | CCRL Blitz | CCRL 40/15 | COPE | STC Self | LTC Self | 4CPU LTC Self |
-|---------|-----------|------------|------|----------|----------|---------------|
-| v1.1.x  | TBD       | TBD        | TBD  | 71+-8    |          |               |
-| v1.0.x  |    3512   | 3448       | 3449 |  0       | 0        | 0             |
+| Version | CCRL Blitz | CCRL 40/15 | COPE | STC Self | LTC Self |
+|---------|-----------|------------|------|----------|----------|
+| v1.1.x  | TBD       | TBD        | TBD  | 71+-8    | 72+-13   |
+| v1.0.x  |    3512   | 3448       | 3449 |  0       | 0        |
 
 --------------------------------------------------
 
