@@ -24,7 +24,7 @@ pub const hidden_size = 1536;
 const QA: i16 = 255;
 const QB: i16 = 64;
 const NUM_OUTPUT_BUCKETS: usize = 8;
-const EVAL_SCALE: i64 = 128;
+const EVAL_SCALE: i64 = 114;
 const cache_line = std.atomic.cache_line;
 
 const CpuTarget = enum { avx2, sse2, aarch64, fallback };
@@ -124,7 +124,7 @@ pub const NetworkWeights = struct {
     out_biases: [NUM_OUTPUT_BUCKETS]i16,
 };
 
-const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("quantised10bucket.bin").*;
+const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("nets/quantised10bucket.bin").*;
 var net_weights: ?*const NetworkWeights = null;
 
 pub fn initWeights() void {
