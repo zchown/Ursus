@@ -124,6 +124,7 @@ pub const NetworkWeights = struct {
     out_biases: [NUM_OUTPUT_BUCKETS]i16,
 };
 
+// will be over written in Openbench context
 const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("quantised10bucket.bin").*;
 var net_weights: ?*const NetworkWeights = null;
 
