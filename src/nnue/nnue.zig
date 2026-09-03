@@ -24,7 +24,7 @@ pub const hidden_size = 1536;
 const QA: i16 = 255;
 const QB: i16 = 64;
 const NUM_OUTPUT_BUCKETS: usize = 8;
-const EVAL_SCALE: i64 = 114;
+const EVAL_SCALE: i64 = 118;
 const cache_line = std.atomic.cache_line;
 
 const CpuTarget = enum { avx2, sse2, aarch64, fallback };
