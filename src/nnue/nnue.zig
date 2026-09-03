@@ -124,7 +124,7 @@ pub const NetworkWeights = struct {
     out_biases: [NUM_OUTPUT_BUCKETS]i16,
 };
 
-const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("nets/Alkaid2.bin").*;
+const embedded_nnue_bytes align(@alignOf(NetworkWeights)) = @embedFile("nets/quantised10bucket.bin").*;
 var net_weights: ?*const NetworkWeights = null;
 
 pub fn initWeights() void {
