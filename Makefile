@@ -12,7 +12,7 @@ build:
 		cp "$(EVALFILE)" "$(NET_DEST)"; \
 	elif [ ! -f "$(NET_DEST)" ]; then \
 		mkdir -p "$$(dirname $(NET_DEST))"; \
-		wget -qO "$(NET_DEST)" https://raw.githubusercontent.com/zchown/UrsusNets/main/Alkaid.bin || curl -sLo "$(NET_DEST)" https://raw.githubusercontent.com/zchown/UrsusNets/main/Alkaid.bin; \
+		wget -4 --timeout=10 -qO "$(NET_DEST)" https://raw.githubusercontent.com/zchown/UrsusNets/main/Alkaid.bin || curl -4 --max-time 10 -sLo "$(NET_DEST)" https://raw.githubusercontent.com/zchown/UrsusNets/main/Alkaid.bin; \
 	fi
 	@n=$$(nproc 2>/dev/null || echo 1); \
 	[ "$$n" -gt $(CORES) ] && n=$(CORES) || :; \
