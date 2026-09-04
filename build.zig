@@ -119,10 +119,42 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
         }),
         .use_llvm = true,
     });
-    // exe.root_module.omit_frame_pointer = false;
-    // exe.root_module.strip = false;
+
+
+    const zon_file = @embedFile("build.zig.zon");
+    const ver_tag = ".version = \"";
+    const start_idx = std.mem.indexOf(u8, zon_file, ver_tag) orelse @panic("No version found in build.zig.zon");
+    const after_tag = zon_file[start_idx + ver_tag.len ..];
+    const end_idx = std.mem.indexOf(u8, after_tag, "\"") orelse @panic("Unclosed version quote");
+    const base_version = after_tag[0..end_idx];
+
+    var is_dev = true;
+    if (std.process.Child.run(.{
+        .allocator = b.allocator,
+        .argv = &.{ "git", "describe", "--tags", "--exact-match" },
+    })) |result| {
+        if (result.term == .Exited and result.term.Exited == 0) {
+            is_dev = false;
+        }
+    } else |_| {}
+
+    var final_version: []const u8 = base_version;
+    if (is_dev) {
+        var commit_hash: []const u8 = "unknown";
+        if (std.process.Child.run(.{
+            .allocator = b.allocator,
+            .argv = &.{ "git", "rev-parse", "--short", "HEAD" },
+        })) |result| {
+            if (result.term == .Exited and result.term.Exited == 0) {
+                commit_hash = std.mem.trim(u8, result.stdout, " \r\n");
+            }
+        } else |_| {}
+        final_version = b.fmt("{s}-dev-{s}", .{ base_version, commit_hash });
+    }
 
     const exe_options = b.addOptions();
+    exe_options.addOption([]const u8, "version", final_version);
+    exe_options.addOption(bool, "is_dev", is_dev);
     exe.root_module.addOptions("build_options", exe_options);
 
     board_module.addImport("zobrist", zobrist_module);
@@ -184,6 +216,7 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
     uci_module.addImport("nnue", nnue_module);
     uci_module.addImport("tunable_parameters", tunable_parameters_module);
     uci_module.addImport("perft", perft_module);
+    uci_module.addOptions("build_options", exe_options);
 
     eval_module.addImport("board", board_module);
     eval_module.addImport("moves", moves_module);

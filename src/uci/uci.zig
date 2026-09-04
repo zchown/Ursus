@@ -11,6 +11,7 @@ const nnue = @import("nnue");
 const perft = @import("perft");
 const tp = @import("tunable_parameters");
 const tb = @import("tb");
+const build_options = @import("build_options");
 
 var move_overhead: u64 = 15;
 
@@ -376,7 +377,7 @@ pub const UciProtocol = struct {
     }
 
     fn handleUci(self: *UciProtocol) !void {
-        try respond("id name Ursus 1.0 " ++ @tagName(nnue.TARGET));
+        try respond("id name Ursus " ++ build_options.version ++ " " ++ @tagName(nnue.TARGET));
         try respond("id author Zander");
 
         try respond("option name Ponder type check default false");
@@ -388,7 +389,9 @@ pub const UciProtocol = struct {
         try respond("option name Overhead type spin default 15 min 0 max 1000");
         try respond("option name Clear Hash type button");
 
-        try reportTunables();
+        if (build_options.is_dev) {
+            try reportTunables();
+        }
 
         try self.newGame();
 
