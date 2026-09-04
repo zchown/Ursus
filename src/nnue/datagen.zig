@@ -769,23 +769,16 @@ pub const GenfensConfig = struct {
     count: u64 = 0,
     seed: u64 = 0,
     book_path: ?[]const u8 = null,
-    /// Random-walk openings from the start position: uniform ply count in
-    /// [min_plies, max_plies]. Wider than the old 10 +/- 1 for more variety.
     min_plies: u32 = 8,
     max_plies: u32 = 12,
-    /// When a book is given, append 0..=book_extra_plies random plies on top
-    /// of the book position so repeated book lines still diverge.
     book_extra_plies: u32 = 4,
-    /// Reject openings the engine already considers decided. 0 disables.
     max_eval: i32 = 400,
-    /// Soft node budget for the verification search.
     verify_nodes: u64 = 10_000,
 };
 
 pub fn parseGenfensCommand(args: [][]const u8) GenfensConfig {
     var config = GenfensConfig{};
 
-    // Format: N seed S book X [key value]...
     if (args.len >= 1) {
         config.count = std.fmt.parseInt(u64, args[0], 10) catch 0;
     }
@@ -938,8 +931,6 @@ pub fn runGenfens(config: GenfensConfig) !void {
     }
     const book_ptr: ?*const OpeningBook = if (maybe_book != null) &maybe_book.? else null;
 
-    // The OB seed is in [0, 2^31); offset it so a zero seed cannot produce an
-    // all-zero xoshiro state.
     var rng = Rng.init(config.seed +% 0x9E3779B97F4A7C15);
 
     var stdout_buffer: [1024]u8 = undefined;
