@@ -1,0 +1,3 @@
+[submodule "src/nnue/nets"]
+	path = src/nnue/nets
+	url = https://github.com/zchown/UrsusNets.git
