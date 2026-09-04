@@ -5,17 +5,17 @@ const moves = @import("moves");
 
 pub const features_per_bucket = 2 * brd.num_pieces * brd.num_squares;
 
-pub const NUM_KING_BUCKETS: usize = 10;
+pub const NUM_KING_BUCKETS: usize = 16;
 
 const KING_BUCKETS_BASE: [32]u8 = [_]u8{
-    0, 1, 2, 3,
-    4, 4, 5, 5,
-    6, 6, 6, 6,
-    7, 7, 7, 7,
-    8, 8, 8, 8,
-    8, 8, 8, 8,
-    9, 9, 9, 9,
-    9, 9, 9, 9,
+    0,  1,  2,  3,
+    4,  5,  6,  7,
+    8,  8,  9,  9,
+    10, 10, 11, 11,
+    12, 12, 13, 13,
+    12, 12, 13, 13,
+    14, 14, 15, 15,
+    14, 14, 15, 15,
 };
 
 pub const num_features = NUM_KING_BUCKETS * features_per_bucket;
@@ -24,7 +24,7 @@ pub const hidden_size = 1536;
 const QA: i16 = 255;
 const QB: i16 = 64;
 const NUM_OUTPUT_BUCKETS: usize = 8;
-const EVAL_SCALE: i64 = 118;
+const EVAL_SCALE: i64 = 128;
 const cache_line = std.atomic.cache_line;
 
 const CpuTarget = enum { avx2, sse2, aarch64, fallback };
