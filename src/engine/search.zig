@@ -13,6 +13,9 @@ pub const max_ply = 128;
 pub const max_game_ply = 1024;
 pub const eval_none: i32 = std.math.minInt(i32);
 
+pub const max_root_moves = 218;
+pub const max_multipv = 16;
+
 pub var quiet_lmr: [64][64]i32 = undefined;
 
 pub fn initQuietLMR() [64][64]i32 {
@@ -74,6 +77,15 @@ pub const SearchResult = struct {
     pv_length: usize,
 };
 
+pub const RootLine = struct {
+    move: mvs.EncodedMove = undefined,
+    score: i32 = 0,
+    pv: [max_ply]mvs.EncodedMove = undefined,
+    pv_length: usize = 0,
+    seldepth: usize = 0,
+    valid: bool = false,
+};
+
 pub var search_helpers: std.ArrayList(*Searcher) = undefined;
 
 pub var threads: std.ArrayList(std.Thread) = undefined;
@@ -107,6 +119,16 @@ pub const Searcher = struct {
     best_move_score: i32 = 0,
     pv: [max_ply][max_ply]mvs.EncodedMove = undefined,
     pv_length: [max_ply]usize = undefined,
+
+    multi_pv: usize = 1,
+    searchmoves: ?[]mvs.EncodedMove = null,
+    excluded_root_moves: [max_multipv]mvs.EncodedMove = undefined,
+    excluded_root_count: usize = 0,
+    root_moves: [max_root_moves]mvs.EncodedMove = undefined,
+    root_move_count: usize = 0,
+    root_moves_searched: usize = 0,
+    root_pv_index: usize = 0,
+    root_lines: [max_multipv]RootLine = undefined,
 
     search_score: i32 = 0,
     perspective: brd.Color = .White,
@@ -154,6 +176,57 @@ pub const Searcher = struct {
     pub fn deinit(self: *Searcher) void {
         std.heap.smp_allocator.destroy(self.continuation);
         std.heap.smp_allocator.destroy(self.move_gen);
+    }
+
+    pub inline fn sameRootMove(a: mvs.EncodedMove, b: mvs.EncodedMove) bool {
+        return a.start_square == b.start_square and
+            a.end_square == b.end_square and
+            a.promoted_piece == b.promoted_piece;
+    }
+
+    fn buildRootMoves(self: *Searcher, board: *brd.Board) void {
+        self.root_move_count = 0;
+
+        const list = self.move_gen.generateMoves(board, false);
+        var i: usize = 0;
+        while (i < list.len) : (i += 1) {
+            const move = list.items[i];
+
+            if (self.searchmoves) |sm| {
+                var allowed = false;
+                for (sm) |candidate| {
+                    if (sameRootMove(move, candidate)) {
+                        allowed = true;
+                        break;
+                    }
+                }
+                if (!allowed) continue;
+            }
+
+            if (self.root_move_count >= max_root_moves) break;
+            self.root_moves[self.root_move_count] = move;
+            self.root_move_count += 1;
+        }
+    }
+
+    inline fn isRootMoveAllowed(self: *Searcher, move: mvs.EncodedMove) bool {
+        for (self.excluded_root_moves[0..self.excluded_root_count]) |excluded| {
+            if (sameRootMove(move, excluded)) return false;
+        }
+
+        if (self.searchmoves == null) return true;
+
+        for (self.root_moves[0..self.root_move_count]) |allowed| {
+            if (sameRootMove(move, allowed)) return true;
+        }
+        return false;
+    }
+
+    fn alreadyExcluded(self: *Searcher, move: mvs.EncodedMove) bool {
+        for (self.excluded_root_moves[0..self.excluded_root_count]) |excluded| {
+            if (sameRootMove(move, excluded)) return true;
+        }
+        return false;
     }
 
     pub inline fn should_stop(self: *Searcher) bool {
@@ -261,6 +334,9 @@ pub const Searcher = struct {
             helper.max_nodes = main_searcher.max_nodes;
             helper.soft_max_nodes = main_searcher.soft_max_nodes;
 
+            helper.searchmoves = main_searcher.searchmoves;
+            helper.multi_pv = 1;
+
             const ctx = ThreadContext{
                 .searcher = helper,
                 .board = board_copy,
@@ -358,7 +434,32 @@ pub const Searcher = struct {
         self.avg_root_score = 0;
         self.avg_root_valid = false;
 
-        if (self.thread_id == 0 and tb.isLoaded()) blk: {
+        self.excluded_root_count = 0;
+        self.root_pv_index = 0;
+        self.root_moves_searched = 0;
+        for (&self.root_lines) |*line| line.valid = false;
+
+        self.buildRootMoves(board);
+
+        if (self.root_move_count == 0) {
+            self.is_searching = false;
+            self.best_move = mvs.EncodedMove.fromU32(0);
+            self.best_move_score = 0;
+            self.search_depth = 0;
+            return SearchResult{
+                .move = self.best_move,
+                .score = 0,
+                .depth = 0,
+                .nodes = 0,
+                .time_ms = 0,
+                .pv = undefined,
+                .pv_length = 0,
+            };
+        }
+
+        const multipv: usize = @max(1, @min(self.multi_pv, @min(self.root_move_count, max_multipv)));
+
+        if (self.thread_id == 0 and tb.isLoaded() and multipv == 1) blk: {
             var tb_occupied: u64 = 0;
             inline for (0..2) |c| {
                 inline for (0..6) |p| {
@@ -369,6 +470,17 @@ pub const Searcher = struct {
             if (piece_count > @as(usize, @intCast(tb.largest()))) break :blk;
 
             const root_probe = tb.probeRootDtz(board, self.move_gen) orelse break :blk;
+
+            if (self.searchmoves != null) {
+                var permitted = false;
+                for (self.root_moves[0..self.root_move_count]) |m| {
+                    if (sameRootMove(m, root_probe.move)) {
+                        permitted = true;
+                        break;
+                    }
+                }
+                if (!permitted) break :blk;
+            }
 
             self.tb_hits += 1;
             self.best_move = root_probe.move;
@@ -385,7 +497,7 @@ pub const Searcher = struct {
             self.seldepth = 1;
 
             if (!self.silent_output) {
-                self.printInfo(0, 1, self.best_move_score, pv_buf[0..1], std.heap.smp_allocator);
+                self.printInfo(0, 1, self.best_move_score, pv_buf[0..1], 1, std.heap.smp_allocator);
             }
 
             self.is_searching = false;
@@ -418,74 +530,119 @@ pub const Searcher = struct {
 
         const bound: usize = if (max_depth != null) @as(usize, max_depth.?) else max_ply;
 
+        var prev_line_scores: [max_multipv]i32 = @splat(-eval.mate_score);
+
         outer: while (outer_depth <= bound) : (outer_depth += 1) {
-            self.ply = 0;
-            self.seldepth = 0;
-            self.search_depth = outer_depth;
+            self.excluded_root_count = 0;
 
-            var alpha = if (outer_depth > 1) prev_score - tp.aspiration_window.value else -eval.mate_score;
-            var beta = if (outer_depth > 1) prev_score + tp.aspiration_window.value else eval.mate_score;
-            var delta: i32 = tp.aspiration_window.value;
+            var pv_idx: usize = 0;
+            while (pv_idx < multipv) : (pv_idx += 1) {
+                self.root_pv_index = pv_idx;
+                self.ply = 0;
+                self.seldepth = 0;
+                self.search_depth = outer_depth;
+                self.best_move = mvs.EncodedMove.fromU32(0);
 
-            const depth = outer_depth;
+                const prev_line = prev_line_scores[pv_idx];
+                const have_prev = outer_depth > 1 and prev_line != -eval.mate_score;
 
-            var window_failed = false;
+                var alpha = if (have_prev) prev_line - tp.aspiration_window.value else -eval.mate_score;
+                var beta = if (have_prev) prev_line + tp.aspiration_window.value else eval.mate_score;
+                var delta: i32 = tp.aspiration_window.value;
 
-            if (self.avg_root_valid) {
-                const avg = self.avg_root_score;
-                const abs_avg: i32 = @intCast(@abs(avg));
-                const o = @divTrunc(tp.optimism_scale.value * avg, abs_avg + tp.optimism_stretch.value);
-                self.optimism[@intFromEnum(self.perspective)] = o;
-                self.optimism[@intFromEnum(brd.flipColor(self.perspective))] = -o;
-            }
+                const depth = outer_depth;
 
-            while (true) {
-                if (depth == outer_depth) {
-                    score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.Root, false);
-                } 
+                var window_failed = false;
 
-                if (self.time_stop or self.should_stop()) {
-                    self.time_stop = true;
-                    tt.stop_signal.store(true, .release);
-                    break :outer;
+                if (pv_idx == 0 and self.avg_root_valid) {
+                    const avg = self.avg_root_score;
+                    const abs_avg: i32 = @intCast(@abs(avg));
+                    const o = @divTrunc(tp.optimism_scale.value * avg, abs_avg + tp.optimism_stretch.value);
+                    self.optimism[@intFromEnum(self.perspective)] = o;
+                    self.optimism[@intFromEnum(brd.flipColor(self.perspective))] = -o;
                 }
 
-                if (score <= alpha) {
-                    alpha = @max(alpha - delta, -eval.mate_score);
-                    delta = @min(delta * 2, eval.mate_score);
-                    window_failed = true;
-                } else if (score >= beta) {
-                    beta = @min(beta + delta, eval.mate_score);
-                    delta = @min(delta * 2, eval.mate_score);
-                    window_failed = false;
-                } else {
-                    window_failed = false;
-                    break;
-                }
-            }
+                var line_score: i32 = -eval.mate_score;
 
-            if (self.best_move.toU32() != bm.toU32()) {
-                stability = 0;
-            } else {
-                stability += 1;
-            }
+                while (true) {
+                    self.root_moves_searched = 0;
 
-            if (!window_failed) {
-                bm = self.best_move;
-                best_pv = self.pv[0];
-                best_pv_length = self.pv_length[0];
-            }
+                    line_score = self.negamax(board, board.toMove(), depth, alpha, beta, false, NodeType.Root, false);
 
-            if (!self.silent_output) {
-                var total_nodes = self.nodes;
-                var total_tb_hits = self.tb_hits;
-                for (search_helpers.items) |helper| {
-                    total_nodes += helper.nodes;
-                    total_tb_hits += helper.tb_hits;
+                    if (self.time_stop or self.should_stop()) {
+                        self.time_stop = true;
+                        tt.stop_signal.store(true, .release);
+                        break :outer;
+                    }
+
+                    if (line_score <= alpha) {
+                        alpha = @max(alpha - delta, -eval.mate_score);
+                        delta = @min(delta * 2, eval.mate_score);
+                        window_failed = true;
+                    } else if (line_score >= beta) {
+                        beta = @min(beta + delta, eval.mate_score);
+                        delta = @min(delta * 2, eval.mate_score);
+                        window_failed = false;
+                    } else {
+                        window_failed = false;
+                        break;
+                    }
                 }
 
-                self.printInfo(total_nodes, total_tb_hits, score, best_pv[0..best_pv_length], std.heap.smp_allocator);
+                if (pv_idx == 0) score = line_score;
+
+                if (self.root_moves_searched == 0 or self.best_move.toU32() == 0) break;
+
+                prev_line_scores[pv_idx] = line_score;
+                self.root_lines[pv_idx] = .{
+                    .move = self.best_move,
+                    .score = line_score,
+                    .pv = self.pv[0],
+                    .pv_length = self.pv_length[0],
+                    .seldepth = self.seldepth,
+                    .valid = true,
+                };
+
+                if (pv_idx == 0) {
+                    if (self.best_move.toU32() != bm.toU32()) {
+                        stability = 0;
+                    } else {
+                        stability += 1;
+                    }
+
+                    if (!window_failed) {
+                        bm = self.best_move;
+                        best_pv = self.pv[0];
+                        best_pv_length = self.pv_length[0];
+                    }
+                }
+
+                if (!self.silent_output) {
+                    var total_nodes = self.nodes;
+                    var total_tb_hits = self.tb_hits;
+                    for (search_helpers.items) |helper| {
+                        total_nodes += helper.nodes;
+                        total_tb_hits += helper.tb_hits;
+                    }
+
+                    const line = &self.root_lines[pv_idx];
+                    self.printInfo(
+                        total_nodes,
+                        total_tb_hits,
+                        line.score,
+                        line.pv[0..line.pv_length],
+                        pv_idx + 1,
+                        std.heap.smp_allocator,
+                    );
+                }
+
+                if (self.excluded_root_count >= max_multipv or self.alreadyExcluded(self.best_move)) break;
+                self.excluded_root_moves[self.excluded_root_count] = self.best_move;
+                self.excluded_root_count += 1;
             }
+
+            self.root_pv_index = 0;
+            self.excluded_root_count = 0;
 
             const stability_idx = @min(stability, tp.tm_stability_scale.values.len - 1);
             var factor: f32 = tp.tm_stability_scale.values[stability_idx];
@@ -540,20 +697,12 @@ pub const Searcher = struct {
         self.tt_table.incrementAge();
 
         // Guard against null moves
-        if (self.best_move.toU32() == 0) {
-            var hash_move = mvs.EncodedMove.fromU32(0);
-            if (self.tt_table.get(board.game_state.zobrist)) |e| {
-                hash_move = e.move;
-            }
-            if (self.best_move.toU32() == 0) {
-                const move_list = self.move_gen.generateMoves(board, false);
-                if (move_list.len > 0) {
-                    self.best_move = move_list.items[0];
-                }
+        if (self.best_move.toU32() == 0 and self.root_move_count > 0) {
+            self.best_move = self.root_moves[0];
 
-                for (0..move_list.len) |i| {
-                    const move = move_list.items[i];
-                    if (move.matchesTTKey(hash_move)) {
+            if (self.tt_table.get(board.game_state.zobrist)) |e| {
+                for (self.root_moves[0..self.root_move_count]) |move| {
+                    if (move.matchesTTKey(e.move)) {
                         self.best_move = move;
                         break;
                     }
@@ -639,7 +788,7 @@ pub const Searcher = struct {
 
             hash_move = e.move;
 
-            if (is_root) {
+            if (is_root and self.root_pv_index == 0) {
                 self.best_move_score = tt_eval;
             }
 
@@ -727,7 +876,7 @@ pub const Searcher = struct {
             self.eval_history[self.ply] = static_eval;
         }
 
-        var best_score: i32 = static_eval;
+        var best_score: i32 = if (is_root) -eval.mate_score else static_eval;
 
         var improving = false;
         if (!in_check) {
@@ -943,6 +1092,12 @@ pub const Searcher = struct {
 
         while (picker.next(self, board)) |picked| {
             const move = picked.move;
+
+            if (is_root) {
+                if (!self.isRootMoveAllowed(move)) continue;
+                self.root_moves_searched += 1;
+            }
+
             moves_seen += 1;
 
             if (move.matchesTTKey(self.excluded_moves[self.ply])) {
@@ -1139,7 +1294,7 @@ pub const Searcher = struct {
             self.ply -= 1;
             mvs.undoMove(board, move);
 
-            if (is_root) {
+            if (is_root and self.root_pv_index == 0) {
                 self.root_node_counts[move.start_square][move.end_square] += self.nodes - nodes_before_move;
             }
 
@@ -1151,6 +1306,11 @@ pub const Searcher = struct {
                 best_score = score;
                 best_move = move;
 
+                if (is_root) {
+                    self.best_move = move;
+                    self.best_move_score = score;
+                }
+
                 if (!is_null) {
                     self.pv[self.ply][0] = move;
                     std.mem.copyForwards(mvs.EncodedMove, self.pv[self.ply][1..(self.pv_length[self.ply + 1] + 1)], self.pv[self.ply + 1][0..(self.pv_length[self.ply + 1])]);
@@ -1160,10 +1320,6 @@ pub const Searcher = struct {
 
                 if (score > alpha) {
                     alpha = score;
-                    if (is_root) {
-                        self.best_move = best_move;
-                        self.best_move_score = best_score;
-                    }
 
                     if (alpha >= beta) {
                         break;
@@ -1173,6 +1329,8 @@ pub const Searcher = struct {
         }
 
         if (moves_seen == 0) {
+            if (is_root) return alpha;
+
             if (in_check) {
                 // checkmate
                 return -eval.mate_score + @as(i32, @intCast(self.ply));
@@ -1197,7 +1355,9 @@ pub const Searcher = struct {
             hist.updateCaptureHistory(self, board, color, best_move, &other_moves, depth);
         }
 
-       if ((!skip_quiet or best_score >= beta) and self.excluded_moves[self.ply].toU32() == 0) {
+       const skip_root_store = is_root and (self.root_pv_index > 0 or self.excluded_root_count > 0);
+
+       if ((!skip_quiet or best_score >= beta) and self.excluded_moves[self.ply].toU32() == 0 and !skip_root_store) {
             var tt_flag = tt.EstimationType.Over;
             if (best_score >= beta) {
                 tt_flag = tt.EstimationType.Under;
@@ -1467,7 +1627,7 @@ pub const Searcher = struct {
         }
     }
 
-    pub fn printInfo(self: *Searcher, nodes: u64, tb_hits: u64, score: i32, pv: []const mvs.EncodedMove, allocator: std.mem.Allocator) void {
+    pub fn printInfo(self: *Searcher, nodes: u64, tb_hits: u64, score: i32, pv: []const mvs.EncodedMove, multipv_idx: usize, allocator: std.mem.Allocator) void {
         const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
         const nps: u64 = if (elapsed_ms > 0) (nodes * 1000) / elapsed_ms else 0;
         // const hashfull = self.tt_table.getFillPermill();
@@ -1510,9 +1670,16 @@ pub const Searcher = struct {
         var score_buf: [64]u8 = undefined;
         const score_string = formatScore(score, &score_buf);
 
-        stdout.print("info depth {d} seldepth {d} {s} time {d} nodes {d} nps {d} tbhits {d} pv {s}\n", .{
+        var multipv_buf: [32]u8 = undefined;
+        const multipv_string: []const u8 = if (self.multi_pv > 1)
+            (std.fmt.bufPrint(&multipv_buf, "multipv {d} ", .{multipv_idx}) catch "")
+        else
+            "";
+
+        stdout.print("info depth {d} seldepth {d} {s}{s} time {d} nodes {d} nps {d} tbhits {d} pv {s}\n", .{
             self.search_depth,
             self.seldepth,
+            multipv_string,
             score_string,
             elapsed_ms,
             nodes,

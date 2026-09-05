@@ -53,7 +53,6 @@ fn searchThreadFn(ctx: *SearchContext) void {
     const root_color = ctx.root_color;
 
     defer {
-        // Destroy the context using the engine's internal allocator
         protocol.allocator.destroy(ctx.board);
         protocol.allocator.destroy(ctx);
         @atomicStore(bool, &protocol.is_searching, false, .release);
@@ -125,6 +124,7 @@ pub const UciProtocol = struct {
     tt_table: tt.TranspositionTable = undefined,
 
     search_thread: ?std.Thread = null,
+    searchmoves_owned: ?[]mvs.EncodedMove = null,
     is_pondering: bool = false,
     ponder_limits: SearchLimits = .{},
     ponder_side: brd.Color = .White,
@@ -139,6 +139,7 @@ pub const UciProtocol = struct {
         protocol.allocator = a;
         protocol.board.game_state = brd.GameState.init();
         protocol.hash_size_mb = 64;
+        protocol.searchmoves_owned = null;
 
         srch.search_helpers = .empty;
         srch.threads = .empty;
@@ -166,6 +167,7 @@ pub const UciProtocol = struct {
 
     pub fn deinit(self: *UciProtocol) void {
         self.stopSearch();
+        self.clearSearchMoves();
         srch.Searcher.deinitThreading();
         tb.deinit();
         self.searcher.deinit();
@@ -277,17 +279,46 @@ pub const UciProtocol = struct {
         return if (v > 0) @intCast(v) else 0;
     }
 
+    fn clearSearchMoves(self: *UciProtocol) void {
+        self.searcher.searchmoves = null;
+        for (srch.search_helpers.items) |helper| {
+            helper.searchmoves = null;
+        }
+        if (self.searchmoves_owned) |sm| {
+            self.allocator.free(sm);
+            self.searchmoves_owned = null;
+        }
+    }
+
     fn handleGo(self: *UciProtocol, args: [][]const u8) !void {
         if (self.search_thread != null) {
             self.stopSearch();
         }
+
+        self.clearSearchMoves();
 
         var limits = SearchLimits{};
         var i: usize = 0;
 
         while (i < args.len) {
             const arg = args[i];
+            if (std.mem.eql(u8, arg, "searchmoves")) {
+                i += 1;
+                var sm_list: std.ArrayList(mvs.EncodedMove) = .empty;
+                errdefer sm_list.deinit(self.allocator);
 
+                while (i < args.len) : (i += 1) {
+                    const m = mvs.parseMove(&self.board, args[i], self.chess960) orelse break;
+                    try sm_list.append(self.allocator, m);
+                }
+
+                if (sm_list.items.len > 0) {
+                    limits.searchmoves = try sm_list.toOwnedSlice(self.allocator);
+                } else {
+                    sm_list.deinit(self.allocator);
+                }
+                continue;
+            }
             if (std.mem.eql(u8, arg, "wtime") and i + 1 < args.len) {
                 limits.wtime = parseClockMs(args[i + 1]);
                 i += 2;
@@ -321,12 +352,13 @@ pub const UciProtocol = struct {
             } else if (std.mem.eql(u8, arg, "ponder")) {
                 limits.ponder = true;
                 i += 1;
-            } else if (std.mem.eql(u8, arg, "searchmoves")) {
-                i += 1;
             } else {
                 i += 1;
             }
         }
+
+        self.searchmoves_owned = limits.searchmoves;
+        self.searcher.searchmoves = limits.searchmoves;
 
         self.searcher.stop = false;
         self.searcher.time_stop = false;
@@ -388,6 +420,7 @@ pub const UciProtocol = struct {
         try respond("option name SyzygyProbeDepth type spin default 1 min 1 max 100");
         try respond("option name Overhead type spin default 15 min 0 max 1000");
         try respond("option name Clear Hash type button");
+        try respond("option name MultiPV type spin default 1 min 1 max 16");
 
         if (build_options.is_dev) {
             try reportTunables();
@@ -440,6 +473,15 @@ pub const UciProtocol = struct {
             }
         } else if (std.mem.eql(u8, option_name, "Ponder")) {
             // TODO: ?
+        } else if (std.mem.eql(u8, option_name, "MultiPV")) {
+            if (args.len < name_end + 2) {
+                if (self.debug_mode) {
+                    try respond("Error: MultiPV option requires a value");
+                }
+                return;
+            }
+            const new_multipv = std.fmt.parseInt(usize, args[name_end + 1], 10) catch 1;
+            self.searcher.multi_pv = std.math.clamp(new_multipv, 1, srch.max_multipv);
         } else if (std.mem.eql(u8, option_name, "UCI_Chess960")) {
             if (args.len >= name_end + 2) {
                 self.chess960 = std.mem.eql(u8, args[name_end + 1], "true");
@@ -567,6 +609,11 @@ pub const UciProtocol = struct {
 
     fn handleBench(self: *UciProtocol, args: [][]const u8) !void {
         const depth: u32 = if (args.len >= 1) std.fmt.parseInt(u32, args[0], 10) catch 13 else 13;
+
+        const saved_multipv = self.searcher.multi_pv;
+        self.searcher.multi_pv = 1;
+        self.searcher.searchmoves = null;
+        defer self.searcher.multi_pv = saved_multipv;
 
         var total_nodes: u64 = 0;
         var timer = try std.time.Timer.start();
