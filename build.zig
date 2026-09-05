@@ -304,14 +304,6 @@ const ReleaseTarget = struct {
     cpu: []const u8 = "baseline",
 };
 
-// One binary per line. Naming: ursus-<os>-<arch>-<tier>.
-// x86-64 tiers: sse2 = runs anywhere (+cx16 for 16-byte atomics);
-// v2 = +popcnt/sse4.2 (Nehalem/Jaguar and newer, big for bitboard code);
-// avx2 = x86-64-v3, the mainstream tier (also what the NNUE AVX2 path wants);
-// avx512 = x86-64-v4, 512-bit NNUE vectors (Zen 4/5, Intel server).
-// znverN = scheduling-tuned for specific Ryzens (znver1 = 1700X, znver3 = 5950X).
-// Apple Silicon: apple_m1 is default
-// apple_m4 adds M4 scheduling + ISA extensions.
 const release_targets = [_]ReleaseTarget{
     // Linux x86-64
     .{ .name = "ursus-linux-x86_64-sse2", .triple = "x86_64-linux-gnu", .cpu = "x86_64+cx16" },
