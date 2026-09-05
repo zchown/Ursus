@@ -752,7 +752,7 @@ pub const Searcher = struct {
             last_last_last_move = self.move_history[self.ply - 3];
         }
 
-        if (depth >= 3 and !in_check and hash_move.toU32() == 0 and self.excluded_moves[self.ply].toU32() == 0 and !on_pv) {
+        if (depth >= (3 + if(on_pv) 4 else 0) and !in_check and hash_move.toU32() == 0 and self.excluded_moves[self.ply].toU32() == 0 and (on_pv or cutnode)) {
             depth -= 1;
         }
 
