@@ -134,6 +134,9 @@ pub var optimism_mat_scale = Tunable(i32, .{ .min = 0, .max = 2048}){ .value = 1
 pub var optimism_scale = Tunable(i32, .{ .min = 50, .max = 300}){ .value = 147};
 pub var optimism_stretch = Tunable(i32, .{ .min = 50, .max = 200}){ .value = 101};
 
+pub var see_prune_no_capture = Tunable(i32, .{ .min = -100, .max = 200}){ .value = 25};
+pub var see_prune_cap = Tunable(i32, .{ .min = -250, .max = 250}){ .value = -150};
+
 
 pub const TunableRef = struct {
     name: []const u8,
