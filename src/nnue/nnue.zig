@@ -19,12 +19,12 @@ const KING_BUCKETS_BASE: [32]u8 = [_]u8{
 };
 
 pub const num_features = NUM_KING_BUCKETS * features_per_bucket;
-pub const hidden_size = 1536;
+pub const hidden_size = 1792;
 
 const QA: i16 = 255;
 const QB: i16 = 64;
 const NUM_OUTPUT_BUCKETS: usize = 8;
-const EVAL_SCALE: i64 = 128;
+const EVAL_SCALE: i64 = 122;
 const cache_line = std.atomic.cache_line;
 
 const CpuTarget = enum { avx2, sse2, aarch64, fallback };
