@@ -9,7 +9,7 @@ pub const see_values = [_]i32{
     521, // Rook
     994, // Queen
     20000, // King
-    0,
+    0, // None
 };
 
 fn seeSwap(
@@ -20,6 +20,7 @@ fn seeSwap(
     attacker_piece: brd.Pieces,
     color_: brd.Color,
     initial_gain: i32,
+    ep_capture_sq: ?usize,
 ) i32 {
     var gain: [32]i32 = undefined;
     var depth: usize = 0;
@@ -38,7 +39,12 @@ fn seeSwap(
         wp[@intFromEnum(brd.Pieces.Queen)] | bp[@intFromEnum(brd.Pieces.Queen)];
 
     var occupied = board.occupancy();
-    var attackers = getAllAttackers(board, move_gen, target_sq, occupied, bq, rq);
+    if (ep_capture_sq) |eps| {
+        occupied ^= (@as(u64, 1) << @intCast(eps));
+    }
+    occupied ^= (@as(u64, 1) << @intCast(from_sq));
+
+    var attackers = getAllAttackers(board, move_gen, target_sq, occupied, bq, rq) & occupied;
 
     while (true) {
         depth += 1;
@@ -46,31 +52,27 @@ fn seeSwap(
 
         gain[depth] = see_values[@intFromEnum(piece)] - gain[depth - 1];
 
-        if (@max(-gain[depth - 1], gain[depth]) < 0) break;
-
-        occupied ^= (@as(u64, 1) << @intCast(from_sq));
-
         if (piece == .Pawn or piece == .Bishop or piece == .Queen) {
             attackers |= move_gen.getBishopAttacks(target_sq, occupied) & bq;
         }
         if (piece == .Rook or piece == .Queen) {
             attackers |= move_gen.getRookAttacks(target_sq, occupied) & rq;
         }
-
         attackers &= occupied;
 
         color = brd.flipColor(color);
 
-        const next_attacker = getLeastValuableAttacker(board, attackers, color);
-        if (next_attacker) |na| {
-            if (na.piece == .King and (attackers & board.color_bb[@intFromEnum(brd.flipColor(color))]) != 0) {
-                break;
-            }
-            from_sq = na.square;
-            piece = na.piece;
-        } else {
+        const next_attacker = getLeastValuableAttacker(board, attackers, color) orelse break;
+
+        if (next_attacker.piece == .King and
+            (attackers & board.color_bb[@intFromEnum(brd.flipColor(color))]) != 0)
+        {
             break;
         }
+
+        from_sq = next_attacker.square;
+        piece = next_attacker.piece;
+        occupied ^= (@as(u64, 1) << @intCast(from_sq));
     }
 
     var i = depth - 1;
@@ -81,101 +83,108 @@ fn seeSwap(
     return gain[0];
 }
 
-pub fn seeCapture(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove) i32 {
-    const attacker: brd.Pieces = @enumFromInt(move.piece);
-    const attacker_color: brd.Color = board.toMove();
+const MoveInfo = struct {
+    lands: brd.Pieces,
+    gain: i32,
+    ep_capture_sq: ?usize,
+};
+
+fn describe(move: mvs.EncodedMove) MoveInfo {
+    const pawn = see_values[@intFromEnum(brd.Pieces.Pawn)];
+    var info = MoveInfo{
+        .lands = @enumFromInt(move.piece),
+        .gain = 0,
+        .ep_capture_sq = null,
+    };
 
     if (move.en_passant == 1) {
-        return seeSwap(
-            board,
-            move_gen,
-            move.end_square,
-            move.start_square,
-            attacker,
-            attacker_color,
-            see_values[@intFromEnum(brd.Pieces.Pawn)],
-        );
+        info.gain = pawn;
+        info.ep_capture_sq = @as(usize, move.end_square) ^ 8;
+    } else if (move.capture == 1) {
+        const captured: brd.Pieces = @enumFromInt(move.captured_piece);
+        info.gain = see_values[@intFromEnum(captured)];
     }
 
-    if (move.capture == 0) return 0;
-    const target_piece: brd.Pieces = @enumFromInt(move.captured_piece);
+    if (move.promoted_piece != 0) {
+        const promo: brd.Pieces = @enumFromInt(move.promoted_piece);
+        info.gain += see_values[@intFromEnum(promo)] - pawn;
+        info.lands = promo;
+    }
 
+    return info;
+}
+
+pub fn seeMove(
+    board: *brd.Board,
+    move_gen: *mvs.MoveGen,
+    move: mvs.EncodedMove,
+) i32 {
+    const info = describe(move);
     return seeSwap(
         board,
         move_gen,
         move.end_square,
         move.start_square,
-        attacker,
+        info.lands,
+        board.toMove(),
+        info.gain,
+        info.ep_capture_sq,
+    );
+}
+
+pub fn seeCapture(
+    board: *brd.Board,
+    move_gen: *mvs.MoveGen,
+    move: mvs.EncodedMove,
+) i32 {
+    if (move.capture == 0 and move.en_passant == 0 and move.promoted_piece == 0) return 0;
+    return seeMove(board, move_gen, move);
+}
+
+pub fn see(
+    board: *brd.Board,
+    move_gen: *mvs.MoveGen,
+    target_sq: usize,
+    attacker_sq: usize,
+    attacker_piece: brd.Pieces,
+) i32 {
+    const target_piece = board.getPieceFromSquare(target_sq) orelse return 0;
+    const attacker_color = board.getColorFromSquare(attacker_sq) orelse return 0;
+
+    return seeSwap(
+        board,
+        move_gen,
+        target_sq,
+        attacker_sq,
+        attacker_piece,
         attacker_color,
         see_values[@intFromEnum(target_piece)],
+        null,
     );
 }
 
-pub fn seeMove(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove) i32 {
-    const attacker: brd.Pieces = @enumFromInt(move.piece);
-    const attacker_color: brd.Color = board.toMove();
-
-    if (move.en_passant == 1) {
-        return seeSwap(
-            board,
-            move_gen,
-            move.end_square,
-            move.start_square,
-            attacker,
-            attacker_color,
-            see_values[@intFromEnum(brd.Pieces.Pawn)],
-        );
-    }
-
-    const target_piece: ?brd.Pieces = if (move.capture == 1) @enumFromInt(move.captured_piece) else null;
-
-    if (target_piece) |tp| {
-        return seeSwap(
-            board,
-            move_gen,
-            move.end_square,
-            move.start_square,
-            attacker,
-            attacker_color,
-            see_values[@intFromEnum(tp)],
-        );
-    }
-
-    return seeSwap(
-        board,
-        move_gen,
-        move.end_square,
-        move.start_square,
-        attacker,
-        attacker_color,
-        0,
-    );
-}
-
-pub fn seeAtLeast(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMove, threshold: i32) bool {
+pub fn seeAtLeast(
+    board: *brd.Board,
+    move_gen: *mvs.MoveGen,
+    move: mvs.EncodedMove,
+    threshold: i32,
+) bool {
     const from = @as(usize, move.start_square);
     const to = @as(usize, move.end_square);
 
-    const attacker: brd.Pieces = @enumFromInt(move.piece);
+    const info = describe(move);
 
-    var swap: i32 = blk: {
-        if (move.en_passant == 1) break :blk see_values[@intFromEnum(brd.Pieces.Pawn)] - threshold;
-        if (move.capture == 1) {
-            const captured: brd.Pieces = @enumFromInt(move.captured_piece);
-            break :blk see_values[@intFromEnum(captured)] - threshold;
-        }
-        break :blk -threshold;
-    };
+    var swap: i32 = info.gain - threshold;
     if (swap < 0) return false;
 
-    swap = see_values[@intFromEnum(attacker)] - swap;
+    swap = see_values[@intFromEnum(info.lands)] - swap;
     if (swap <= 0) return true;
 
     var occ = board.occupancy();
     occ ^= (@as(u64, 1) << @intCast(from));
     occ ^= (@as(u64, 1) << @intCast(to));
-    if (move.en_passant == 1) {
-        occ ^= (@as(u64, 1) << @intCast(to ^ 8));
+    if (info.ep_capture_sq) |eps| {
+        occ ^= (@as(u64, 1) << @intCast(eps));
     }
 
     const wp = board.piece_bb[@intFromEnum(brd.Color.White)];
@@ -199,7 +208,10 @@ pub fn seeAtLeast(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
 
         const na = getLeastValuableAttacker(board, stm_attackers, stm) orelse break;
 
-        if (na.piece == .King and (attackers & board.color_bb[@intFromEnum(brd.flipColor(stm))]) != 0) {
+        if (na.piece == .King and
+            (attackers & board.color_bb[@intFromEnum(brd.flipColor(stm))]) != 0)
+        {
+            res ^= 1;
             break;
         }
 
@@ -220,21 +232,6 @@ pub fn seeAtLeast(board: *brd.Board, move_gen: *mvs.MoveGen, move: mvs.EncodedMo
     }
 
     return res != 0;
-}
-
-pub fn see(board: *brd.Board, move_gen: *mvs.MoveGen, target_sq: usize, attacker_sq: usize, attacker_piece: brd.Pieces) i32 {
-    const target_piece = board.getPieceFromSquare(target_sq) orelse return 0;
-    const attacker_color = board.getColorFromSquare(attacker_sq) orelse return 0;
-
-    return seeSwap(
-        board,
-        move_gen,
-        target_sq,
-        attacker_sq,
-        attacker_piece,
-        attacker_color,
-        see_values[@intFromEnum(target_piece)],
-    );
 }
 
 const AttackerInfo = struct {
