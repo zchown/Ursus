@@ -1165,7 +1165,16 @@ pub const Searcher = struct {
             }
 
             if (is_capture and !in_check and !on_pv and depth <= 6 and searched_moves >= 2 and !is_important) {
-                if (!see.seeAtLeast(board, self.move_gen, move, -100)) {
+                const d: i32 = @intCast(depth);
+                const attacker_idx: usize = @intCast(move.piece);
+                const captured_idx: usize = @intCast(move.captured_piece);
+                const ch: i32 = if (captured_idx < 6)
+                    self.capture_history[@intFromEnum(color)][attacker_idx][move.end_square][captured_idx]
+                    else
+                    0;
+                const margin = -tp.see_capture_mul.value * d * d -
+                @divTrunc(ch, tp.see_capthist_div.value);
+                if (!see.seeAtLeast(board, self.move_gen, move, margin)) {
                     continue;
                 }
             }

@@ -137,6 +137,10 @@ pub var optimism_mat_scale = Tunable(i32, .{ .min = 0, .max = 2048}){ .value = 1
 pub var optimism_scale = Tunable(i32, .{ .min = 50, .max = 300}){ .value = 147};
 pub var optimism_stretch = Tunable(i32, .{ .min = 50, .max = 200}){ .value = 101};
 
+pub var see_capture_mul = Tunable(i32, .{ .min = 10, .max = 60 }){ .value = 30 };
+pub var see_capthist_div = Tunable(i32, .{ .min = 8, .max = 64 }){ .value = 16 };
+
+
 
 pub const TunableRef = struct {
     name: []const u8,
