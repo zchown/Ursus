@@ -847,6 +847,9 @@ pub const Searcher = struct {
                                 .flag = tb_flag,
                                 .depth = tdepth,
                                 .age = self.tt_table.getAge(),
+                                .in_check = in_check,
+                                .is_pv = tt_pv,
+                                .static_eval_valid = !in_check,
                             });
                             return tb_score;
                         }
@@ -1070,6 +1073,9 @@ pub const Searcher = struct {
                         .flag = tt.EstimationType.Under,
                         .depth = @intCast(probcut_depth),
                         .age = self.tt_table.getAge(),
+                        .in_check = in_check,
+                        .is_pv = tt_pv,
+                        .static_eval_valid = !in_check and self.excluded_moves[self.ply].toU32() == 0,
                     });
 
 
