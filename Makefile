@@ -7,7 +7,7 @@ CORES ?= 8
 
 NET_DIR     := src/nnue/nets
 NET_DEST    := $(NET_DIR)/Alkaid.bin
-POLICY_DEST := $(NET_DIR)/policy_pw512x3.bin
+POLICY_DEST := $(NET_DIR)/policy_pw512.bin
 
 NET_URL     := https://raw.githubusercontent.com/zchown/UrsusNets/main/Alkaid.bin
 POLICY_URL  := https://raw.githubusercontent.com/zchown/UrsusNets/main/policy_pw512.bin
