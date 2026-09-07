@@ -5,26 +5,23 @@ const see = @import("see");
 
 pub const plane_size: usize = 768;
 pub const input_size: usize = plane_size * 4;
+pub const hl: usize = 512;
+pub const hp: usize = hl / 2;
 pub const promos: usize = 4 * 22;
 pub const see_threshold: i32 = -108;
-pub const max_active: usize = 32; 
+pub const max_active: usize = 32;
 
-pub const Act = enum(u32) { screlu = 0, pairwise = 1 };
+// match header from my trainer
+pub const bin_version: u32 = 3;
+pub const expected_act_id: u32 = 1;
+pub const expected_layers: u32 = 3;
 
-pub const hl: usize = 128;
-pub const act: Act = .screlu;
-pub const hw: usize = if (act == .screlu) hl else hl / 2;
+pub const qa_scale: u32 = 255;
+pub const qb_scale: u32 = 64;
+pub const qa: f32 = @floatFromInt(qa_scale);
+pub const qb: f32 = @floatFromInt(qb_scale);
 
-pub const qa: i32 = 255;
-pub const qb: i32 = 64;
-pub const q_out: f32 = @floatFromInt(qa * qa * qb); // 4,161,600
-
-const LV = 8;
-comptime {
-    std.debug.assert(hl % LV == 0 and hw % LV == 0);
-}
-
-pub const root_lmr_top: i32 = 3; 
+pub const root_lmr_top: i32 = 3;
 pub const root_lmr_min_depth: usize = 3;
 
 pub const tm_min_depth: usize = 6;
@@ -81,16 +78,19 @@ fn destKing(sq: usize) u64 {
     return k ^ (@as(u64, 1) << @intCast(sq));
 }
 
+
 pub const PolicyNet = struct {
     loaded: bool = false,
 
-    from_to: usize = 0,
-    num_moves: usize = 0,
+    from_to: usize = 0, // 3920
+    num_moves: usize = 0, // 7840
 
-    l0w: []i16 = &.{},
-    l0b: [hl]i16 = undefined,
-    l1w: []i8 = &.{},
-    l1b: []i32 = &.{},
+    l0w: []f32 = &.{},
+    l0b: [hl]f32 = undefined,
+    l1w: []f32 = &.{},
+    l1b: [hl]f32 = undefined,
+    l2w: []f32 = &.{},
+    l2b: []f32 = &.{},
 
     destinations: [64][6]u64 = undefined,
     offsets: [6][65]u32 = undefined,
@@ -122,69 +122,115 @@ pub const PolicyNet = struct {
         self.initTables();
         self.loaded = false;
 
-        if (data.len < 32 or !std.mem.eql(u8, data[0..4], "UPO2")) {
-            std.debug.print("info string Policy: bad magic (want UPO2)\n", .{});
+        const header_size: usize = 40;
+        if (data.len < header_size) {
+            std.debug.print(
+                "info string Policy: blob too small for UPO3 header ({d} bytes)\n",
+                .{data.len},
+            );
+            return error.PolicyHeaderTooSmall;
+        }
+        if (!std.mem.eql(u8, data[0..4], "UPO3")) {
+            std.debug.print("info string Policy: bad magic (expected UPO3)\n", .{});
             return error.PolicyBadMagic;
         }
-        const rdU32 = struct {
-            fn f(d: []const u8, o: usize) u32 {
-                return std.mem.readInt(u32, d[o..][0..4], .little);
+
+        const readU32 = struct {
+            fn f(src: []const u8, o: usize) u32 {
+                return @as(u32, src[o]) |
+                    (@as(u32, src[o + 1]) << 8) |
+                    (@as(u32, src[o + 2]) << 16) |
+                    (@as(u32, src[o + 3]) << 24);
             }
         }.f;
-        const h_version = rdU32(data, 4);
-        const h_hl = rdU32(data, 8);
-        const h_act = rdU32(data, 12);
-        const h_nm = rdU32(data, 16);
-        const h_qa = rdU32(data, 20);
-        const h_qb = rdU32(data, 24);
-        if (h_version != 2 or h_hl != hl or h_act != @intFromEnum(act) or
-            h_nm != self.num_moves or h_qa != qa or h_qb != qb)
-        {
+
+        const file_version = readU32(data, 4);
+        const file_hl = readU32(data, 8);
+        const file_act = readU32(data, 12);
+        const file_layers = readU32(data, 16);
+        const file_num_moves = readU32(data, 20);
+        const file_qa = readU32(data, 24);
+        const file_qb = readU32(data, 28);
+        // data[32..40] reserved
+
+        const header_ok = file_version == bin_version and
+            file_hl == hl and
+            file_act == expected_act_id and
+            file_layers == expected_layers and
+            @as(usize, file_num_moves) == self.num_moves and
+            file_qa == qa_scale and
+            file_qb == qb_scale;
+
+        if (!header_ok) {
             std.debug.print(
-                "info string Policy: header mismatch " ++
-                    "(file v{d} hl={d} act={d} nm={d} qa={d} qb={d}; " ++
-                    "engine hl={d} act={d} nm={d} qa={d} qb={d})\n",
-                .{ h_version, h_hl, h_act, h_nm, h_qa, h_qb, hl, @intFromEnum(act), self.num_moves, qa, qb },
+                "info string Policy: header mismatch got(version={d} hl={d} act={d} layers={d} " ++
+                    "num_moves={d} qa={d} qb={d}) want(version={d} hl={d} act={d} layers={d} " ++
+                    "num_moves={d} qa={d} qb={d})\n",
+                .{
+                    file_version, file_hl, file_act, file_layers, file_num_moves, file_qa, file_qb,
+                    bin_version,  hl,      expected_act_id, expected_layers, self.num_moves, qa_scale, qb_scale,
+                },
             );
             return error.PolicyHeaderMismatch;
         }
 
-        const expected = 32 + 2 * (input_size * hl) + 2 * hl +
-            hw * self.num_moves + 4 * self.num_moves;
+        const expected = header_size +
+            input_size * hl * 2 + // l0w  i16, [input_size, hl]
+            hl * 2 + // l0b  i16
+            hl * hp * 1 + // l1w  i8,  [hl, hp] (mid, output-major)
+            hl * 2 + // l1b  i16
+            hp * self.num_moves * 1 + // l2w  i8,  [num_moves, hp] (move-major)
+            self.num_moves * 2; // l2b  i16
+
         if (data.len != expected) {
             std.debug.print(
-                "info string Policy: size mismatch got {d} expected {d}\n",
-                .{ data.len, expected },
+                "info string Policy: size mismatch got {d} expected {d} (from_to={d} num_moves={d})\n",
+                .{ data.len, expected, self.from_to, self.num_moves },
             );
             return error.PolicySizeMismatch;
         }
 
-        var off: usize = 32;
+        var off: usize = header_size;
 
-        self.l0w = try alloc.alloc(i16, input_size * hl);
+        const readQ16 = struct {
+            fn f(dst: []f32, src: []const u8, o: *usize, scale: f32) void {
+                for (dst, 0..) |*w, i| {
+                    const lo: u16 = src[o.* + i * 2];
+                    const hi: u16 = src[o.* + i * 2 + 1];
+                    const bits: u16 = lo | (hi << 8);
+                    const q: i16 = @bitCast(bits);
+                    w.* = @as(f32, @floatFromInt(q)) / scale;
+                }
+                o.* += dst.len * 2;
+            }
+        }.f;
+
+        const readQ8 = struct {
+            fn f(dst: []f32, src: []const u8, o: *usize, scale: f32) void {
+                for (dst, 0..) |*w, i| {
+                    const q: i8 = @bitCast(src[o.* + i]);
+                    w.* = @as(f32, @floatFromInt(q)) / scale;
+                }
+                o.* += dst.len;
+            }
+        }.f;
+
+        self.l0w = try alloc.alloc(f32, input_size * hl);
         errdefer alloc.free(self.l0w);
-        for (self.l0w, 0..) |*w, i| {
-            w.* = std.mem.readInt(i16, data[off + 2 * i ..][0..2], .little);
-        }
-        off += 2 * self.l0w.len;
+        readQ16(self.l0w, data, &off, qa);
+        readQ16(self.l0b[0..], data, &off, qa);
 
-        for (&self.l0b, 0..) |*w, i| {
-            w.* = std.mem.readInt(i16, data[off + 2 * i ..][0..2], .little);
-        }
-        off += 2 * hl;
-
-        self.l1w = try alloc.alloc(i8, hw * self.num_moves);
+        self.l1w = try alloc.alloc(f32, hl * hp);
         errdefer alloc.free(self.l1w);
-        for (self.l1w, 0..) |*w, i| {
-            w.* = @bitCast(data[off + i]);
-        }
-        off += self.l1w.len;
+        readQ8(self.l1w, data, &off, qb);
+        readQ16(self.l1b[0..], data, &off, qa);
 
-        self.l1b = try alloc.alloc(i32, self.num_moves);
-        for (self.l1b, 0..) |*w, i| {
-            w.* = std.mem.readInt(i32, data[off + 4 * i ..][0..4], .little);
-        }
-        off += 4 * self.num_moves;
+        self.l2w = try alloc.alloc(f32, hp * self.num_moves);
+        errdefer alloc.free(self.l2w);
+        readQ8(self.l2w, data, &off, qb);
+
+        self.l2b = try alloc.alloc(f32, self.num_moves);
+        readQ16(self.l2b, data, &off, qa);
 
         std.debug.assert(off == data.len);
         self.loaded = true;
@@ -318,52 +364,40 @@ pub const PolicyNet = struct {
         return @intCast(index);
     }
 
-    pub fn computeHidden(self: *const PolicyNet, feats: []const u16, h: *[hl]i16) void {
-        var acc: [hl]i16 = self.l0b;
+    fn crelu01(x: f32) f32 {
+        return std.math.clamp(x, 0.0, 1.0);
+    }
 
+    pub fn computeHidden(self: *const PolicyNet, feats: []const u16, h: *[hp]f32) void {
+        var pre0: [hl]f32 = self.l0b;
         for (feats) |f| {
             const row = self.l0w[@as(usize, f) * hl ..][0..hl];
-            var j: usize = 0;
-            while (j < hl) : (j += LV) {
-                const a: @Vector(LV, i16) = acc[j..][0..LV].*;
-                const r: @Vector(LV, i16) = row[j..][0..LV].*;
-                acc[j..][0..LV].* = a + r; // no overflow: 33-term proof above
-            }
+            for (0..hl) |j| pre0[j] += row[j];
         }
 
-        const zero: @Vector(LV, i16) = @splat(0);
-        const cap: @Vector(LV, i16) = @splat(@as(i16, @intCast(qa)));
-        var j: usize = 0;
-        while (j < hl) : (j += LV) {
-            const a: @Vector(LV, i16) = acc[j..][0..LV].*;
-            h[j..][0..LV].* = @min(@max(a, zero), cap);
+        var h0: [hp]f32 = undefined;
+        for (0..hp) |i| {
+            h0[i] = crelu01(pre0[i]) * crelu01(pre0[i + hp]);
+        }
+
+        var pre1: [hl]f32 = self.l1b;
+        for (0..hl) |j| {
+            const row = self.l1w[j * hp ..][0..hp];
+            var acc: f32 = 0.0;
+            for (0..hp) |k| acc += h0[k] * row[k];
+            pre1[j] += acc;
+        }
+
+        for (0..hp) |i| {
+            h[i] = crelu01(pre1[i]) * crelu01(pre1[i + hp]);
         }
     }
 
-    /// logit = ( Σ_k x_k * y_k * w_k  +  l1b[mi] ) / (QA*QA*QB)
-    /// screlu:   x = y = v[k]            (v squared)
-    /// pairwise: x = v[k], y = v[k+hw]
-    pub fn logitForIndex(self: *const PolicyNet, h: *const [hl]i16, mi: usize) f32 {
-        const row = self.l1w[mi * hw ..][0..hw];
-
-        var accv: @Vector(LV, i32) = @splat(0);
-        var k: usize = 0;
-        while (k < hw) : (k += LV) {
-            const xv: @Vector(LV, i16) = h[k..][0..LV].*;
-            const x: @Vector(LV, i32) = xv;
-            const y: @Vector(LV, i32) = if (comptime act == .screlu)
-                x
-            else blk: {
-                const yv: @Vector(LV, i16) = h[k + hw ..][0..LV].*;
-                break :blk yv;
-            };
-            const wv: @Vector(LV, i8) = row[k..][0..LV].*;
-            const w: @Vector(LV, i32) = wv;
-            accv += x * y * w; // per-lane <= 8.26M * hw/LV iters < 2^31
-        }
-
-        const s: i32 = @reduce(.Add, accv) + self.l1b[mi];
-        return @as(f32, @floatFromInt(s)) / q_out;
+    pub fn logitForIndex(self: *const PolicyNet, h: *const [hp]f32, mi: usize) f32 {
+        const row = self.l2w[mi * hp ..][0..hp];
+        var acc: f32 = self.l2b[mi];
+        for (0..hp) |k| acc += h[k] * row[k];
+        return acc;
     }
 };
 
@@ -415,7 +449,7 @@ pub const RootPolicy = struct {
         var feats: [max_active]u16 = undefined;
         const nfeats = PolicyNet.collectFeatures(board, move_gen, &feats);
 
-        var h: [hl]i16 = undefined;
+        var h: [hp]f32 = undefined;
         net.computeHidden(feats[0..nfeats], &h);
 
         var logits: [max_root_moves]f32 = undefined;
@@ -505,65 +539,3 @@ pub const RootPolicy = struct {
         return 0;
     }
 };
-
-pub fn debugPrint(
-    net: *const PolicyNet,
-    board: *brd.Board,
-    move_gen: *mvs.MoveGen,
-    writer: anytype,
-) !void {
-    if (!net.loaded) {
-        try writer.print("info string Policy not loaded\n", .{});
-        return;
-    }
-
-    var rp: RootPolicy = .{};
-    rp.compute(net, board, move_gen);
-
-    if (!rp.ok) {
-        try writer.print("info string policy compute failed\n", .{});
-        return;
-    }
-
-    const list = move_gen.generateMoves(board, mvs.allMoves);
-
-    try writer.print(
-        "info string === POLICY DEBUG (UPO2 act={s} hl={d} hw={d}) ===\n" ++
-            "info string stm={s} from_to={d} num_moves={d}\n",
-        .{
-            @tagName(act),
-            hl,
-            hw,
-            if (board.toMove() == .White) "w" else "b",
-            net.from_to,
-            net.num_moves,
-        },
-    );
-
-    var order: [max_root_moves]usize = undefined;
-    for (0..rp.n) |i| order[i] = i;
-    std.mem.sort(usize, order[0..rp.n], &rp, struct {
-        fn lt(ctx: *const RootPolicy, a: usize, b: usize) bool {
-            return ctx.prob_any[a] > ctx.prob_any[b];
-        }
-    }.lt);
-
-    for (0..@min(rp.n, 16)) |r| {
-        const i = order[r];
-        const m = list.items[i];
-        const mi = net.mapMoveToIndex(board, move_gen, m);
-        const gsee = see.seeAtLeast(board, move_gen, m, see_threshold);
-        const uci = m.uciToString(std.heap.smp_allocator) catch "????";
-        defer std.heap.smp_allocator.free(uci);
-        try writer.print(
-            "info string #{d:0>2}  {s:<6} idx={d: >5} see={s} prob={d:.2}% qrank={d}\n",
-            .{ r + 1, uci, mi, if (gsee) "Y" else "N", rp.prob_any[i] * 100.0, rp.quiet_rank[i] },
-        );
-    }
-
-    try writer.print(
-        "info string top1={d:.2}% norm_ent={d:.3} legal={d} nquiets={d}\n" ++
-            "info string === END POLICY DEBUG ===\n",
-        .{ rp.top_prob_any * 100.0, rp.norm_entropy_any, rp.n, rp.nq },
-    );
-}
