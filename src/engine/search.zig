@@ -1159,7 +1159,8 @@ pub const Searcher = struct {
 
             // SEE pruning
             if (!is_capture and !in_check and !on_pv and !is_important and depth <= 6 and searched_moves >= 2) {
-                if (!see.seeAtLeast(board, self.move_gen, move, -@as(i32, @intCast(depth)) * 25)) {
+                const d: i32 = @intCast(depth);
+                if (!see.seeAtLeast(board, self.move_gen, move, -tp.see_quiet_mul.value * d * d)) {
                     continue;
                 }
             }

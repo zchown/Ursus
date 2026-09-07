@@ -139,8 +139,7 @@ pub var optimism_stretch = Tunable(i32, .{ .min = 50, .max = 200}){ .value = 101
 
 pub var see_capture_mul = Tunable(i32, .{ .min = 10, .max = 60 }){ .value = 30 };
 pub var see_capthist_div = Tunable(i32, .{ .min = 8, .max = 64 }){ .value = 16 };
-
-
+pub var see_quiet_mul = Tunable(i32, .{ .min = 8, .max = 50 }){ .value = 20 };
 
 pub const TunableRef = struct {
     name: []const u8,
