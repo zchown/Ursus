@@ -17,12 +17,12 @@ build:
 	@if [ -n "$(EVALFILE)" ]; then \
 		cp "$(EVALFILE)" "$(NET_DEST)"; \
 	elif [ ! -s "$(NET_DEST)" ]; then \
-		wget -4 --timeout=10 -qO "$(NET_DEST)" $(NET_URL) || curl -4 --max-time 10 -sLo "$(NET_DEST)" $(NET_URL); \
+		curl -4 --max-time 10 -sLo "$(NET_DEST)" $(NET_URL); \
 	fi
 	@if [ -n "$(POLICYFILE)" ]; then \
 		cp "$(POLICYFILE)" "$(POLICY_DEST)"; \
 	elif [ ! -s "$(POLICY_DEST)" ]; then \
-		wget -4 --timeout=10 -qO "$(POLICY_DEST)" $(POLICY_URL) || curl -4 --max-time 10 -sLo "$(POLICY_DEST)" $(POLICY_URL); \
+		curl -4 --max-time 10 -sLo "$(POLICY_DEST)" $(POLICY_URL); \
 	fi
 	@n=$$(nproc 2>/dev/null || echo 1); \
 	[ "$$n" -gt $(CORES) ] && n=$(CORES) || :; \
