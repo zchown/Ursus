@@ -191,7 +191,7 @@ pub const PolicyNet = struct {
     }
 
     pub fn loadEmbedded(self: *PolicyNet, alloc: std.mem.Allocator) !void {
-        const blob = @embedFile("policy.bin");
+        const blob = @embedFile("../nnue/nets/policy_pw512.bin");
         try self.loadFromMemory(alloc, blob);
     }
 
