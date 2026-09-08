@@ -963,7 +963,7 @@ pub const Searcher = struct {
                     r += 1;
                 }
 
-                r = @min(r, depth);
+                r = @min(r, depth - 1);
 
                 self.move_history[self.ply] = mvs.EncodedMove.fromU32(0);
                 self.moved_piece_history[self.ply] = PieceColor{
@@ -984,7 +984,12 @@ pub const Searcher = struct {
                     if (null_score >= eval.mate_score - 256) {
                         null_score = beta;
                     }
-                    return null_score;
+                    if (depth < tp.nmp_verify_depth.value) return null_score;
+                    const v = self.negamax(board, color, depth - r, beta - 1, beta, true, NodeType.NonPV, false);
+
+                    if (self.time_stop) return 0;
+                    if (v >= beta) return null_score;
+
                 }
             }
         }

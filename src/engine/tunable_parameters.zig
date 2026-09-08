@@ -53,6 +53,7 @@ pub var nmp_improve = Tunable(i32, .{ .min = 0, .max = 80 }){ .value = 19 };
 pub var nmp_base = Tunable(usize, .{ .min = 2, .max = 5, .c_end = 0.10, .r_end = 0.01 }){ .value = 3 };
 pub var nmp_depth_div = Tunable(usize, .{ .min = 2, .max = 8, .c_end = 0.10, .r_end = 0.01 }){ .value = 3 };
 pub var nmp_beta_div = Tunable(usize, .{ .min = 50, .max = 300 }){ .value = 129 };
+pub var nmp_verify_depth = Tunable(usize, .{ .min = 6, .max = 16, .c_end = 0.10, .r_end = 0.01 }){ .value = 10 };
 
 pub var razoring_base = Tunable(i32, .{ .min = 100, .max = 600 }){ .value = 282 };
 pub var razoring_mul = Tunable(i32, .{ .min = 20, .max = 180 }){ .value = 61 };
@@ -139,8 +140,6 @@ pub var optimism_stretch = Tunable(i32, .{ .min = 50, .max = 200}){ .value = 101
 
 pub var see_capture_mul = Tunable(i32, .{ .min = 10, .max = 60 }){ .value = 30 };
 pub var see_capthist_div = Tunable(i32, .{ .min = 8, .max = 64 }){ .value = 16 };
-
-
 
 pub const TunableRef = struct {
     name: []const u8,
