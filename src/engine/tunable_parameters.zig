@@ -11,6 +11,7 @@ pub const rfp_depth: i32 = 6;
 pub const se_min_depth: usize = 7;
 pub const lmr_pv_min = 3;
 pub const lmr_non_pv_min = 1;
+pub const check_ext_min_depth = 5;
 
 
 pub const Hook = enum { none, quiet_lmr, noisy_lmr };

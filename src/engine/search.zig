@@ -1239,6 +1239,12 @@ pub const Searcher = struct {
             mvs.makeMove(board, move);
             searched_moves += 1;
 
+            const gives_check = self.move_gen.isInCheck(board, brd.flipColor(color));
+            if (gives_check and (on_pv or depth >= tp.check_ext_min_depth)) {
+                extension += 1;
+            }
+
+
             var nd: i32 = @as(i32, @intCast(depth)) + extension - 1;
             if (nd < 0) {
                 nd = 0;
