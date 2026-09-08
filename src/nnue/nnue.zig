@@ -8,6 +8,8 @@ pub const net_path = "nets/Alkaid.bin";
 pub const features_per_bucket = 2 * brd.num_pieces * brd.num_squares;
 
 pub const NUM_KING_BUCKETS: usize = 16;
+const NUM_OUTPUT_BUCKETS: usize = 8;
+const EVAL_SCALE: f32 = 128.0;
 
 const KING_BUCKETS_BASE: [32]u8 = [_]u8{
     0,  1,  2,  3,
@@ -42,8 +44,6 @@ const l1_input_scale: f32 = @as(f32, @floatFromInt(QA)) * @as(f32, @floatFromInt
 
 const l1_dequant: f32 = 1.0 / (l1_input_scale * @as(f32, @floatFromInt(QB)));
 
-const NUM_OUTPUT_BUCKETS: usize = 8;
-const EVAL_SCALE: f32 = 128.0;
 const cache_line = std.atomic.cache_line;
 
 const CpuTarget = enum { avx2, sse2, aarch64, fallback };
