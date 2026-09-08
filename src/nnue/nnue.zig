@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const brd = @import("board");
 const moves = @import("moves");
 
-pub const net_path = "nets/Alkaid-ml.bin";
+pub const net_path = "nets/Alkaid.bin";
 
 pub const features_per_bucket = 2 * brd.num_pieces * brd.num_squares;
 
