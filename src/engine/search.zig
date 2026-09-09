@@ -1213,9 +1213,9 @@ pub const Searcher = struct {
                 } else if (!on_pv and s_score >= beta and !eval.almostMate(s_score)) {
                     return s_score;
                 } else if (tt_eval >= beta) {
-                    extension = -2;
+                    extension = -3;
                 } else if (cutnode) {
-                    extension = -1;
+                    extension = -2;
                 }
             }
 
