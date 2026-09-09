@@ -1214,6 +1214,8 @@ pub const Searcher = struct {
                     return s_score;
                 } else if (tt_eval >= beta) {
                     extension = -2;
+                } else if (tt_eval <= alpha) {
+                    extension = -1;
                 }
             }
 
