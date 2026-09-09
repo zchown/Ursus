@@ -1187,7 +1187,7 @@ pub const Searcher = struct {
 
             var extension: i32 = 0;
 
-            // Singular Extensions, also double and triple
+            // Singular Extensions
             if (!is_root and
             self.excluded_moves[self.ply].toU32() == 0 and
             depth >= tp.se_min_depth and
@@ -1214,6 +1214,8 @@ pub const Searcher = struct {
                     return s_score;
                 } else if (tt_eval >= beta) {
                     extension = -2;
+                } else if (cutnode) {
+                    extension = -1;
                 }
             }
 
