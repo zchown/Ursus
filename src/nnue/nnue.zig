@@ -5,12 +5,17 @@ const moves = @import("moves");
 
 pub const net_path = "nets/Alkaid.bin";
 
+pub const hidden_size = 1024;
+pub const pairwise_size = hidden_size / 2;
+pub const l1_size = 2 * pairwise_size;
+pub const l2_size = 16;
+pub const l3_size = 32;
+
 pub const features_per_bucket = 2 * brd.num_pieces * brd.num_squares;
 
 pub const NUM_KING_BUCKETS: usize = 16;
 const NUM_OUTPUT_BUCKETS: usize = 8;
 const EVAL_SCALE: f32 = 128.0;
-
 const KING_BUCKETS_BASE: [32]u8 = [_]u8{
     0,  1,  2,  3,
     4,  5,  6,  7,
@@ -24,11 +29,6 @@ const KING_BUCKETS_BASE: [32]u8 = [_]u8{
 
 pub const num_features = NUM_KING_BUCKETS * features_per_bucket;
 
-pub const hidden_size = 1536;
-pub const pairwise_size = hidden_size / 2;
-pub const l1_size = 2 * pairwise_size;
-pub const l2_size = 16;
-pub const l3_size = 32;
 
 comptime {
     std.debug.assert(hidden_size % 2 == 0);
