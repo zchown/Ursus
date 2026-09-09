@@ -1212,6 +1212,8 @@ pub const Searcher = struct {
                     extension = 1;
                 } else if (!on_pv and s_score >= beta and !eval.almostMate(s_score)) {
                     return s_score;
+                } else if (tt_eval >= beta) {
+                    extension = -2;
                 }
             }
 
