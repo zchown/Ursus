@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const brd = @import("board");
 const moves = @import("moves");
 
-pub const net_path = "nets/Alkaid.bin";
+pub const net_path = "nets/Alkaid-ml.bin";
 
 pub const hidden_size = 1024;
 pub const pairwise_size = hidden_size / 2;

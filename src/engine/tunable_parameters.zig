@@ -12,7 +12,6 @@ pub const se_min_depth: usize = 7;
 pub const lmr_pv_min = 3;
 pub const lmr_non_pv_min = 1;
 
-
 pub const Hook = enum { none, quiet_lmr, noisy_lmr };
 
 pub const Value = union(enum) {
