@@ -1263,11 +1263,10 @@ pub const Searcher = struct {
                 score = -self.negamax(board, brd.flipColor(color), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
                 if (!in_check and depth >= 3 and searched_moves > min_lmr_move) {
-                    const lmr_idx = if (is_capture) noisy_searched else searched_moves;
                     var reduction: i32 = if (is_capture)
-                        noisy_lmr[@min(depth, 63)][@min(lmr_idx, 63)]
+                        noisy_lmr[@min(depth, 63)][@min(searched_moves, 63)]
                     else
-                        quiet_lmr[@min(depth, 63)][@min(lmr_idx, 63)];
+                        quiet_lmr[@min(depth, 63)][@min(searched_moves, 63)];
 
                     if (improving) {
                         reduction -= 1;
@@ -1293,7 +1292,15 @@ pub const Searcher = struct {
 
                     if (!is_capture) {
                         reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div.value);
-                    }
+                    } else {
+                        const captured_idx: usize = @intCast(move.captured_piece);
+                        if (captured_idx < 6) {
+                            const ch: i32 = self.capture_history[@intFromEnum(color)]
+                                [@as(usize, @intCast(move.piece))][move.end_square][captured_idx];
+                            reduction -= @divTrunc(ch, tp.capthist_lmr_div.value);
+                        }
+                     }
+
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth + 1))));
 
