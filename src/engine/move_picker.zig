@@ -100,18 +100,16 @@ pub const MovePicker = struct {
         return p;
     }
 
+    pub fn initWithSeeThreshold(hash_move: mvs.EncodedMove, see_threshold: i32) MovePicker {
+        var p = base(hash_move);
+        p.see_threshold = see_threshold;
+        return p;
+    }
+
     pub fn initNoisy(hash_move: mvs.EncodedMove) MovePicker {
         var p = base(hash_move);
         p.noisy_only = true;
         p.allow_quiet_tt = false;
-        return p;
-    }
-
-    pub fn initProbcut(hash_move: mvs.EncodedMove, see_threshold: i32) MovePicker {
-        var p = base(hash_move);
-        p.noisy_only = true;
-        p.allow_quiet_tt = true;
-        p.see_threshold = see_threshold;
         return p;
     }
 

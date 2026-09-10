@@ -1009,7 +1009,7 @@ pub const Searcher = struct {
 
         if (cutnode and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].toU32() == 0) {
             const probcut_depth = depth - 3;
-            var pc_picker = mp.MovePicker.initProbcut(hash_move, tp.probcut_min_see.value);
+            var pc_picker = mp.MovePicker.initWithSeeThreshold(hash_move, tp.probcut_min_see.value);
             while (pc_picker.next(self, board)) |pc_picked| {
                 const move = pc_picked.move;
                 const see_score = pc_picked.see_val;
@@ -1094,7 +1094,8 @@ pub const Searcher = struct {
         var searched_moves: usize = 0;
         var moves_seen: usize = 0;
 
-        var picker = mp.MovePicker.init(hash_move, is_null);
+        const noisy_threshold = if (on_pv or depth >= 8) tp.see_threshold.value else 0;
+        var picker = mp.MovePicker.initWithSeeThreshold(hash_move, noisy_threshold);
 
         while (picker.next(self, board)) |picked| {
             const move = picked.move;
