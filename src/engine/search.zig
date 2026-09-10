@@ -940,10 +940,13 @@ pub const Searcher = struct {
             }
 
             // razoring
-            if (depth <= 4) {
+            if (depth <= 3) {
                 const threshold = tp.razoring_base.value + (tp.razoring_mul.value * @as(i32, @intCast(depth)));
                 if (pruning_eval + threshold < alpha) {
-                    return self.qsearch(board, color, alpha, beta, false);
+                    const r_score = self.qsearch(board, color, alpha - 1, alpha, false);
+                    if (r_score < alpha) {
+                        return r_score;
+                    }
                 }
             }
 
@@ -1549,6 +1552,8 @@ pub const Searcher = struct {
             const score = -self.qsearch(board, brd.flipColor(color), -beta, -alpha, is_pv);
             self.ply -= 1;
             mvs.undoMove(board, move);
+
+            if (self.time_stop) return 0;
 
             if (score > best_score) {
                 best_score = score;
