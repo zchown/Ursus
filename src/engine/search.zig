@@ -1295,8 +1295,9 @@ pub const Searcher = struct {
                     } else {
                         const captured_idx: usize = @intCast(move.captured_piece);
                         if (captured_idx < 6) {
-                            const ch: i32 = self.capture_history[@intFromEnum(color)]
+                            var ch: i32 = self.capture_history[@intFromEnum(color)]
                                 [@as(usize, @intCast(move.piece))][move.end_square][captured_idx];
+                            ch += @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div.value);
                             reduction -= @divTrunc(ch, tp.capthist_lmr_div.value);
                         }
                      }
