@@ -1092,6 +1092,7 @@ pub const Searcher = struct {
         var quiet_count: usize = 0;
         var other_count: usize = 0;
         var searched_moves: usize = 0;
+        var noisy_searched: usize = 0;
         var moves_seen: usize = 0;
 
         var picker = mp.MovePicker.init(hash_move, is_null);
@@ -1240,6 +1241,9 @@ pub const Searcher = struct {
 
             mvs.makeMove(board, move);
             searched_moves += 1;
+            if (is_capture) {
+                noisy_searched += 1;
+            }
 
             var nd: i32 = @as(i32, @intCast(depth)) + extension - 1;
             if (nd < 0) {
@@ -1259,10 +1263,11 @@ pub const Searcher = struct {
                 score = -self.negamax(board, brd.flipColor(color), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
                 if (!in_check and depth >= 3 and searched_moves > min_lmr_move) {
+                    const lmr_idx = if (is_capture) noisy_searched else searched_moves;
                     var reduction: i32 = if (is_capture)
-                        noisy_lmr[@min(depth, 63)][@min(searched_moves, 63)]
+                        noisy_lmr[@min(depth, 63)][@min(lmr_idx, 63)]
                     else
-                        quiet_lmr[@min(depth, 63)][@min(searched_moves, 63)];
+                        quiet_lmr[@min(depth, 63)][@min(lmr_idx, 63)];
 
                     if (improving) {
                         reduction -= 1;
