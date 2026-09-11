@@ -1210,7 +1210,7 @@ pub const Searcher = struct {
 
                 if (s_score < s_beta) {
                     extension = 1;
-                    if (s_score < s_beta - tp.se_double_margin.value) {
+                    if (!cutnode and s_score < s_beta - tp.se_double_margin.value) {
                         extension = 2;
                     }
                 } else if (!on_pv and s_score >= beta and !eval.almostMate(s_score)) {
