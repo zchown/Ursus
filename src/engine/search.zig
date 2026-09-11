@@ -8,6 +8,9 @@ const mp = @import("move_picker");
 const tp = @import("tunable_parameters");
 const hist = @import("history");
 const tb = @import("tb");
+const cuckoo = @import("cuckoo");
+
+const debug_verify_cuckoo = false;
 
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
@@ -225,6 +228,41 @@ pub const Searcher = struct {
     fn alreadyExcluded(self: *Searcher, move: mvs.EncodedMove) bool {
         for (self.excluded_root_moves[0..self.excluded_root_count]) |excluded| {
             if (sameRootMove(move, excluded)) return true;
+        }
+        return false;
+    }
+
+    /// True if the side to move can reach a drawn repetition with one reversible move.
+    fn hasUpcomingRepetition(self: *Searcher, board: *brd.Board) bool {
+        var lookback = cuckoo.reversiblePlies(board);
+        if (lookback < 3) return false;
+
+        var k: usize = 1;
+        while (k <= @min(lookback, self.ply)) : (k += 1) {
+            if (self.move_history[self.ply - k].toU32() == 0) {
+                lookback = k - 1;
+                break;
+            }
+        }
+        if (lookback < 3) return false;
+
+        const found = cuckoo.upcomingRepetition(board, self.ply, lookback);
+        if (debug_verify_cuckoo and found and !self.bruteForceRepetition(board)) {
+            std.debug.print("cuckoo false positive at ply {d}\n", .{self.ply});
+        }
+        return found;
+    }
+
+    fn bruteForceRepetition(self: *Searcher, board: *brd.Board) bool {
+        const list = self.move_gen.generateMoves(board, false);
+        for (list.items[0..list.len]) |m| {
+            if (m.capture == 1) continue;
+            mvs.makeMove(board, m);
+            self.ply += 1;
+            const draw = board.isDraw(self.ply);
+            self.ply -= 1;
+            mvs.undoMove(board, m);
+            if (draw) return true;
         }
         return false;
     }
@@ -750,6 +788,12 @@ pub const Searcher = struct {
         if (depth == 0) {
             return self.qsearch(board, color, alpha, beta, on_pv);
         }
+
+        if (!is_root and alpha < 0 and self.hasUpcomingRepetition(board)) {
+            alpha = 0;
+            if (alpha >= beta) return alpha;
+        }
+        const alpha_orig = alpha;
 
         // mate distance pruning
         if (!is_root) {
@@ -1378,7 +1422,7 @@ pub const Searcher = struct {
             var tt_flag = tt.EstimationType.Over;
             if (best_score >= beta) {
                 tt_flag = tt.EstimationType.Under;
-            } else if (alpha != alpha_ and !skip_quiet) {
+            } else if (alpha != alpha_orig and !skip_quiet) {
                 tt_flag = tt.EstimationType.Exact;
             } 
 
@@ -1418,6 +1462,11 @@ pub const Searcher = struct {
 
         if (board.isDraw(self.ply)) {
             return 0;
+        }
+
+        if (self.ply > 0 and alpha < 0 and self.hasUpcomingRepetition(board)) {
+            alpha = 0;
+            if (alpha >= beta) return alpha;
         }
 
         if (self.ply >= max_ply - 1) {

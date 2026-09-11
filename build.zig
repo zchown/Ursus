@@ -109,6 +109,12 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
         .optimize = optimize,
     });
 
+    const cuckoo_module = b.createModule(.{
+        .root_source_file = b.path("src/engine/cuckoo.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "Ursus",
         .root_module = b.createModule(.{
@@ -186,6 +192,7 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
     search_module.addImport("move_picker", move_picker);
     search_module.addImport("tunable_parameters", tunable_parameters_module);
     search_module.addImport("history", history_module);
+    search_module.addImport("cuckoo", cuckoo_module);
 
     history_module.addImport("board", board_module);
     history_module.addImport("moves", moves_module);
@@ -235,6 +242,9 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
     datagen_module.addImport("pawn_tt", pawn_tt_module);
     datagen_module.addImport("transposition", transposition_module);
     datagen_module.addImport("history", history_module);
+
+    cuckoo_module.addImport("board", board_module);
+    cuckoo_module.addImport("zobrist", zobrist_module);
 
     nnue_module.addImport("board", board_module);
     nnue_module.addImport("moves", moves_module);
