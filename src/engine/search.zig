@@ -1007,7 +1007,7 @@ pub const Searcher = struct {
         }
 
 
-        if (cutnode and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].toU32() == 0) {
+        if (!on_pv and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].toU32() == 0) {
             const probcut_depth = depth - 3;
             var pc_picker = mp.MovePicker.initProbcut(hash_move, tp.probcut_min_see.value);
             while (pc_picker.next(self, board)) |pc_picked| {
