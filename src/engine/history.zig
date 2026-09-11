@@ -31,6 +31,7 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     @memset(std.mem.asBytes(&self.move_history), 0);
     @memset(std.mem.asBytes(&self.moved_piece_history), 0);
     @memset(std.mem.asBytes(&self.excluded_moves), 0);
+    @memset(std.mem.asBytes(&self.lmr_reduction), 0);
 
     if (total) {
         @memset(std.mem.asBytes(&self.correction), 0);

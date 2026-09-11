@@ -18,6 +18,10 @@ pub const max_multipv = 16;
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 
+const hindsight_ext_min_red: i32 = 3;
+const hindsight_red_min_red: i32 = 2;
+const hindsight_red_margin: i32 = 60;
+
 pub fn initQuietLMR() [64][64]i32 {
     const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base.value)) / 100.0;
     const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_div.value)) / 100.0;
@@ -137,6 +141,7 @@ pub const Searcher = struct {
     move_history: [max_ply]mvs.EncodedMove = undefined,
     moved_piece_history: [max_ply]PieceColor = undefined,
     killer: [max_ply][2]mvs.EncodedMove = undefined,
+    lmr_reduction: [max_ply]i32 = @splat(0),
     history: [2][64][64]i32 = undefined,
     counter_moves: [2][64][64]mvs.EncodedMove = undefined,
     excluded_moves: [max_ply]mvs.EncodedMove = undefined,
@@ -893,6 +898,26 @@ pub const Searcher = struct {
         }
 
 
+        if (self.ply > 0) {
+            const prior_reduction = self.lmr_reduction[self.ply - 1];
+            self.lmr_reduction[self.ply - 1] = 0;
+
+            const parent_eval = self.eval_history[self.ply - 1];
+            if (prior_reduction > 0 and !in_check and parent_eval != eval_none and
+                self.excluded_moves[self.ply].toU32() == 0)
+            {
+                const eval_sum = static_eval + parent_eval;
+                if (prior_reduction >= hindsight_ext_min_red and eval_sum <= 0) {
+                    depth += 1;
+                } 
+
+                // else if (hindsight_red_enabled and prior_reduction >= hindsight_red_min_red and depth >= 2 and eval_sum > hindsight_red_margin)
+                // {
+                //     depth -= 1;
+                // }
+            }
+        }
+
         const has_non_pawns = board.hasNonPawnMaterial(color);
 
         var last_move: mvs.EncodedMove = mvs.EncodedMove.fromU32(0);
@@ -1292,7 +1317,10 @@ pub const Searcher = struct {
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth + 1))));
 
+                    // self.ply is already the child's ply here, so the parent slot is ply - 1.
+                    self.lmr_reduction[self.ply - 1] = @as(i32, @intCast(new_depth)) - @as(i32, @intCast(reduced_depth));
                     score = -self.negamax(board, brd.flipColor(color), reduced_depth, -alpha - 1, -alpha, false, NodeType.NonPV, true);
+                    self.lmr_reduction[self.ply - 1] = 0;
 
                     do_full_search = score > alpha and reduced_depth < new_depth;
                 } else {
@@ -1647,7 +1675,6 @@ pub const Searcher = struct {
     pub fn printInfo(self: *Searcher, nodes: u64, tb_hits: u64, score: i32, pv: []const mvs.EncodedMove, multipv_idx: usize, allocator: std.mem.Allocator) void {
         const elapsed_ms = self.timer.read() / std.time.ns_per_ms;
         const nps: u64 = if (elapsed_ms > 0) (nodes * 1000) / elapsed_ms else 0;
-        // const hashfull = self.tt_table.getFillPermill();
 
         var stdout_writer = std.fs.File.stdout().writer(&self.stdout_buffer);
         const stdout = &stdout_writer.interface;
