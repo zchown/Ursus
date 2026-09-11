@@ -1006,10 +1006,14 @@ pub const Searcher = struct {
             probcut_beta += (tp.probcut_improve.value - 1000);
         }
 
+        if (!on_pv and depth >= 5 and !in_check
+        and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256
+        and self.excluded_moves[self.ply].toU32() == 0
+        and !(tt_hit and tt_depth + 3 >= depth and tt_eval < probcut_beta)) {
 
-        if (!on_pv and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].toU32() == 0) {
-            const probcut_depth = depth - 3;
+            const probcut_depth = depth - 4;
             var pc_picker = mp.MovePicker.initProbcut(hash_move, tp.probcut_min_see.value);
+
             while (pc_picker.next(self, board)) |pc_picked| {
                 const move = pc_picked.move;
                 const see_score = pc_picked.see_val;
@@ -1042,46 +1046,36 @@ pub const Searcher = struct {
                 mvs.makeMove(board, move);
                 self.ply += 1;
 
-                var score = -self.qsearch(board, brd.flipColor(color), -probcut_beta, -probcut_beta+1, false);
-
-                if (self.time_stop) {
-                    mvs.undoMove(board, move);
-                    self.ply -= 1;
-                    return 0;
-                }
+                var score = -self.qsearch(board, brd.flipColor(color), -probcut_beta, -probcut_beta + 1, false);
+                if (self.time_stop) { mvs.undoMove(board, move); self.ply -= 1; return 0; }
 
                 if (score >= probcut_beta) {
-                    score = -self.negamax(board, brd.flipColor(color), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, true);
+                    score = -self.negamax(board, brd.flipColor(color), probcut_depth,
+                    -probcut_beta, -probcut_beta + 1, false, NodeType.NonPV, !cutnode);
                 }
-
-                if (self.time_stop) {
-                    mvs.undoMove(board, move);
-                    self.ply -= 1;
-                    return 0;
-                }
+                if (self.time_stop) { mvs.undoMove(board, move); self.ply -= 1; return 0; }
 
                 if (score >= probcut_beta) {
-                    // store in TT
                     mvs.undoMove(board, move);
                     self.ply -= 1;
+
+                    const near_mate = score >= eval.mate_score - 256 or score <= -eval.mate_score + 256;
+                    const store_score = if (near_mate) score else score - (probcut_beta - beta);
 
                     self.tt_table.set(tt.Entry{
                         .hash = board.game_state.zobrist,
-                        .eval = scoreToTT(score, self.ply),
+                        .eval = scoreToTT(store_score, self.ply),
                         .move = move,
                         .static_eval = raw_static_eval,
-                        .flag = tt.EstimationType.Under,
-                        .depth = @intCast(probcut_depth),
+                        .flag = .Under,
+                        .depth = @intCast(probcut_depth + 1),
                         .age = self.tt_table.getAge(),
                         .in_check = in_check,
                         .is_pv = tt_pv,
-                        .static_eval_valid = !in_check and self.excluded_moves[self.ply].toU32() == 0,
+                        .static_eval_valid = !in_check,
                     });
-
-
-                    return score;
-                } 
-                else {
+                    return store_score;
+                } else {
                     mvs.undoMove(board, move);
                     self.ply -= 1;
                 }
