@@ -11,6 +11,8 @@ pub const rfp_depth: i32 = 6;
 pub const se_min_depth: usize = 7;
 pub const lmr_pv_min = 3;
 pub const lmr_non_pv_min = 1;
+pub const hindsight_ext_min_red: i32 = 3;
+pub const hindsight_red_min_red: i32 = 2;
 
 pub const Hook = enum { none, quiet_lmr, noisy_lmr };
 
@@ -139,7 +141,7 @@ pub var optimism_stretch = Tunable(i32, .{ .min = 50, .max = 200}){ .value = 101
 pub var see_capture_mul = Tunable(i32, .{ .min = 10, .max = 60 }){ .value = 30 };
 pub var see_capthist_div = Tunable(i32, .{ .min = 8, .max = 64 }){ .value = 16 };
 
-
+pub var hindsight_red_margin = Tunable(i32, .{ .min = 0, .max = 200 }){ .value = 60 };
 
 pub const TunableRef = struct {
     name: []const u8,

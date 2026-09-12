@@ -18,9 +18,6 @@ pub const max_multipv = 16;
 
 pub var quiet_lmr: [64][64]i32 = undefined;
 
-const hindsight_ext_min_red: i32 = 3;
-const hindsight_red_min_red: i32 = 2;
-const hindsight_red_margin: i32 = 60;
 
 pub fn initQuietLMR() [64][64]i32 {
     const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base.value)) / 100.0;
@@ -907,9 +904,9 @@ pub const Searcher = struct {
                 self.excluded_moves[self.ply].toU32() == 0)
             {
                 const eval_sum = static_eval + parent_eval;
-                if (prior_reduction >= hindsight_ext_min_red and eval_sum <= 0) {
+                if (prior_reduction >= tp.hindsight_ext_min_red and eval_sum <= 0) {
                     depth += 1;
-                } else if (prior_reduction >= hindsight_red_min_red and depth >= 2 and eval_sum > hindsight_red_margin) {
+                } else if (prior_reduction >= tp.hindsight_red_min_red and depth >= 2 and eval_sum > tp.hindsight_red_margin.value) {
                     depth -= 1;
                 }
             }
