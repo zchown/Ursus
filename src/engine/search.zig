@@ -1025,8 +1025,20 @@ pub const Searcher = struct {
         self.killer[self.ply + 1][0] = mvs.EncodedMove.fromU32(0);
         self.killer[self.ply + 1][1] = mvs.EncodedMove.fromU32(0);
 
-        if (null_threat.toU32() != 0 and null_threat.capture == 0 and null_threat.promoted_piece == 0) {
-            self.killer[self.ply + 1][0] = null_threat;
+        if (null_threat.toU32() != 0 and null_threat.promoted_piece == 0) {
+            if (null_threat.capture == 0) {
+                self.killer[self.ply + 1][0] = null_threat;
+            } else {
+                board.makeNullMove();
+                if (see.seeCapture(board, self.move_gen, null_threat) < 0) {
+                    self.killer[self.ply + 1][0] = null_threat;
+                } else {
+                    // further boost cap history for null move threats
+                    const dont_punish_others = mvs.MoveList.init(); 
+                    hist.updateCaptureHistory(self, board, color.opposite(), null_threat, &dont_punish_others, depth);
+                }
+                board.unmakeNullMove();
+            }
         }
 
 
