@@ -931,6 +931,8 @@ pub const Searcher = struct {
             depth = depth - r;
         }
 
+        var null_threat: mvs.EncodedMove = mvs.EncodedMove.fromU32(0);
+
         if (!in_check and !on_pv and self.excluded_moves[self.ply].toU32() == 0) {
             var pruning_eval = static_eval;
             if (tt_hit and !in_check and tt_eval < eval.mate_score - 256 and tt_eval > -eval.mate_score + 256) {
@@ -992,6 +994,15 @@ pub const Searcher = struct {
                 self.ply += 1;
                 board.makeNullMove();
                 var null_score = -self.negamax(board, brd.flipColor(color), depth - r, -beta, -beta + 1, true, NodeType.NonPV, false);
+
+                if (!self.time_stop and null_score < beta) {
+                    if (self.tt_table.get(board.game_state.zobrist)) |ne| {
+                        if (ne.move.toU32() != 0) {
+                            if (mvs.materializeMove(board, ne.move)) |t| null_threat = t;
+                        }
+                    }
+                }
+
                 self.ply -= 1;
                 board.unmakeNullMove();
 
@@ -1013,6 +1024,11 @@ pub const Searcher = struct {
 
         self.killer[self.ply + 1][0] = mvs.EncodedMove.fromU32(0);
         self.killer[self.ply + 1][1] = mvs.EncodedMove.fromU32(0);
+
+        if (null_threat.toU32() != 0 and null_threat.capture == 0 and null_threat.promoted_piece == 0) {
+            self.killer[self.ply + 1][0] = null_threat;
+        }
+
 
         var best_move = mvs.EncodedMove.fromU32(0);
         best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
