@@ -909,12 +909,9 @@ pub const Searcher = struct {
                 const eval_sum = static_eval + parent_eval;
                 if (prior_reduction >= hindsight_ext_min_red and eval_sum <= 0) {
                     depth += 1;
-                } 
-
-                // else if (hindsight_red_enabled and prior_reduction >= hindsight_red_min_red and depth >= 2 and eval_sum > hindsight_red_margin)
-                // {
-                //     depth -= 1;
-                // }
+                } else if (prior_reduction >= hindsight_red_min_red and depth >= 2 and eval_sum > hindsight_red_margin) {
+                    depth -= 1;
+                }
             }
         }
 
