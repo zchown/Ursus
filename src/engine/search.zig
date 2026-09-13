@@ -137,7 +137,7 @@ pub const Searcher = struct {
     eval_history: [max_ply]i32 = undefined,
     move_history: [max_ply]mvs.EncodedMove = undefined,
     moved_piece_history: [max_ply]PieceColor = undefined,
-    killer: [max_ply][2]mvs.EncodedMove = undefined,
+    killer: [max_ply][3]mvs.EncodedMove = undefined,
     lmr_reduction: [max_ply]i32 = @splat(0),
     history: [2][64][64]i32 = undefined,
     counter_moves: [2][64][64]mvs.EncodedMove = undefined,
@@ -1024,14 +1024,10 @@ pub const Searcher = struct {
 
         self.killer[self.ply + 1][0] = mvs.EncodedMove.fromU32(0);
         self.killer[self.ply + 1][1] = mvs.EncodedMove.fromU32(0);
+        self.killer[self.ply + 1][2] = mvs.EncodedMove.fromU32(0);
 
-        if (null_threat.toU32() != 0 and null_threat.promoted_piece == 0) {
-            if (null_threat.capture == 0) {
-                self.killer[self.ply + 1][0] = null_threat;
-            } else {
-                    const dont_punish_others = mvs.MoveList.init(); 
-                    hist.updateCaptureHistory(self, board, color.opposite(), null_threat, &dont_punish_others, depth);
-            }
+        if (null_threat.toU32() != 0 and null_threat.capture == 0 and null_threat.promoted_piece == 0) {
+            self.killer[self.ply + 1][0] = null_threat;
         }
 
 
@@ -1151,7 +1147,7 @@ pub const Searcher = struct {
             }
 
             const is_capture = move.capture == 1;
-            const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32();
+            const is_killer = move.toU32() == self.killer[self.ply][0].toU32() or move.toU32() == self.killer[self.ply][1].toU32() or move.toU32() == self.killer[self.ply][2].toU32();
 
             if (!is_root and moves_seen > 2 and !in_check and !on_pv) {
                 var lmp_threshold: usize = tp.lmp_base.value + depth * tp.lmp_mul.value;

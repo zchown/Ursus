@@ -175,6 +175,7 @@ pub fn updateQuietHistory(
     depth: usize,
 ) void {
     if(self.killer[self.ply][0].toU32() != best_move.toU32()) {
+        self.killer[self.ply][2] = self.killer[self.ply][1];
         self.killer[self.ply][1] = self.killer[self.ply][0];
         self.killer[self.ply][0] = best_move;
     }
