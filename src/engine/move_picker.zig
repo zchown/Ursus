@@ -13,6 +13,9 @@ const score_killer_1: i32 = 700_000;
 const score_killer_2: i32 = 690_000;
 const score_counter: i32 = 600_000;
 
+const threat_escape_bonus: i32 = 16384;
+pub const no_threat_sq: u8 = 64;
+
 pub const ScoredMove = struct {
     score: i32,
     see_val: i32,
@@ -66,6 +69,7 @@ pub const MovePicker = struct {
     noisy_only: bool,
     allow_quiet_tt: bool,
     is_null: bool,
+    threat_sq: u8,
 
     info: mvs.MoveGen.MoveGenInfo,
     info_ready: bool,
@@ -89,6 +93,7 @@ pub const MovePicker = struct {
             .noisy_only = false,
             .allow_quiet_tt = true,
             .is_null = false,
+            .threat_sq = no_threat_sq,
             .info = undefined,
             .info_ready = false,
         };
@@ -195,6 +200,9 @@ pub const MovePicker = struct {
                         score += s.continuation[prev_pc_index][prev.end_square][cur_pc_index][move.end_square];
                     }
                 }
+            }
+            if (move.start_square == self.threat_sq) {
+                score += threat_escape_bonus;
             }
             self.scores[i] = score;
         }

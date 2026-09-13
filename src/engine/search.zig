@@ -16,8 +16,8 @@ pub const eval_none: i32 = std.math.minInt(i32);
 pub const max_root_moves = 218;
 pub const max_multipv = 16;
 
+const threat_escape_lmr: i32 = 1;
 pub var quiet_lmr: [64][64]i32 = undefined;
-
 
 pub fn initQuietLMR() [64][64]i32 {
     const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base.value)) / 100.0;
@@ -931,6 +931,8 @@ pub const Searcher = struct {
             depth = depth - r;
         }
 
+        var null_threat = mvs.EncodedMove.fromU32(0);
+
         if (!in_check and !on_pv and self.excluded_moves[self.ply].toU32() == 0) {
             var pruning_eval = static_eval;
             if (tt_hit and !in_check and tt_eval < eval.mate_score - 256 and tt_eval > -eval.mate_score + 256) {
@@ -992,6 +994,14 @@ pub const Searcher = struct {
                 self.ply += 1;
                 board.makeNullMove();
                 var null_score = -self.negamax(board, brd.flipColor(color), depth - r, -beta, -beta + 1, true, NodeType.NonPV, false);
+                if (!self.time_stop and null_score < beta) {
+                    if (self.tt_table.get(board.game_state.zobrist)) |ne| {
+                        if (ne.move.toU32() != 0) {
+                            if (mvs.materializeMove(board, ne.move)) |t| null_threat = t;
+                        }
+                    }
+                }
+
                 self.ply -= 1;
                 board.unmakeNullMove();
 
@@ -1114,6 +1124,12 @@ pub const Searcher = struct {
         var moves_seen: usize = 0;
 
         var picker = mp.MovePicker.init(hash_move, is_null);
+        const threatened_sq: u8 = if (null_threat.toU32() != 0 and null_threat.capture == 1)
+            null_threat.end_square
+            else
+            mp.no_threat_sq;
+        picker.threat_sq = threatened_sq;
+
 
         while (picker.next(self, board)) |picked| {
             const move = picked.move;
@@ -1303,6 +1319,10 @@ pub const Searcher = struct {
 
                     if (tt_pv) {
                         reduction -= 1;
+                    }
+
+                    if (move.start_square == threatened_sq) {
+                        reduction -= threat_escape_lmr;
                     }
 
                     if (!is_capture) {
