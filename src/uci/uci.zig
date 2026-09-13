@@ -463,6 +463,9 @@ pub const UciProtocol = struct {
             self.tt_table.deinit(self.allocator);
             self.tt_table = try tt.TranspositionTable.init(self.allocator, self.hash_size_mb);
             self.searcher.tt_table = &self.tt_table;
+            for (srch.search_helpers.items) |helper| {
+                helper.tt_table = &self.tt_table;
+            }
         } else if (std.mem.eql(u8, option_name, "Clear Hash")) {
             self.tt_table.reset();
             if (pawn_tt.pawn_tt_initialized) {
@@ -593,14 +596,34 @@ pub const UciProtocol = struct {
     }
 
     pub fn newGame(self: *UciProtocol) !void {
-        self.tt_table.reset();
+        self.stopSearch();
+        self.clearSearchMoves();
 
+        const saved_multipv = self.searcher.multi_pv;
+
+        srch.Searcher.deinitThreading();
+        srch.search_helpers = .empty;
+        srch.threads = .empty;
+
+        self.searcher.deinit();
+        self.searcher.* = srch.Searcher{};
+        self.searcher.initInPlace();
+
+        self.searcher.tt_table = &self.tt_table;
+        self.searcher.chess960 = self.chess960;
+        self.searcher.multi_pv = saved_multipv;
+
+        self.tt_table.reset();
+        if (pawn_tt.pawn_tt_initialized) {
+            pawn_tt.pawn_tt.reset();
+        }
 
         @memset(std.mem.asBytes(&self.board), 0);
-
         self.board.game_state = brd.GameState.init();
         fen.setupStartingPosition(&self.board);
         self.board.refreshNNUE();
+
+        self.game_ply = 0;
         self.is_searching = false;
     }
 
@@ -653,6 +676,7 @@ pub const UciProtocol = struct {
             self.board.game_state = brd.GameState.init();
             fen.setupStartingPosition(&self.board);
             self.board.refreshNNUE();
+            self.game_ply = 0;
 
             var j: usize = 1;
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
