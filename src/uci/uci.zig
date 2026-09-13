@@ -78,7 +78,7 @@ fn searchThreadFn(ctx: *SearchContext) void {
 
 fn moveToUciStr(protocol: *UciProtocol, move: mvs.EncodedMove, color: brd.Color) ![]const u8 {
     if (protocol.chess960 and move.castling == 1) {
-        const kingside = (move.end_square % 8) == 6; // g-file = kingside
+        const kingside = (move.end_square % 8) == 6; 
         const rook_sq = protocol.board.game_state.rookSquare(color, kingside);
         const start_file: u8 = move.start_square % 8;
         const start_rank: u8 = @as(u8, @intCast(move.start_square / 8)) + 1;
@@ -460,6 +460,8 @@ pub const UciProtocol = struct {
             }
             self.hash_size_mb = new_size_mb;
 
+            self.stopSearch();
+
             self.tt_table.deinit(self.allocator);
             self.tt_table = try tt.TranspositionTable.init(self.allocator, self.hash_size_mb);
             self.searcher.tt_table = &self.tt_table;
@@ -486,6 +488,9 @@ pub const UciProtocol = struct {
             if (args.len >= name_end + 2) {
                 self.chess960 = std.mem.eql(u8, args[name_end + 1], "true");
                 self.searcher.chess960 = self.chess960;
+                for (srch.search_helpers.items) |helper| {
+                    helper.chess960 = self.chess960;
+                }
             }
         } else if (std.mem.eql(u8, option_name, "Threads")) {
             if (args.len < name_end + 2) {
