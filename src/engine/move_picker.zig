@@ -70,6 +70,9 @@ pub const MovePicker = struct {
     info: mvs.MoveGen.MoveGenInfo,
     info_ready: bool,
 
+    threats: u64,
+    threats_ready: bool,
+
     fn base(hash_move: mvs.EncodedMove) MovePicker {
         return MovePicker{
             .stage = .tt_move,
@@ -91,6 +94,8 @@ pub const MovePicker = struct {
             .is_null = false,
             .info = undefined,
             .info_ready = false,
+            .threats = 0,
+            .threats_ready = false,
         };
     }
 
@@ -98,6 +103,19 @@ pub const MovePicker = struct {
         var p = base(hash_move);
         p.is_null = is_null;
         return p;
+    }
+
+    pub fn setThreats(self: *MovePicker, t: u64) void {
+        self.threats = t;
+        self.threats_ready = true;
+    }
+
+    fn ensureThreats(self: *MovePicker, s: *srch.Searcher, board: *brd.Board) u64 {
+        if (!self.threats_ready) {
+            self.threats = srch.computeThreats(s.move_gen, board, brd.flipColor(board.toMove()));
+            self.threats_ready = true;
+        }
+        return self.threats;
     }
 
     pub fn initNoisy(hash_move: mvs.EncodedMove) MovePicker {
@@ -165,7 +183,7 @@ pub const MovePicker = struct {
                 }
                 self.scores[i] = score;
             } else {
-                // Quiet queen promotion: after winning captures, before losers.
+                // Quiet queen promotion
                 self.sees[i] = 0;
                 self.scores[i] = score_promotion;
             }
@@ -174,13 +192,14 @@ pub const MovePicker = struct {
 
     fn scoreQuiets(self: *MovePicker, s: *srch.Searcher, board: *brd.Board) void {
         const side = @intFromEnum(board.toMove());
+        const threats = self.ensureThreats(s, board);
         for (self.list.items[0..self.list.len], 0..) |move, i| {
             if (move.promoted_piece != 0) {
                 self.scores[i] = -5_000;
                 continue;
             }
 
-            var score: i32 = s.history[side][move.start_square][move.end_square];
+            var score: i32 = s.quietHistScore(side, threats, move.start_square, move.end_square);
             if (!self.is_null and s.ply >= 1) {
                 const plies: [3]usize = .{ 0, 1, 3 };
                 for (plies) |p| {
@@ -389,4 +408,3 @@ pub fn verifyPicker(s: *srch.Searcher, board: *brd.Board, hash_move: mvs.Encoded
 
     return ok;
 }
-

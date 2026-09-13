@@ -61,6 +61,46 @@ pub fn initNoisyLMR() [64][64]i32 {
     return table;
 }
 
+pub fn computeThreats(mg: *mvs.MoveGen, board: *brd.Board, by: brd.Color) u64 {
+    const c: usize = @intFromEnum(by);
+    const occ = board.occupancy();
+    var t: u64 = 0;
+
+    var pawns = board.piece_bb[c][@intFromEnum(brd.Pieces.Pawn)];
+    while (pawns != 0) : (pawns &= pawns - 1) {
+        t |= mg.pawns[c * 64 + @as(usize, @intCast(brd.getLSB(pawns)))];
+    }
+
+    var knights = board.piece_bb[c][@intFromEnum(brd.Pieces.Knight)];
+    while (knights != 0) : (knights &= knights - 1) {
+        t |= mg.knights[@as(usize, @intCast(brd.getLSB(knights)))];
+    }
+
+    var bishops = board.piece_bb[c][@intFromEnum(brd.Pieces.Bishop)];
+    while (bishops != 0) : (bishops &= bishops - 1) {
+        t |= mg.getBishopAttacks(@as(usize, @intCast(brd.getLSB(bishops))), occ);
+    }
+
+    var rooks = board.piece_bb[c][@intFromEnum(brd.Pieces.Rook)];
+    while (rooks != 0) : (rooks &= rooks - 1) {
+        t |= mg.getRookAttacks(@as(usize, @intCast(brd.getLSB(rooks))), occ);
+    }
+
+    var queens = board.piece_bb[c][@intFromEnum(brd.Pieces.Queen)];
+    while (queens != 0) : (queens &= queens - 1) {
+        t |= mg.getQueenAttacks(@as(usize, @intCast(brd.getLSB(queens))), occ);
+    }
+
+    const king = board.piece_bb[c][@intFromEnum(brd.Pieces.King)];
+    if (king != 0) t |= mg.kings[@as(usize, @intCast(brd.getLSB(king)))];
+
+    return t;
+}
+
+pub inline fn threatIndex(threats: u64, sq: anytype) usize {
+    return @intFromBool(threats & (@as(u64, 1) << @intCast(sq)) != 0);
+}
+
 
 pub const NodeType = enum {
     Root,
@@ -140,6 +180,7 @@ pub const Searcher = struct {
     killer: [max_ply][2]mvs.EncodedMove = undefined,
     lmr_reduction: [max_ply]i32 = @splat(0),
     history: [2][64][64]i32 = undefined,
+    threat_history: [2][2][2][64][64]i32 = undefined,
     counter_moves: [2][64][64]mvs.EncodedMove = undefined,
     excluded_moves: [max_ply]mvs.EncodedMove = undefined,
     continuation: *[12][64][12][64]i16= undefined,
@@ -179,6 +220,21 @@ pub const Searcher = struct {
         std.heap.smp_allocator.destroy(self.continuation);
         std.heap.smp_allocator.destroy(self.move_gen);
     }
+
+    pub inline fn butterflyPtr(self: *Searcher, side: usize, from: usize, to: usize) *i32 {
+        return &self.history[side][from][to];
+    }
+
+    pub inline fn threatHistPtr(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) *i32 {
+        return &self.threat_history[side][threatIndex(threats, from)][threatIndex(threats, to)][from][to];
+    }
+
+    pub inline fn quietHistScore(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
+        const bf: i32 = self.butterflyPtr(side, from, to).*;
+        const th: i32 = self.threatHistPtr(side, threats, from, to).*;
+        return @divTrunc(bf * tp.butterfly_weight.value + th * tp.threat_hist_weight.value, 1024);
+    }
+
 
     pub inline fn sameRootMove(a: mvs.EncodedMove, b: mvs.EncodedMove) bool {
         return a.start_square == b.start_square and
@@ -1113,7 +1169,11 @@ pub const Searcher = struct {
         var searched_moves: usize = 0;
         var moves_seen: usize = 0;
 
+        const node_threats = computeThreats(self.move_gen, board, brd.flipColor(color));
+
         var picker = mp.MovePicker.init(hash_move, is_null);
+
+        picker.setThreats(node_threats);
 
         while (picker.next(self, board)) |picked| {
             const move = picked.move;
@@ -1164,7 +1224,7 @@ pub const Searcher = struct {
             if (!is_capture and !is_important and !in_check and !on_pv and
                 depth <= 4 and searched_moves >= 2)
             {
-                const hist_score = self.history[@intFromEnum(color)][move.start_square][move.end_square];
+                const hist_score = self.quietHistScore(@intFromEnum(color), node_threats, move.start_square, move.end_square);
                 const hist_threshold: i32 = -@as(i32, @intCast(depth)) * 1536;
                 if (hist_score < hist_threshold) {
                     continue;
@@ -1306,12 +1366,11 @@ pub const Searcher = struct {
                     }
 
                     if (!is_capture) {
-                        reduction -= @divTrunc(self.history[@intFromEnum(color)][move.start_square][move.end_square], tp.history_div.value);
+                        reduction -= @divTrunc(self.quietHistScore(@intFromEnum(color), node_threats, move.start_square, move.end_square), tp.history_div.value);
                     }
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth + 1))));
 
-                    // self.ply is already the child's ply here, so the parent slot is ply - 1.
                     self.lmr_reduction[self.ply - 1] = @as(i32, @intCast(new_depth)) - @as(i32, @intCast(reduced_depth));
                     score = -self.negamax(board, brd.flipColor(color), reduced_depth, -alpha - 1, -alpha, false, NodeType.NonPV, true);
                     self.lmr_reduction[self.ply - 1] = 0;
@@ -1387,7 +1446,7 @@ pub const Searcher = struct {
         }
 
         if (alpha >= beta and !(best_move.capture == 1) and !(best_move.promoted_piece != 0)) {
-            hist.updateQuietHistory(self, color, best_move, &quiet_moves, is_null, depth);
+            hist.updateQuietHistory(self, color, best_move, &quiet_moves, is_null, depth, node_threats);
         }
 
         if (alpha >= beta) {
