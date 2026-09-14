@@ -172,7 +172,7 @@ pub const MovePicker = struct {
 
                 const capture_piece_idx = @as(usize, @intCast(move.captured_piece));
                 const attacking_piece_idx = @as(usize, @intCast(move.piece));
-                const capthist: i32 = s.capHistPtr(side, threats, attacking_piece_idx, move.end_square, capture_piece_idx).*;
+                const capthist: i32 = s.capHistScore(side, threats, attacking_piece_idx, move.start_square, move.end_square, capture_piece_idx);
 
                 const ordering = tp.see_weight.value * sv +
                     @divTrunc(capthist * 10, tp.capthist_div.value);

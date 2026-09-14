@@ -189,7 +189,8 @@ pub const Searcher = struct {
     np_black_correction: [2][16384]i16 = undefined,
     major_correction: [2][16384]i16 = undefined,
     minor_correction: [2][16384]i16 = undefined,
-    capture_history: [2][7][64][2][7]i16 = undefined,
+    capture_history: [2][7][64][7]i16 = undefined,
+    capture_threat_history: [2][2][7][64][7]i16 = undefined,
     root_node_counts: [64][64]u64 = undefined,
 
     optimism: [2]i32 = .{0, 0},
@@ -221,8 +222,18 @@ pub const Searcher = struct {
         std.heap.smp_allocator.destroy(self.move_gen);
     }
 
-    pub inline fn capHistPtr(self: *Searcher, side: usize, threats: u64, attacker: usize, to: usize, captured: usize) *i16 {
-        return &self.capture_history[side][attacker][to][threatIndex(threats, to)][captured];
+    pub inline fn capHistPtr(self: *Searcher, side: usize, attacker: usize, to: usize, captured: usize) *i16 {
+        return &self.capture_history[side][attacker][to][captured];
+    }
+
+    pub inline fn capThreatHistPtr(self: *Searcher, side: usize, threats: u64, attacker: usize, from: usize, to: usize, captured: usize) *i16 {
+        return &self.capture_threat_history[side][threatIndex(threats, from)][attacker][to][captured];
+    }
+
+    pub inline fn capHistScore(self: *Searcher, side: usize, threats: u64, attacker: usize, from: usize, to: usize, captured: usize) i32 {
+        const base: i32 = self.capHistPtr(side, attacker, to, captured).*;
+        const th: i32 = self.capThreatHistPtr(side, threats, attacker, from, to, captured).*;
+        return @divTrunc(base * tp.capthist_weight.value + th * tp.cap_threat_weight.value, 1024);
     }
 
 
@@ -1253,7 +1264,7 @@ pub const Searcher = struct {
                 const attacker_idx: usize = @intCast(move.piece);
                 const captured_idx: usize = @intCast(move.captured_piece);
                 const ch: i32 = if (captured_idx < 6)
-                    self.capHistPtr(@intFromEnum(color), node_threats, attacker_idx, move.end_square, captured_idx).*
+                    self.capHistScore(@intFromEnum(color), node_threats, attacker_idx, move.start_square, move.end_square, captured_idx)
                     else
                     0;
                 const margin = -tp.see_capture_mul.value * d * d -

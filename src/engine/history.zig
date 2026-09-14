@@ -16,9 +16,9 @@ pub inline fn quietHist(s: *Searcher, side: usize, threats: u64, from: usize, to
     return s.quietHistScore(side, threats, from, to);
 }
 
-pub inline fn capHist(s: *Searcher, side: usize, threats: u64, attacker: usize, to: usize, captured: usize) i32 {
-    return s.capHistPtr(side, threats, attacker, to, captured).*;
- }
+pub inline fn capHist(s: *Searcher, side: usize, threats: u64, attacker: usize, from: usize, to: usize, captured: usize) i32 {
+    return s.capHistScore(side, threats, attacker, from, to, captured);
+}
 
 pub inline fn contHist(s: *Searcher, prev_pc: usize, prev_to: usize, cur_pc: usize, cur_to: usize) i32 {
     return s.continuation[prev_pc][prev_to][cur_pc][cur_to];
@@ -43,6 +43,7 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
 
     if (total) {
         @memset(std.mem.asBytes(&self.capture_history), 0);
+        @memset(std.mem.asBytes(&self.capture_threat_history), 0);
         @memset(std.mem.asBytes(&self.history), 0);
         @memset(std.mem.asBytes(&self.threat_history), 0);
         @memset(std.mem.asBytes(self.continuation), 0);
@@ -60,6 +61,11 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
 
         const cap_flat = std.mem.bytesAsSlice(i16, std.mem.asBytes(&self.capture_history));
         for (cap_flat) |*entry| {
+            entry.* -= (entry.* >> 2);
+        }
+
+        const cap_threat_flat = std.mem.bytesAsSlice(i16, std.mem.asBytes(&self.capture_threat_history));
+        for (cap_threat_flat) |*entry| {
             entry.* -= (entry.* >> 2);
         }
 
@@ -248,8 +254,11 @@ pub fn updateCaptureHistory(
         const best_attacker: brd.Pieces = @enumFromInt(best_move.piece);
         const best_attacker_idx = @as(usize, @intCast(@intFromEnum(best_attacker)));
 
-        const best_entry = self.capHistPtr(@intFromEnum(color), threats, best_attacker_idx, best_move.end_square, captured_piece_idx);
+        const best_entry = self.capHistPtr(@intFromEnum(color), best_attacker_idx, best_move.end_square, captured_piece_idx);
         applyBonus(i16, best_entry, bonus, max_cap_history);
+
+        const best_threat_entry = self.capThreatHistPtr(@intFromEnum(color), threats, best_attacker_idx, best_move.start_square, best_move.end_square, captured_piece_idx);
+        applyBonus(i16, best_threat_entry, bonus, max_cap_history);
 
         // Penalize other captures that were tried but didn't cause cutoff
         for (other_moves.items) |m| {
@@ -260,8 +269,11 @@ pub fn updateCaptureHistory(
                     const attacker: brd.Pieces = @enumFromInt(m.piece);
                     const attacker_idx = @as(usize, @intCast(@intFromEnum(attacker)));
 
-                    const entry = self.capHistPtr(@intFromEnum(color), threats, attacker_idx, m.end_square, cap_p_idx);
+                    const entry = self.capHistPtr(@intFromEnum(color), attacker_idx, m.end_square, cap_p_idx);
                     applyBonus(i16, entry, -malus, max_cap_history);
+
+                    const threat_entry = self.capThreatHistPtr(@intFromEnum(color), threats, attacker_idx, m.start_square, m.end_square, cap_p_idx);
+                    applyBonus(i16, threat_entry, -malus, max_cap_history);
                 }
             }
         }
