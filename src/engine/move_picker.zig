@@ -164,6 +164,7 @@ pub const MovePicker = struct {
 
     fn scoreNoisy(self: *MovePicker, s: *srch.Searcher, board: *brd.Board) void {
         const side = @intFromEnum(board.toMove());
+        const threats = self.ensureThreats(s, board);
         for (self.list.items[0..self.list.len], 0..) |move, i| {
             if (move.capture == 1) {
                 const sv = see.seeCapture(board, s.move_gen, move);
@@ -171,7 +172,7 @@ pub const MovePicker = struct {
 
                 const capture_piece_idx = @as(usize, @intCast(move.captured_piece));
                 const attacking_piece_idx = @as(usize, @intCast(move.piece));
-                const capthist:i32 = s.capture_history[side][attacking_piece_idx][move.end_square][capture_piece_idx];
+                const capthist: i32 = s.capHistPtr(side, threats, attacking_piece_idx, move.end_square, capture_piece_idx).*;
 
                 const ordering = tp.see_weight.value * sv +
                     @divTrunc(capthist * 10, tp.capthist_div.value);

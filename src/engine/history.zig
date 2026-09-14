@@ -16,9 +16,9 @@ pub inline fn quietHist(s: *Searcher, side: usize, threats: u64, from: usize, to
     return s.quietHistScore(side, threats, from, to);
 }
 
-pub inline fn capHist(s: *Searcher, side: usize, attacker: usize, to: usize, captured: usize) i32 {
-    return s.capture_history[side][attacker][to][captured];
-}
+pub inline fn capHist(s: *Searcher, side: usize, threats: u64, attacker: usize, to: usize, captured: usize) i32 {
+    return s.capHistPtr(side, threats, attacker, to, captured).*;
+ }
 
 pub inline fn contHist(s: *Searcher, prev_pc: usize, prev_to: usize, cur_pc: usize, cur_to: usize) i32 {
     return s.continuation[prev_pc][prev_to][cur_pc][cur_to];
@@ -235,6 +235,7 @@ pub fn updateCaptureHistory(
     best_move: mvs.EncodedMove,
     other_moves: *const mvs.MoveList,
     depth: usize,
+    threats: u64
 ) void {
     _ = board;
     const captured_piece_idx = @as(usize, @intCast(best_move.captured_piece));
@@ -247,7 +248,7 @@ pub fn updateCaptureHistory(
         const best_attacker: brd.Pieces = @enumFromInt(best_move.piece);
         const best_attacker_idx = @as(usize, @intCast(@intFromEnum(best_attacker)));
 
-        const best_entry = &self.capture_history[@intFromEnum(color)][best_attacker_idx][best_move.end_square][captured_piece_idx];
+        const best_entry = self.capHistPtr(@intFromEnum(color), threats, best_attacker_idx, best_move.end_square, captured_piece_idx);
         applyBonus(i16, best_entry, bonus, max_cap_history);
 
         // Penalize other captures that were tried but didn't cause cutoff
@@ -259,7 +260,7 @@ pub fn updateCaptureHistory(
                     const attacker: brd.Pieces = @enumFromInt(m.piece);
                     const attacker_idx = @as(usize, @intCast(@intFromEnum(attacker)));
 
-                    const entry = &self.capture_history[@intFromEnum(color)][attacker_idx][m.end_square][cap_p_idx];
+                    const entry = self.capHistPtr(@intFromEnum(color), threats, attacker_idx, m.end_square, cap_p_idx);
                     applyBonus(i16, entry, -malus, max_cap_history);
                 }
             }
