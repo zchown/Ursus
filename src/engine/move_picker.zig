@@ -54,6 +54,7 @@ pub const MovePicker = struct {
 
     list: mvs.MoveList,
     scores: [218]i32,
+    sees: [218]i32,
     index: usize,
 
     bad_noisy: [max_bad_noisy]MoveWithSee,
@@ -81,6 +82,7 @@ pub const MovePicker = struct {
             .counter_move = mvs.EncodedMove.fromU32(0),
             .list = mvs.MoveList.init(),
             .scores = undefined,
+            .sees = undefined,
             .index = 0,
             .bad_noisy = undefined,
             .bad_count = 0,
@@ -138,7 +140,7 @@ pub const MovePicker = struct {
         }
     }
 
-    fn pickBest(self: *MovePicker) mvs.EncodedMove {
+    fn pickBest(self: *MovePicker, comptime with_see: bool) mvs.EncodedMove {
         var best_idx = self.index;
         var j = self.index + 1;
         while (j < self.list.len) : (j += 1) {
@@ -149,6 +151,9 @@ pub const MovePicker = struct {
         if (best_idx != self.index) {
             std.mem.swap(mvs.EncodedMove, &self.list.items[self.index], &self.list.items[best_idx]);
             std.mem.swap(i32, &self.scores[self.index], &self.scores[best_idx]);
+            if (with_see) {
+                std.mem.swap(i32, &self.sees[self.index], &self.sees[best_idx]);
+            }
         }
         return self.list.items[self.index];
     }
@@ -162,19 +167,17 @@ pub const MovePicker = struct {
         const threats = self.ensureThreats(s, board);
         for (self.list.items[0..self.list.len], 0..) |move, i| {
             if (move.capture == 1) {
+                const sv = see.seeCapture(board, s.move_gen, move);
+                self.sees[i] = sv;
+
                 const capture_piece_idx = @as(usize, @intCast(move.captured_piece));
                 const attacking_piece_idx = @as(usize, @intCast(move.piece));
                 const capthist: i32 = s.capHistScore(side, threats, attacking_piece_idx, move.start_square, move.end_square, capture_piece_idx);
 
-                const mvv: i32 = if (capture_piece_idx < 6)
-                    @as(i32, see.see_values[capture_piece_idx])
-                else
-                    0;
-
-                const ordering = tp.see_weight.value * mvv +
+                const ordering = tp.see_weight.value * sv +
                     @divTrunc(capthist * 10, tp.capthist_div.value);
 
-                var score: i32 = score_winning_capture + ordering;
+                var score: i32 = if (sv >= 0) score_winning_capture + ordering else sv + ordering;
 
                 if (move.promoted_piece == @intFromEnum(brd.Pieces.Queen)) {
                     score += score_promotion;
@@ -182,6 +185,7 @@ pub const MovePicker = struct {
                 self.scores[i] = score;
             } else {
                 // Quiet queen promotion
+                self.sees[i] = 0;
                 self.scores[i] = score_promotion;
             }
         }
@@ -268,13 +272,13 @@ pub const MovePicker = struct {
 
                 .good_noisy => {
                     while (self.index < self.list.len) {
-                        const m = self.pickBest();
+                        const m = self.pickBest(true);
+                        const sv = self.sees[self.index];
                         self.index += 1;
 
                         if (self.isTTDup(m)) continue;
 
                         if (m.capture == 1) {
-                            const sv = see.seeCapture(board, s.move_gen, m);
                             if (sv < self.see_threshold and self.bad_count < max_bad_noisy) {
                                 self.bad_noisy[self.bad_count] = MoveWithSee{ .move = m, .see_val = sv };
                                 self.bad_count += 1;
@@ -337,7 +341,7 @@ pub const MovePicker = struct {
                         continue;
                     }
                     while (self.index < self.list.len) {
-                        const m = self.pickBest();
+                        const m = self.pickBest(false);
                         self.index += 1;
 
                         if (self.isTTDup(m)) continue;
