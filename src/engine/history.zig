@@ -12,8 +12,8 @@ const PieceColor = Searcher.PieceColor;
 const max_history: i32 = 16384;
 const max_cap_history: i32 = 16384;
 
-pub inline fn quietHist(s: *Searcher, side: usize, from: usize, to: usize) i32 {
-    return s.history[side][from][to];
+pub inline fn quietHist(s: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
+    return s.quietHistScore(side, threats, from, to);
 }
 
 pub inline fn capHist(s: *Searcher, side: usize, attacker: usize, to: usize, captured: usize) i32 {
@@ -31,6 +31,7 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     @memset(std.mem.asBytes(&self.move_history), 0);
     @memset(std.mem.asBytes(&self.moved_piece_history), 0);
     @memset(std.mem.asBytes(&self.excluded_moves), 0);
+    @memset(std.mem.asBytes(&self.lmr_reduction), 0);
 
     if (total) {
         @memset(std.mem.asBytes(&self.correction), 0);
@@ -43,11 +44,17 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     if (total) {
         @memset(std.mem.asBytes(&self.capture_history), 0);
         @memset(std.mem.asBytes(&self.history), 0);
+        @memset(std.mem.asBytes(&self.threat_history), 0);
         @memset(std.mem.asBytes(self.continuation), 0);
     }
     else {
         const hist_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.history));
         for (hist_flat) |*entry| {
+            entry.* = entry.* - (entry.* >> 2) + 64;
+        }
+
+        const threat_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.threat_history));
+        for (threat_flat) |*entry| {
             entry.* = entry.* - (entry.* >> 2) + 64;
         }
 
@@ -172,6 +179,7 @@ pub fn updateQuietHistory(
     quiet_moves: *const mvs.MoveList,
     is_null: bool,
     depth: usize,
+    threats: u64,
 ) void {
     if(self.killer[self.ply][0].toU32() != best_move.toU32()) {
         self.killer[self.ply][1] = self.killer[self.ply][0];
@@ -194,8 +202,11 @@ pub fn updateQuietHistory(
 
         const delta = if (is_best) bonus else -malus;
 
-        const h = &self.history[@intFromEnum(color)][m.start_square][m.end_square];
+        const h = self.butterflyPtr(@intFromEnum(color), m.start_square, m.end_square);
         applyBonus(i32, h, delta, max_history);
+
+        const th = self.threatHistPtr(@intFromEnum(color), threats, m.start_square, m.end_square);
+        applyBonus(i32, th, delta, max_history);
 
         if (!is_null and self.ply >= 1) {
             const plies: [3]usize = .{ 0, 1, 3 };

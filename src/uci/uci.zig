@@ -78,7 +78,7 @@ fn searchThreadFn(ctx: *SearchContext) void {
 
 fn moveToUciStr(protocol: *UciProtocol, move: mvs.EncodedMove, color: brd.Color) ![]const u8 {
     if (protocol.chess960 and move.castling == 1) {
-        const kingside = (move.end_square % 8) == 6; // g-file = kingside
+        const kingside = (move.end_square % 8) == 6; 
         const rook_sq = protocol.board.game_state.rookSquare(color, kingside);
         const start_file: u8 = move.start_square % 8;
         const start_rank: u8 = @as(u8, @intCast(move.start_square / 8)) + 1;
@@ -460,9 +460,14 @@ pub const UciProtocol = struct {
             }
             self.hash_size_mb = new_size_mb;
 
+            self.stopSearch();
+
             self.tt_table.deinit(self.allocator);
             self.tt_table = try tt.TranspositionTable.init(self.allocator, self.hash_size_mb);
             self.searcher.tt_table = &self.tt_table;
+            for (srch.search_helpers.items) |helper| {
+                helper.tt_table = &self.tt_table;
+            }
         } else if (std.mem.eql(u8, option_name, "Clear Hash")) {
             self.tt_table.reset();
             if (pawn_tt.pawn_tt_initialized) {
@@ -483,6 +488,9 @@ pub const UciProtocol = struct {
             if (args.len >= name_end + 2) {
                 self.chess960 = std.mem.eql(u8, args[name_end + 1], "true");
                 self.searcher.chess960 = self.chess960;
+                for (srch.search_helpers.items) |helper| {
+                    helper.chess960 = self.chess960;
+                }
             }
         } else if (std.mem.eql(u8, option_name, "Threads")) {
             if (args.len < name_end + 2) {
@@ -593,14 +601,34 @@ pub const UciProtocol = struct {
     }
 
     pub fn newGame(self: *UciProtocol) !void {
-        self.tt_table.reset();
+        self.stopSearch();
+        self.clearSearchMoves();
 
+        const saved_multipv = self.searcher.multi_pv;
+
+        srch.Searcher.deinitThreading();
+        srch.search_helpers = .empty;
+        srch.threads = .empty;
+
+        self.searcher.deinit();
+        self.searcher.* = srch.Searcher{};
+        self.searcher.initInPlace();
+
+        self.searcher.tt_table = &self.tt_table;
+        self.searcher.chess960 = self.chess960;
+        self.searcher.multi_pv = saved_multipv;
+
+        self.tt_table.reset();
+        if (pawn_tt.pawn_tt_initialized) {
+            pawn_tt.pawn_tt.reset();
+        }
 
         @memset(std.mem.asBytes(&self.board), 0);
-
         self.board.game_state = brd.GameState.init();
         fen.setupStartingPosition(&self.board);
         self.board.refreshNNUE();
+
+        self.game_ply = 0;
         self.is_searching = false;
     }
 
@@ -653,6 +681,7 @@ pub const UciProtocol = struct {
             self.board.game_state = brd.GameState.init();
             fen.setupStartingPosition(&self.board);
             self.board.refreshNNUE();
+            self.game_ply = 0;
 
             var j: usize = 1;
             if (j < args.len and std.mem.eql(u8, args[j], "moves")) {
