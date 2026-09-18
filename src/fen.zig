@@ -1,6 +1,7 @@
 const std = @import("std");
-const zob = @import("zobrist");
-const brd = @import("board");
+const root = @import("root.zig");
+const zob = root.zob;
+const brd = root.brd;
 const Board = brd.Board;
 
 pub fn parseFEN(board: *Board, fen: []const u8) !void {

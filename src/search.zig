@@ -1,13 +1,14 @@
 const std = @import("std");
-const mvs = @import("moves");
-const brd = @import("board");
-const eval = @import("eval");
-const tt = @import("transposition");
-const see = @import("see");
-const mp = @import("move_picker");
-const tp = @import("tunable_parameters");
-const hist = @import("history");
-const tb = @import("tb");
+const root = @import("root.zig");
+const mvs = root.moves;
+const brd = root.brd;
+const eval = root.eval;
+const tt = root.tt;
+const see = root.see;
+const mp = root.mp;
+const tp = root.tp;
+const hist = root.hist;
+const tb = root.tb;
 
 pub const max_ply = 128;
 pub const max_game_ply = 1024;

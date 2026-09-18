@@ -1,6 +1,7 @@
-const brd = @import("board");
-const mvs = @import("moves");
 const std = @import("std");
+const root = @import("root.zig");
+const brd = root.brd;
+const mvs = root.moves;
 
 pub const see_values = [_]i32{
     93, // Pawn

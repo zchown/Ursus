@@ -1,17 +1,17 @@
 const std = @import("std");
-const brd = @import("board");
-const mvs = @import("moves");
-const fen = @import("fen");
-const srch = @import("search");
-const tt = @import("transposition");
-const eval = @import("eval");
-const pawn_tt = @import("pawn_tt");
-const datagen = @import("datagen");
-const nnue = @import("nnue");
-const perft = @import("perft");
-const tp = @import("tunable_parameters");
-const tb = @import("tb");
-const build_options = @import("build_options");
+const root = @import("root.zig");
+const brd = root.brd;
+const mvs = root.moves;
+const fen = root.fen;
+const srch = root.search;
+const tt = root.tt;
+const eval = root.eval;
+const datagen = root.datagen;
+const nnue = root.nnue;
+const perft = root.perft;
+const tp = root.tp;
+const tb = root.tb;
+const build_options = root.build_options;
 
 var move_overhead: u64 = 15;
 
@@ -470,9 +470,6 @@ pub const UciProtocol = struct {
             }
         } else if (std.mem.eql(u8, option_name, "Clear Hash")) {
             self.tt_table.reset();
-            if (pawn_tt.pawn_tt_initialized) {
-                pawn_tt.pawn_tt.reset();
-            }
         } else if (std.mem.eql(u8, option_name, "Ponder")) {
             // TODO: ?
         } else if (std.mem.eql(u8, option_name, "MultiPV")) {
@@ -619,9 +616,6 @@ pub const UciProtocol = struct {
         self.searcher.multi_pv = saved_multipv;
 
         self.tt_table.reset();
-        if (pawn_tt.pawn_tt_initialized) {
-            pawn_tt.pawn_tt.reset();
-        }
 
         @memset(std.mem.asBytes(&self.board), 0);
         self.board.game_state = brd.GameState.init();

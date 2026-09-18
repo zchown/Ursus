@@ -1,6 +1,7 @@
 const std = @import("std");
-const uci = @import("uci");
-const perft = @import("perft");
+const root = @import("root.zig");
+const uci = root.uci;
+const perft = root.perft;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

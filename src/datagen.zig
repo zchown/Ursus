@@ -1,12 +1,12 @@
 const std = @import("std");
-const brd = @import("board");
-const mvs = @import("moves");
-const fen_mod = @import("fen");
-const srch = @import("search");
-const eval = @import("eval");
-const tt = @import("transposition");
-const pawn_tt = @import("pawn_tt");
-const hist = @import("history");
+const root = @import("root.zig");
+const brd = root.brd;
+const mvs = root.moves;
+const fen_mod = root.fen;
+const srch = root.search;
+const eval = root.eval;
+const tt = root.tt;
+const hist = root.hist;
 
 pub const DatagenConfig = struct {
     num_nodes: u64 = 5000,
@@ -610,10 +610,6 @@ pub fn run(config: DatagenConfig) !void {
         });
     }
 
-    if (!pawn_tt.pawn_tt_initialized) {
-        try pawn_tt.TranspositionTable.initGlobal(16);
-    }
-
     stop_signal.store(false, .release);
     var timer = try std.time.Timer.start();
 
@@ -622,7 +618,6 @@ pub fn run(config: DatagenConfig) !void {
     var thread_handles = try std.heap.smp_allocator.alloc(std.Thread, config.num_threads);
     defer std.heap.smp_allocator.free(thread_handles);
 
-    // CRITICAL: Force a massive thread stack size for deep recursive engine search
     const spawn_config = std.Thread.SpawnConfig{
         .stack_size = 16 * 1024 * 1024, // 16 MB stack
     };
@@ -848,8 +843,6 @@ fn hasLegalMove(searcher: *srch.Searcher, board: *brd.Board) bool {
     return false;
 }
 
-// Builds one candidate opening on `board`. Returns false if the candidate
-// was rejected (illegal, terminal, or too lopsided) and should be retried.
 fn buildOpening(
     searcher: *srch.Searcher,
     rng: *Rng,
@@ -908,10 +901,6 @@ pub fn runGenfens(config: GenfensConfig) !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
-
-    if (!pawn_tt.pawn_tt_initialized) {
-        try pawn_tt.TranspositionTable.initGlobal(16);
-    }
 
     var thread_tt = try tt.TranspositionTable.init(allocator, 16);
 

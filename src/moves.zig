@@ -1,10 +1,11 @@
 const std = @import("std");
-const brd = @import("board");
+const root = @import("root.zig");
+const brd = root.brd;
 const Board = brd.Board;
 const Bitboard = brd.Bitboard;
 const GameState = brd.GameState;
-const magic = @import("magic");
-const rad = @import("radagast");
+const rad = root.rad;
+const magic = root.magic;
 
 const not_a_file: Bitboard = 0xfefefefefefefefe;
 const not_h_file: Bitboard = 0x7f7f7f7f7f7f7f7f;

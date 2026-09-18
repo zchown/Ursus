@@ -1,114 +1,6 @@
 const std = @import("std");
 
 fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    const board_module = b.createModule(.{
-        .root_source_file = b.path("src/chess/board.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const zobrist_module = b.createModule(.{
-        .root_source_file = b.path("src/chess/zobrist.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const fen_module = b.createModule(.{
-        .root_source_file = b.path("src/chess/fen.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const magic_module = b.createModule(.{
-        .root_source_file = b.path("src/chess/magics.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const radagast_module = b.createModule(.{
-        .root_source_file = b.path("src/chess/radagast.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const moves_module = b.createModule(.{
-        .root_source_file = b.path("src/chess/moves.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const uci_module = b.createModule(.{
-        .root_source_file = b.path("src/uci/uci.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const perft_module = b.createModule(.{
-        .root_source_file = b.path("src/chess/perft.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const transposition_module = b.createModule(.{
-        .root_source_file = b.path("src/engine/transposition.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const eval_module = b.createModule(.{
-        .root_source_file = b.path("src/engine/eval.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const search_module = b.createModule(.{
-        .root_source_file = b.path("src/engine/search.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const see_module = b.createModule(.{
-        .root_source_file = b.path("src/engine/see.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const pawn_tt_module = b.createModule(.{
-        .root_source_file = b.path("src/engine/pawn_tt.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const datagen_module = b.createModule(.{
-        .root_source_file = b.path("src/nnue/datagen.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const nnue_module = b.createModule(.{
-        .root_source_file = b.path("src/nnue/nnue.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const move_picker = b.createModule(.{
-        .root_source_file = b.path("src/engine/move_picker.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const tunable_parameters_module = b.createModule(.{
-        .root_source_file = b.path("src/engine/tunable_parameters.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const history_module = b.createModule(.{
-        .root_source_file = b.path("src/engine/history.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
     const exe = b.addExecutable(.{
         .name = "Ursus",
         .root_module = b.createModule(.{
@@ -119,7 +11,6 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
         }),
         .use_llvm = true,
     });
-
 
     const zon_file = @embedFile("build.zig.zon");
     const ver_tag = ".version = \"";
@@ -157,124 +48,25 @@ fn buildExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.built
     exe_options.addOption(bool, "is_dev", is_dev);
     exe.root_module.addOptions("build_options", exe_options);
 
-    board_module.addImport("zobrist", zobrist_module);
-    board_module.addImport("moves", moves_module);
-    board_module.addImport("nnue", nnue_module);
-
-    perft_module.addImport("board", board_module);
-    perft_module.addImport("moves", moves_module);
-    perft_module.addImport("fen", fen_module);
-
-    fen_module.addImport("board", board_module);
-    fen_module.addImport("zobrist", zobrist_module);
-
-    moves_module.addImport("board", board_module);
-    moves_module.addImport("magic", magic_module);
-    moves_module.addImport("radagast", radagast_module);
-    moves_module.addImport("nnue", nnue_module);
-
-    zobrist_module.addImport("board", board_module);
-
-    radagast_module.addImport("board", board_module);
-
-    search_module.addImport("board", board_module);
-    search_module.addImport("moves", moves_module);
-    search_module.addImport("eval", eval_module);
-    search_module.addImport("transposition", transposition_module);
-    search_module.addImport("see", see_module);
-    search_module.addImport("pawn_tt", pawn_tt_module);
-    search_module.addImport("move_picker", move_picker);
-    search_module.addImport("tunable_parameters", tunable_parameters_module);
-    search_module.addImport("history", history_module);
-
-    history_module.addImport("board", board_module);
-    history_module.addImport("moves", moves_module);
-    history_module.addImport("eval", eval_module);
-    history_module.addImport("search", search_module);
-    history_module.addImport("tunable_parameters", tunable_parameters_module);
-
-    move_picker.addImport("board", board_module);
-    move_picker.addImport("moves", moves_module);
-    move_picker.addImport("see", see_module);
-    move_picker.addImport("search", search_module);
-    move_picker.addImport("tunable_parameters", tunable_parameters_module);
-
-    transposition_module.addImport("board", board_module);
-    transposition_module.addImport("zobrist", zobrist_module);
-    transposition_module.addImport("moves", moves_module);
-
-    pawn_tt_module.addImport("zobrist", zobrist_module);
-
-    uci_module.addImport("board", board_module);
-    uci_module.addImport("search", search_module);
-    uci_module.addImport("fen", fen_module);
-    uci_module.addImport("transposition", transposition_module);
-    uci_module.addImport("moves", moves_module);
-    uci_module.addImport("eval", eval_module);
-    uci_module.addImport("pawn_tt", pawn_tt_module);
-    uci_module.addImport("datagen", datagen_module);
-    uci_module.addImport("nnue", nnue_module);
-    uci_module.addImport("tunable_parameters", tunable_parameters_module);
-    uci_module.addImport("perft", perft_module);
-    uci_module.addOptions("build_options", exe_options);
-
-    eval_module.addImport("board", board_module);
-    eval_module.addImport("moves", moves_module);
-    eval_module.addImport("pawn_tt", pawn_tt_module);
-    eval_module.addImport("zobrist", zobrist_module);
-    eval_module.addImport("tunable_parameters", tunable_parameters_module);
-
-    see_module.addImport("board", board_module);
-    see_module.addImport("moves", moves_module);
-
-    datagen_module.addImport("board", board_module);
-    datagen_module.addImport("moves", moves_module);
-    datagen_module.addImport("fen", fen_module);
-    datagen_module.addImport("search", search_module);
-    datagen_module.addImport("eval", eval_module);
-    datagen_module.addImport("pawn_tt", pawn_tt_module);
-    datagen_module.addImport("transposition", transposition_module);
-    datagen_module.addImport("history", history_module);
-
-    nnue_module.addImport("board", board_module);
-    nnue_module.addImport("moves", moves_module);
-
-    exe.root_module.addImport("uci", uci_module);
-    exe.root_module.addImport("perft", perft_module);
-    exe.root_module.addImport("datagen", datagen_module);
-
     const fathom_dep = b.dependency("fathom", .{});
-
-    const fathom_mod = b.createModule(.{
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
-    });
-    fathom_mod.addCSourceFile(.{
-        .file = fathom_dep.path("src/tbprobe.c"),
-        .flags = &.{ "-std=c11", "-O3", "-DNDEBUG" },
-    });
-    fathom_mod.addIncludePath(fathom_dep.path("src"));
 
     const fathom = b.addLibrary(.{
         .name = "fathom",
         .linkage = .static,
-        .root_module = fathom_mod,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
     });
-
-    const tb_mod = b.createModule(.{
-        .root_source_file = b.path("src/engine/tb.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
+    fathom.root_module.addCSourceFile(.{
+        .file = fathom_dep.path("src/tbprobe.c"),
+        .flags = &.{ "-std=c11", "-O3", "-DNDEBUG", "-fno-sanitize=undefined" },
     });
-    tb_mod.addIncludePath(fathom_dep.path("src"));
-    tb_mod.linkLibrary(fathom);
-    tb_mod.addImport("board", board_module);
-    tb_mod.addImport("moves", moves_module);
+    fathom.root_module.addIncludePath(fathom_dep.path("src"));
 
-    search_module.addImport("tb", tb_mod);
-    uci_module.addImport("tb", tb_mod);
+    exe.root_module.addIncludePath(fathom_dep.path("src"));
+    exe.root_module.linkLibrary(fathom);
 
     return exe;
 }

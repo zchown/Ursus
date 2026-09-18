@@ -1,6 +1,7 @@
 const std = @import("std");
-const brd = @import("board");
-const mvs = @import("moves");
+const root = @import("root.zig");
+const brd = root.brd;
+const mvs = root.moves;
 
 const c = @cImport({
     @cInclude("tbprobe.h");

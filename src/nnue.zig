@@ -1,7 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const brd = @import("board");
-const moves = @import("moves");
+const root = @import("root.zig");
+const brd = root.brd;
+const moves = root.moves;
 
 pub const net_path = "nets/Alkaid-ml.bin";
 

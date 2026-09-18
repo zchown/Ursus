@@ -1,9 +1,10 @@
 const std = @import("std");
-const mvs = @import("moves");
-const brd = @import("board");
-const eval = @import("eval");
-const search = @import("search");
-const tp = @import("tunable_parameters");
+const root = @import("root.zig");
+const mvs = root.moves;
+const brd = root.brd;
+const eval = root.eval;
+const search = root.search;
+const tp = root.tp;
 
 const Searcher = search.Searcher;
 const max_ply = search.max_ply;

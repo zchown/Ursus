@@ -1,5 +1,6 @@
 const std = @import("std");
-const brd = @import("board");
+const root = @import("root.zig");
+const brd = root.brd;
 const Bitboard = brd.Bitboard;
 
 pub const bishop_relevant_bits = [_]usize{

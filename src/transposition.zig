@@ -1,7 +1,8 @@
 const std = @import("std");
-const zob = @import("zobrist");
-const brd = @import("board");
-const mv = @import("moves");
+const root = @import("root.zig");
+const zob = root.zob;
+const brd = root.brd;
+const mv = root.moves;
 
 pub const default_tt_size_mb = 64;
 pub const kb = 1 << 10;

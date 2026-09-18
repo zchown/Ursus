@@ -1,7 +1,8 @@
 const std = @import("std");
-const zob = @import("zobrist");
-const nnue = @import("nnue");
-const EncodedMove = @import("moves").EncodedMove;
+const root = @import("root.zig");
+const zob = root.zob;
+const nnue = root.nnue;
+const EncodedMove = root.moves.EncodedMove;
 
 pub const num_colors = 2;
 pub const num_pieces = 6;

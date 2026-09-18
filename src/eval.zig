@@ -1,9 +1,9 @@
 const std = @import("std");
-const brd = @import("board");
-const mvs = @import("moves");
-const zob = @import("zobrist");
-const pawn_tt = @import("pawn_tt");
-const tp = @import("tunable_parameters");
+const root = @import("root.zig");
+const brd = root.brd;
+const mvs = root.moves;
+const zob = root.zob;
+const tp = root.tp;
 
 pub const mate_score: i32 = 32000;
 pub const tb_win_score: i32 = mate_score;

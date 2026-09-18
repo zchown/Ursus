@@ -1,9 +1,10 @@
 const std = @import("std");
-const brd = @import("board");
-const mvs = @import("moves");
-const see = @import("see");
-const srch = @import("search");
-const tp = @import("tunable_parameters");
+const root = @import("root.zig");
+const brd = root.brd;
+const mvs = root.moves;
+const see = root.see;
+const srch = root.search;
+const tp = root.tp;
 
 const score_hash: i32 = 2_000_000_000;
 const score_winning_capture: i32 = 1_000_000;
