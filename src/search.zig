@@ -67,11 +67,18 @@ pub fn computeThreats(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: brd.
     const occ = pos.getOccupancy();
     var t: u64 = 0;
 
+    const by_i = @intFromEnum(by);
     var pawns = pos.getPieceColorBoard(.Pawn, by);
-    while (pawns != 0) t |= mg.pawns[by.idx()][brd.popLsb(&pawns)];
+    while (pawns != 0) {
+        const sq = brd.popLsb(&pawns);
+        t |= mg.pawns[by_i][sq];
+    }
 
     var knights = pos.getPieceColorBoard(.Knight, by);
-    while (knights != 0) t |= mg.knights[brd.popLsb(&knights)];
+    while (knights != 0) {
+        const sq = brd.popLsb(&knights);
+        t |= mg.knights[sq];
+    }
 
     var diagonal = pos.diagonalSliders(by);
     while (diagonal != 0) t |= mg.getBishopAttacks(brd.popLsb(&diagonal), occ);
@@ -80,7 +87,10 @@ pub fn computeThreats(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: brd.
     while (straight != 0) t |= mg.getRookAttacks(brd.popLsb(&straight), occ);
 
     const king = pos.getPieceColorBoard(.King, by);
-    if (king != 0) t |= mg.kings[brd.lsb(king)];
+    if (king != 0) {
+        const ksq = brd.lsb(king);
+        t |= mg.kings[ksq];
+    }
 
     return t;
 }
@@ -1054,10 +1064,10 @@ pub const Searcher = struct {
 
         if (cutnode and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].isNull()) {
             const probcut_depth = depth - 3;
-            var pc_picker = mp.MovePicker.initProbcut(hash_move, tp.probcut_min_see.value);
+            var pc_picker: mp.MovePicker = undefined;
+            pc_picker.initProbcut(hash_move, tp.probcut_min_see.value);
             while (pc_picker.next(self, gs)) |pc_picked| {
                 const move = pc_picked.move;
-                const see_score = pc_picked.see_val;
 
                 // Losing captures signal there is nothing left worth probing.
                 if (pc_picked.stage == .bad_noisy) {
@@ -1068,7 +1078,7 @@ pub const Searcher = struct {
                         continue;
                     }
                 }
-                else if (see_score < tp.probcut_min_see.value) {
+                else if (!pc_picked.seeAtLeast(self, gs, tp.probcut_min_see.value)) {
                     break;
                 }
 
@@ -1132,7 +1142,8 @@ pub const Searcher = struct {
 
         const node_threats = computeThreats(self.move_gen, gs, color.opposite());
 
-        var picker = mp.MovePicker.init(hash_move, is_null);
+        var picker: mp.MovePicker = undefined;
+        picker.init(hash_move, is_null);
 
         picker.setThreats(node_threats);
 
@@ -1211,7 +1222,9 @@ pub const Searcher = struct {
                 const ch: i32 = self.capture_history[@intFromEnum(color)][attacker_idx][move.to][captured_idx];
                 const margin = -tp.see_capture_mul.value * d * d -
                 @divTrunc(ch, tp.see_capthist_div.value);
-                if (!see.seeAtLeast(gs, self.move_gen, move, margin)) {
+                // Captures the picker already classed as good pass any
+                // non-positive margin without another SEE.
+                if (!picked.seeAtLeast(self, gs, margin)) {
                     continue;
                 }
             }
@@ -1543,10 +1556,8 @@ pub const Searcher = struct {
             }
         }
 
-        var picker = if (in_check)
-            mp.MovePicker.init(hash_move, false)
-        else
-            mp.MovePicker.initNoisy(hash_move);
+        var picker: mp.MovePicker = undefined;
+        if (in_check) picker.init(hash_move, false) else picker.initNoisy(hash_move);
 
         var moves_seen: usize = 0;
 
@@ -1555,15 +1566,9 @@ pub const Searcher = struct {
             moves_seen += 1;
 
             if (move.isCapture() and !in_check) {
-                const see_value = picked.see_val;
-
-                if (see_value < tp.q_see_min.value) {
-                    continue;
-                }
-
-                if (see_value < tp.q_see_margin.value and
-                    static_eval + see_value + tp.q_delta_margin.value < alpha)
-                {
+                const futile_below = alpha - static_eval - tp.q_delta_margin.value;
+                const threshold = @max(tp.q_see_min.value, @min(tp.q_see_margin.value, futile_below));
+                if (!picked.seeAtLeast(self, gs, threshold)) {
                     continue;
                 }
             }

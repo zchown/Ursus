@@ -76,8 +76,8 @@ pub const MoveGen = struct {
             const sq: Square = @intCast(i);
             self.kings[sq] = kingAttacks(sq);
             self.knights[sq] = knightAttacks(sq);
-            self.pawns[Color.White.idx()][sq] = pawnAttacks(.White, sq);
-            self.pawns[Color.Black.idx()][sq] = pawnAttacks(.Black, sq);
+            self.pawns[@intFromEnum(Color.White)][sq] = pawnAttacks(.White, sq);
+            self.pawns[@intFromEnum(Color.Black)][sq] = pawnAttacks(.Black, sq);
         }
         self.initSliders();
         self.initLines();
@@ -186,7 +186,8 @@ pub const MoveGen = struct {
             }
 
             if (p.ep_sq) |ep| {
-                var from_bb = self.pawns[us.opposite().idx()][ep] & pawns;
+                const them_i = @intFromEnum(us.opposite());
+                var from_bb = self.pawns[them_i][ep] & pawns;
                 while (from_bb != 0) {
                     list.add(Move.enPassant(brd.popLsb(&from_bb), ep));
                 }
@@ -283,13 +284,16 @@ pub const MoveGen = struct {
         const occ = p.getOccupancy();
 
         const checkers = (self.knights[ksq] & p.getPieceColorBoard(.Knight, them)) |
-            (self.pawns[us.idx()][ksq] & p.getPieceColorBoard(.Pawn, them)) |
+            (self.pawns[@intFromEnum(us)][ksq] & p.getPieceColorBoard(.Pawn, them)) |
             (self.getBishopAttacks(ksq, occ) & p.diagonalSliders(them)) |
             (self.getRookAttacks(ksq, occ) & p.straightSliders(them));
 
         const check_mask: Bitboard = switch (@popCount(checkers)) {
             0 => ~@as(Bitboard, 0),
-            1 => checkers | self.between[ksq][brd.lsb(checkers)],
+            1 => blk: {
+                const checker_sq = brd.lsb(checkers);
+                break :blk checkers | self.between[ksq][checker_sq];
+            },
             else => 0,
         };
 
@@ -363,7 +367,7 @@ pub const MoveGen = struct {
         if (m.isEP()) {
             if (pc.piece != .Pawn) return false;
             const ep = p.ep_sq orelse return false;
-            return m.to == ep and (self.pawns[us.idx()][m.from] & to_bb) != 0;
+            return m.to == ep and (self.pawns[@intFromEnum(us)][m.from] & to_bb) != 0;
         }
 
         const target = p.getFromSquare(m.to);
@@ -390,7 +394,7 @@ pub const MoveGen = struct {
                 if (m.isPromo() != ((brd.promoRankBB(us) & to_bb) != 0)) return false;
 
                 if (m.isCapture()) {
-                    return (self.pawns[us.idx()][m.from] & to_bb) != 0;
+                    return (self.pawns[@intFromEnum(us)][m.from] & to_bb) != 0;
                 }
 
                 const push: i16 = if (us == .White) 8 else -8;
@@ -429,7 +433,8 @@ pub const MoveGen = struct {
 
     pub inline fn isSquareAttackedBy(self: *const MoveGen, p: *const Position, sq: Square, by: Color, occ: Bitboard) bool {
         if ((self.knights[sq] & p.getPieceColorBoard(.Knight, by)) != 0) return true;
-        if ((self.pawns[by.opposite().idx()][sq] & p.getPieceColorBoard(.Pawn, by)) != 0) return true;
+        const them_i = @intFromEnum(by.opposite());
+        if ((self.pawns[them_i][sq] & p.getPieceColorBoard(.Pawn, by)) != 0) return true;
         if ((self.kings[sq] & p.getPieceColorBoard(.King, by)) != 0) return true;
         if ((self.getBishopAttacks(sq, occ) & p.diagonalSliders(by)) != 0) return true;
         if ((self.getRookAttacks(sq, occ) & p.straightSliders(by)) != 0) return true;
@@ -445,8 +450,8 @@ pub const MoveGen = struct {
     }
 
     pub fn attackersTo(self: *const MoveGen, p: *const Position, sq: Square, occ: Bitboard) Bitboard {
-        return (self.pawns[Color.White.idx()][sq] & p.getPieceColorBoard(.Pawn, .Black)) |
-            (self.pawns[Color.Black.idx()][sq] & p.getPieceColorBoard(.Pawn, .White)) |
+        return (self.pawns[@intFromEnum(Color.White)][sq] & p.getPieceColorBoard(.Pawn, .Black)) |
+            (self.pawns[@intFromEnum(Color.Black)][sq] & p.getPieceColorBoard(.Pawn, .White)) |
             (self.knights[sq] & p.getPieceBoard(.Knight)) |
             (self.getBishopAttacks(sq, occ) & (p.getPieceBoard(.Bishop) | p.getPieceBoard(.Queen))) |
             (self.getRookAttacks(sq, occ) & (p.getPieceBoard(.Rook) | p.getPieceBoard(.Queen))) |

@@ -9,23 +9,7 @@ const tp = root.tp;
 const Move = mvs.Move;
 const GameState = brd.GameState;
 
-const score_hash: i32 = 2_000_000_000;
-const score_winning_capture: i32 = 1_000_000;
 const score_promotion: i32 = 950_000;
-const score_equal_capture: i32 = 900_000;
-const score_killer_1: i32 = 700_000;
-const score_killer_2: i32 = 690_000;
-const score_counter: i32 = 600_000;
-
-pub const ScoredMove = struct {
-    score: i32,
-    see_val: i32,
-};
-
-pub const MoveWithSee = struct {
-    move: Move,
-    see_val: i32,
-};
 
 pub const Stage = enum(u8) {
     tt_move,
@@ -42,11 +26,19 @@ pub const Stage = enum(u8) {
 
 pub const PickedMove = struct {
     move: Move,
-    see_val: i32,
     stage: Stage,
+    see_passed: ?bool = null,
+    see_bound: i32 = 0,
+
+    pub fn seeAtLeast(self: PickedMove, s: *srch.Searcher, gs: *const GameState, threshold: i32) bool {
+        if (self.see_passed) |passed| {
+            if (passed and threshold <= self.see_bound) return true;
+            if (!passed and threshold >= self.see_bound) return false;
+        }
+        return see.seeAtLeast(gs, s.move_gen, self.move, threshold);
+    }
 };
 
-const no_see: i32 = std.math.minInt(i32);
 const max_bad_noisy = 64;
 
 inline fn isQueenPromo(m: Move) bool {
@@ -62,10 +54,9 @@ pub const MovePicker = struct {
 
     list: mvs.MoveList,
     scores: [mvs.max_moves]i32,
-    sees: [mvs.max_moves]i32,
     index: usize,
 
-    bad_noisy: [max_bad_noisy]MoveWithSee,
+    bad_noisy: [max_bad_noisy]Move,
     bad_count: usize,
     bad_index: usize,
 
@@ -81,36 +72,29 @@ pub const MovePicker = struct {
     threats: u64,
     threats_ready: bool,
 
-    fn base(hash_move: Move) MovePicker {
-        return MovePicker{
-            .stage = .tt_move,
-            .tt_move = hash_move,
-            .killer1 = Move.none,
-            .killer2 = Move.none,
-            .counter_move = Move.none,
-            .list = .{},
-            .scores = undefined,
-            .sees = undefined,
-            .index = 0,
-            .bad_noisy = undefined,
-            .bad_count = 0,
-            .bad_index = 0,
-            .see_threshold = 0,
-            .skip_quiets = false,
-            .noisy_only = false,
-            .allow_quiet_tt = true,
-            .is_null = false,
-            .info = undefined,
-            .info_ready = false,
-            .threats = 0,
-            .threats_ready = false,
-        };
+    fn reset(self: *MovePicker, hash_move: Move) void {
+        self.stage = .tt_move;
+        self.tt_move = hash_move;
+        self.killer1 = Move.none;
+        self.killer2 = Move.none;
+        self.counter_move = Move.none;
+        self.list.len = 0;
+        self.index = 0;
+        self.bad_count = 0;
+        self.bad_index = 0;
+        self.see_threshold = 0;
+        self.skip_quiets = false;
+        self.noisy_only = false;
+        self.allow_quiet_tt = true;
+        self.is_null = false;
+        self.info_ready = false;
+        self.threats = 0;
+        self.threats_ready = false;
     }
 
-    pub fn init(hash_move: Move, is_null: bool) MovePicker {
-        var p = base(hash_move);
-        p.is_null = is_null;
-        return p;
+    pub fn init(self: *MovePicker, hash_move: Move, is_null: bool) void {
+        self.reset(hash_move);
+        self.is_null = is_null;
     }
 
     pub fn setThreats(self: *MovePicker, t: u64) void {
@@ -126,19 +110,17 @@ pub const MovePicker = struct {
         return self.threats;
     }
 
-    pub fn initNoisy(hash_move: Move) MovePicker {
-        var p = base(hash_move);
-        p.noisy_only = true;
-        p.allow_quiet_tt = false;
-        return p;
+    pub fn initNoisy(self: *MovePicker, hash_move: Move) void {
+        self.reset(hash_move);
+        self.noisy_only = true;
+        self.allow_quiet_tt = false;
     }
 
-    pub fn initProbcut(hash_move: Move, see_threshold: i32) MovePicker {
-        var p = base(hash_move);
-        p.noisy_only = true;
-        p.allow_quiet_tt = true;
-        p.see_threshold = see_threshold;
-        return p;
+    pub fn initProbcut(self: *MovePicker, hash_move: Move, see_threshold: i32) void {
+        self.reset(hash_move);
+        self.noisy_only = true;
+        self.allow_quiet_tt = true;
+        self.see_threshold = see_threshold;
     }
 
     fn ensureInfo(self: *MovePicker, s: *srch.Searcher, gs: *const GameState) void {
@@ -153,7 +135,7 @@ pub const MovePicker = struct {
         return s.move_gen.isLegal(gs, m, &self.info);
     }
 
-    fn pickBest(self: *MovePicker, comptime with_see: bool) Move {
+    fn pickBest(self: *MovePicker) Move {
         var best_idx = self.index;
         var j = self.index + 1;
         while (j < self.list.len) : (j += 1) {
@@ -164,9 +146,6 @@ pub const MovePicker = struct {
         if (best_idx != self.index) {
             std.mem.swap(Move, &self.list.moves[self.index], &self.list.moves[best_idx]);
             std.mem.swap(i32, &self.scores[self.index], &self.scores[best_idx]);
-            if (with_see) {
-                std.mem.swap(i32, &self.sees[self.index], &self.sees[best_idx]);
-            }
         }
         return self.list.moves[self.index];
     }
@@ -178,28 +157,23 @@ pub const MovePicker = struct {
     fn scoreNoisy(self: *MovePicker, s: *srch.Searcher, gs: *const GameState) void {
         const pos = &gs.cur_position;
         const side = @intFromEnum(gs.to_move);
+        const pawn_value = see.see_values[@intFromEnum(brd.Pieces.Pawn)];
+        const queen_value = see.see_values[@intFromEnum(brd.Pieces.Queen)];
         for (self.list.slice(), 0..) |move, i| {
             if (move.isCapture()) {
-                const sv = see.seeCapture(gs, s.move_gen, move);
-                self.sees[i] = sv;
+                const victim = @intFromEnum(pos.capturedPiece(move).piece);
+                const attacker = @intFromEnum(pos.movedPiece(move).piece);
+                const capthist: i32 = s.capture_history[side][attacker][move.to][victim];
 
-                const capture_piece_idx = pos.capturedPiece(move).piece.idx();
-                const attacking_piece_idx = pos.movedPiece(move).piece.idx();
-                const capthist: i32 = s.capture_history[side][attacking_piece_idx][move.to][capture_piece_idx];
-
-                const ordering = tp.see_weight.value * sv +
+                var score: i32 = tp.see_weight.value * see.see_values[victim] +
                     @divTrunc(capthist * 10, tp.capthist_div.value);
-
-                var score: i32 = if (sv >= 0) score_winning_capture + ordering else sv + ordering;
-
                 if (isQueenPromo(move)) {
                     score += score_promotion;
                 }
                 self.scores[i] = score;
             } else {
                 // Quiet queen promotion
-                self.sees[i] = 0;
-                self.scores[i] = score_promotion;
+                self.scores[i] = tp.see_weight.value * (queen_value - pawn_value);
             }
         }
     }
@@ -253,20 +227,15 @@ pub const MovePicker = struct {
                         if ((self.allow_quiet_tt or m.isNoisy()) and
                             s.move_gen.isPseudoLegal(gs, m) and self.legal(s, gs, m))
                         {
-                            const sv: i32 = if (m.isCapture())
-                                see.seeCapture(gs, s.move_gen, m)
-                            else if (isQueenPromo(m))
-                                0
-                            else
-                                no_see;
-                            return PickedMove{ .move = m, .see_val = sv, .stage = .tt_move };
+                            return PickedMove{ .move = m, .stage = .tt_move };
                         }
                         self.tt_move = Move.none;
                     }
                 },
 
                 .gen_noisy => {
-                    self.list = s.move_gen.generateMoves(gs, .captures);
+                    self.list.clear();
+                    s.move_gen.appendMoves(gs, .captures, &self.list);
                     self.scoreNoisy(s, gs);
                     self.index = 0;
                     self.stage = .good_noisy;
@@ -274,24 +243,23 @@ pub const MovePicker = struct {
 
                 .good_noisy => {
                     while (self.index < self.list.len) {
-                        const m = self.pickBest(true);
-                        const sv = self.sees[self.index];
+                        const m = self.pickBest();
                         self.index += 1;
 
                         if (self.isTTDup(m)) continue;
+                        if (!self.legal(s, gs, m)) continue;
 
                         if (m.isCapture()) {
-                            if (sv < self.see_threshold and self.bad_count < max_bad_noisy) {
-                                self.bad_noisy[self.bad_count] = MoveWithSee{ .move = m, .see_val = sv };
+                            const good = see.seeAtLeast(gs, s.move_gen, m, self.see_threshold);
+                            if (!good and self.bad_count < max_bad_noisy) {
+                                self.bad_noisy[self.bad_count] = m;
                                 self.bad_count += 1;
                                 continue;
                             }
-                            if (!self.legal(s, gs, m)) continue;
-                            return PickedMove{ .move = m, .see_val = sv, .stage = .good_noisy };
+                            return PickedMove{ .move = m, .stage = .good_noisy, .see_passed = good, .see_bound = self.see_threshold };
                         }
 
-                        if (!self.legal(s, gs, m)) continue;
-                        return PickedMove{ .move = m, .see_val = 0, .stage = .good_noisy };
+                        return PickedMove{ .move = m, .stage = .good_noisy };
                     }
                     self.stage = if (self.noisy_only) .bad_noisy else .killer_1;
                 },
@@ -300,7 +268,7 @@ pub const MovePicker = struct {
                     self.stage = .killer_2;
                     if (self.trySpecialQuiet(s, gs, s.killer[s.ply][0])) |m| {
                         self.killer1 = m;
-                        return PickedMove{ .move = m, .see_val = no_see, .stage = .killer_1 };
+                        return PickedMove{ .move = m, .stage = .killer_1 };
                     }
                 },
 
@@ -308,7 +276,7 @@ pub const MovePicker = struct {
                     self.stage = .counter;
                     if (self.trySpecialQuiet(s, gs, s.killer[s.ply][1])) |m| {
                         self.killer2 = m;
-                        return PickedMove{ .move = m, .see_val = no_see, .stage = .killer_2 };
+                        return PickedMove{ .move = m, .stage = .killer_2 };
                     }
                 },
 
@@ -321,7 +289,7 @@ pub const MovePicker = struct {
                             const cm = s.counter_moves[side][last.from][last.to];
                             if (self.trySpecialQuiet(s, gs, cm)) |m| {
                                 self.counter_move = m;
-                                return PickedMove{ .move = m, .see_val = no_see, .stage = .counter };
+                                return PickedMove{ .move = m, .stage = .counter };
                             }
                         }
                     }
@@ -332,7 +300,8 @@ pub const MovePicker = struct {
                         self.stage = .bad_noisy;
                         continue;
                     }
-                    self.list = s.move_gen.generateMoves(gs, .quiets);
+                    self.list.clear();
+                    s.move_gen.appendMoves(gs, .quiets, &self.list);
                     self.scoreQuiets(s, gs);
                     self.index = 0;
                     self.stage = .quiet;
@@ -344,7 +313,7 @@ pub const MovePicker = struct {
                         continue;
                     }
                     while (self.index < self.list.len) {
-                        const m = self.pickBest(false);
+                        const m = self.pickBest();
                         self.index += 1;
 
                         if (self.isTTDup(m)) continue;
@@ -353,17 +322,16 @@ pub const MovePicker = struct {
                             m.eql(self.counter_move)) continue;
                         if (!self.legal(s, gs, m)) continue;
 
-                        return PickedMove{ .move = m, .see_val = no_see, .stage = .quiet };
+                        return PickedMove{ .move = m, .stage = .quiet };
                     }
                     self.stage = .bad_noisy;
                 },
 
                 .bad_noisy => {
-                    while (self.bad_index < self.bad_count) {
+                    if (self.bad_index < self.bad_count) {
                         const bm = self.bad_noisy[self.bad_index];
                         self.bad_index += 1;
-                        if (!self.legal(s, gs, bm.move)) continue;
-                        return PickedMove{ .move = bm.move, .see_val = bm.see_val, .stage = .bad_noisy };
+                        return PickedMove{ .move = bm, .stage = .bad_noisy, .see_passed = false, .see_bound = self.see_threshold };
                     }
                     self.stage = .done;
                 },
@@ -378,7 +346,8 @@ pub fn verifyPicker(s: *srch.Searcher, gs: *const GameState, hash_move: Move) bo
     const reference = s.move_gen.generateLegal(gs, .all);
     var matched: [mvs.max_moves]bool = .{false} ** mvs.max_moves;
 
-    var picker = MovePicker.init(hash_move, false);
+    var picker: MovePicker = undefined;
+    picker.init(hash_move, false);
     var ok = true;
     var buf: [5]u8 = undefined;
 

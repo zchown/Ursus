@@ -447,27 +447,27 @@ pub const Position = struct {
     }
 
     pub inline fn getColorBoard(self: *const Position, c: Color) Bitboard {
-        return self.color_bb[c.idx()];
+        return self.color_bb[@intFromEnum(c)];
     }
 
     pub inline fn getPieceBoard(self: *const Position, p: Pieces) Bitboard {
-        if (p != .None) return self.piece_bb[p.idx()];
+        if (p != .None) return self.piece_bb[@intFromEnum(p)];
         return ~self.getOccupancy();
     }
 
     pub inline fn getPieceColorBoard(self: *const Position, p: Pieces, c: Color) Bitboard {
-        if (p != .None) return self.piece_bb[p.idx()] & self.color_bb[c.idx()];
+        if (p != .None) return self.piece_bb[@intFromEnum(p)] & self.color_bb[@intFromEnum(c)];
         return ~self.getOccupancy();
     }
 
     pub inline fn diagonalSliders(self: *const Position, c: Color) Bitboard {
-        return (self.piece_bb[Pieces.Bishop.idx()] | self.piece_bb[Pieces.Queen.idx()]) &
-            self.color_bb[c.idx()];
+        return (self.piece_bb[@intFromEnum(Pieces.Bishop)] | self.piece_bb[@intFromEnum(Pieces.Queen)]) &
+            self.color_bb[@intFromEnum(c)];
     }
 
     pub inline fn straightSliders(self: *const Position, c: Color) Bitboard {
-        return (self.piece_bb[Pieces.Rook.idx()] | self.piece_bb[Pieces.Queen.idx()]) &
-            self.color_bb[c.idx()];
+        return (self.piece_bb[@intFromEnum(Pieces.Rook)] | self.piece_bb[@intFromEnum(Pieces.Queen)]) &
+            self.color_bb[@intFromEnum(c)];
     }
 
     pub inline fn kingSquare(self: *const Position, c: Color) Square {
@@ -502,18 +502,18 @@ pub const Position = struct {
     }
 
     pub fn hasNonPawnMaterial(self: *const Position, c: Color) bool {
-        const non_pawn = self.piece_bb[Pieces.Knight.idx()] | self.piece_bb[Pieces.Bishop.idx()] |
-            self.piece_bb[Pieces.Rook.idx()] | self.piece_bb[Pieces.Queen.idx()];
-        return (non_pawn & self.color_bb[c.idx()]) != 0;
+        const non_pawn = self.piece_bb[@intFromEnum(Pieces.Knight)] | self.piece_bb[@intFromEnum(Pieces.Bishop)] |
+            self.piece_bb[@intFromEnum(Pieces.Rook)] | self.piece_bb[@intFromEnum(Pieces.Queen)];
+        return (non_pawn & self.color_bb[@intFromEnum(c)]) != 0;
     }
 
     pub fn isMaterialDraw(self: *const Position) bool {
-        const heavy_or_pawns = self.piece_bb[Pieces.Pawn.idx()] | self.piece_bb[Pieces.Rook.idx()] |
-            self.piece_bb[Pieces.Queen.idx()];
+        const heavy_or_pawns = self.piece_bb[@intFromEnum(Pieces.Pawn)] | self.piece_bb[@intFromEnum(Pieces.Rook)] |
+            self.piece_bb[@intFromEnum(Pieces.Queen)];
         if (heavy_or_pawns != 0) return false;
 
-        const knights = self.piece_bb[Pieces.Knight.idx()];
-        const bishops = self.piece_bb[Pieces.Bishop.idx()];
+        const knights = self.piece_bb[@intFromEnum(Pieces.Knight)];
+        const bishops = self.piece_bb[@intFromEnum(Pieces.Bishop)];
         const white_minors = @popCount((knights | bishops) & self.color_bb[0]);
         const black_minors = @popCount((knights | bishops) & self.color_bb[1]);
 
@@ -545,13 +545,13 @@ pub const Position = struct {
     }
 
     inline fn setBB(self: *Position, c: Color, p: Pieces, sq_bb: Bitboard) void {
-        self.piece_bb[p.idx()] |= sq_bb;
-        self.color_bb[c.idx()] |= sq_bb;
+        self.piece_bb[@intFromEnum(p)] |= sq_bb;
+        self.color_bb[@intFromEnum(c)] |= sq_bb;
     }
 
     inline fn clearBB(self: *Position, c: Color, p: Pieces, sq_bb: Bitboard) void {
-        self.piece_bb[p.idx()] &= ~sq_bb;
-        self.color_bb[c.idx()] &= ~sq_bb;
+        self.piece_bb[@intFromEnum(p)] &= ~sq_bb;
+        self.color_bb[@intFromEnum(c)] &= ~sq_bb;
     }
 
     inline fn togglePieceHashes(self: *Position, c: Color, p: Pieces, sq: Square) void {
@@ -560,14 +560,14 @@ pub const Position = struct {
         switch (p) {
             .Pawn => {
                 self.pawn_hash ^= key;
-                self.non_pawn_hash[c.idx()] ^= key;
+                self.non_pawn_hash[@intFromEnum(c)] ^= key;
             },
             .Knight, .Bishop => {
-                self.non_pawn_hash[c.idx()] ^= key;
+                self.non_pawn_hash[@intFromEnum(c)] ^= key;
                 self.minor_hash ^= key;
             },
             .Rook, .Queen => {
-                self.non_pawn_hash[c.idx()] ^= key;
+                self.non_pawn_hash[@intFromEnum(c)] ^= key;
                 self.major_hash ^= key;
             },
             .King => {},
@@ -640,8 +640,8 @@ pub const Position = struct {
                 continue;
             }
             occ |= getSquareBB(sq);
-            if (!getBit(self.piece_bb[pc.piece.idx()], sq)) return false;
-            if (!getBit(self.color_bb[pc.color.idx()], sq)) return false;
+            if (!getBit(self.piece_bb[@intFromEnum(pc.piece)], sq)) return false;
+            if (!getBit(self.color_bb[@intFromEnum(pc.color)], sq)) return false;
         }
         if (occ != self.getOccupancy()) return false;
         if ((self.color_bb[0] & self.color_bb[1]) != 0) return false;

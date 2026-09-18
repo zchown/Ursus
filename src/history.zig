@@ -97,8 +97,8 @@ pub fn updateCorrection(
     _ = best_move;
     const pos = &gs.cur_position;
     const corr_idx = pos.pawn_hash & 16383;
-    const np_white_corr_idx = pos.non_pawn_hash[brd.Color.White.idx()] & 16383;
-    const np_black_corr_idx = pos.non_pawn_hash[brd.Color.Black.idx()] & 16383;
+    const np_white_corr_idx = pos.non_pawn_hash[@intFromEnum(brd.Color.White)] & 16383;
+    const np_black_corr_idx = pos.non_pawn_hash[@intFromEnum(brd.Color.Black)] & 16383;
     const minor_corr_idx = pos.minor_hash & 16383;
     const major_corr_idx = pos.major_hash & 16383;
 
@@ -153,8 +153,8 @@ pub fn updateCorrection(
 pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState) i32 {
     const pos = &gs.cur_position;
     const corr_idx = pos.pawn_hash & 16383;
-    const np_white_corr_idx = pos.non_pawn_hash[brd.Color.White.idx()] & 16383;
-    const np_black_corr_idx = pos.non_pawn_hash[brd.Color.Black.idx()] & 16383;
+    const np_white_corr_idx = pos.non_pawn_hash[@intFromEnum(brd.Color.White)] & 16383;
+    const np_black_corr_idx = pos.non_pawn_hash[@intFromEnum(brd.Color.Black)] & 16383;
     const major_corr_idx = pos.major_hash & 16383;
     const minor_corr_idx = pos.minor_hash & 16383;
 
@@ -252,6 +252,7 @@ pub fn updateCaptureHistory(
         applyBonus(i16, best_entry, bonus, max_cap_history);
     }
 
+    // Penalize other captures that were tried but didn't cause the cutoff.
     for (other_moves.slice()) |m| {
         if (!m.isCapture() or m.eql(best_move)) continue;
         const attacker = pos.movedPiece(m).piece.idx();
