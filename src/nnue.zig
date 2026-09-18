@@ -2,7 +2,6 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root.zig");
 const brd = root.brd;
-const moves = root.moves;
 
 pub const net_path = "nets/Alkaid-ml.bin";
 
@@ -462,8 +461,8 @@ inline fn perspectiveSlotCached(view: brd.Color, king_sq: u8) usize {
     return slot_id_table[@intFromEnum(view)][king_sq];
 }
 
-fn materialBucket(board: *const brd.Board) usize {
-    const occupied: u64 = board.color_bb[0] | board.color_bb[1];
+fn materialBucket(gs: *const brd.GameState) usize {
+    const occupied: u64 = gs.cur_position.getOccupancy();
     const piece_count: usize = @popCount(occupied);
     return @min((piece_count -| 2) / 4, NUM_OUTPUT_BUCKETS - 1);
 }
@@ -736,55 +735,17 @@ pub const NNUEStack = struct {
     }
 
     pub fn pushAndUpdate(
-    self: *NNUEStack,
-    board: *const brd.Board,
-    move_data: moves.EncodedMove,
-) void {
+        self: *NNUEStack,
+        gs: *const brd.GameState,
+        m: brd.Move,
+    ) void {
         const next = self.current + 1;
-        var dirty = DirtyPieces{};
         const parent = &self.states[self.current];
 
-        const moving_color = board.toMove();
-        const opp_color = moving_color.opposite();
-        const from_sq: u8 = @intCast(move_data.start_square);
-        const to_sq: u8 = @intCast(move_data.end_square);
-        const piece_type: brd.Pieces = @enumFromInt(move_data.piece);
-
-        if (move_data.castling == 1) {
-            const rook_from: u8 = if (to_sq > from_sq)
-            (if (moving_color == .White) @as(u8, 7) else @as(u8, 63))
-                else
-            (if (moving_color == .White) @as(u8, 0) else @as(u8, 56));
-            const rook_to: u8 = if (to_sq > from_sq)
-            (if (moving_color == .White) @as(u8, 5) else @as(u8, 61))
-                else
-            (if (moving_color == .White) @as(u8, 3) else @as(u8, 59));
-            dirty.addPiece(moving_color, .King, to_sq);
-            dirty.addPiece(moving_color, .Rook, rook_to);
-            dirty.subPiece(moving_color, .King, from_sq);
-            dirty.subPiece(moving_color, .Rook, rook_from);
-        } else if (move_data.en_passant == 1) {
-            const ep_pawn_sq: u8 =
-            if (moving_color == .White) to_sq - 8 else to_sq + 8;
-            dirty.addPiece(moving_color, .Pawn, to_sq);
-            dirty.subPiece(moving_color, .Pawn, from_sq);
-            dirty.subPiece(opp_color, .Pawn, ep_pawn_sq);
-        } else if (move_data.promoted_piece != 0) {
-            const promoted_type: brd.Pieces = @enumFromInt(move_data.promoted_piece);
-            dirty.subPiece(moving_color, .Pawn, from_sq);
-            if (move_data.capture == 1) {
-                const captured_type: brd.Pieces = @enumFromInt(move_data.captured_piece);
-                dirty.subPiece(opp_color, captured_type, to_sq);
-            }
-            dirty.addPiece(moving_color, promoted_type, to_sq);
-        } else {
-            if (move_data.capture == 1) {
-                const captured_type: brd.Pieces = @enumFromInt(move_data.captured_piece);
-                dirty.subPiece(opp_color, captured_type, to_sq);
-            }
-            dirty.addPiece(moving_color, piece_type, to_sq);
-            dirty.subPiece(moving_color, piece_type, from_sq);
-        }
+        const changes = gs.dirtyPieces(m);
+        var dirty = DirtyPieces{};
+        for (changes.removedSlice()) |r| dirty.subPiece(r.piece.color, r.piece.piece, r.sq);
+        for (changes.addedSlice()) |a| dirty.addPiece(a.piece.color, a.piece.piece, a.sq);
 
         var new_king_sqs = parent.king_squares;
         var i: u8 = 0;
@@ -812,7 +773,7 @@ pub const NNUEStack = struct {
         self.current = next;
     }
 
-    fn ensureComputed(self: *NNUEStack, target: usize, board: *const brd.Board) void {
+    fn ensureComputed(self: *NNUEStack, target: usize, gs: *const brd.GameState) void {
         if (net_weights == null) return;
         inline for (0..brd.num_colors) |c| {
             if (!self.states[target].computed[c]) {
@@ -833,7 +794,7 @@ pub const NNUEStack = struct {
                 if (has_refresh) {
                     std.debug.assert(target == self.current);
                     refreshPerspectiveCached(
-                    board,
+                    gs,
                     &self.states[target],
                     &self.finny,
                     @as(brd.Color, @enumFromInt(c)),
@@ -852,7 +813,7 @@ pub const NNUEStack = struct {
 
 
 inline fn refreshAccumulatorFromBoard(
-    board: *const brd.Board,
+    gs: *const brd.GameState,
     state: *NNUEState,
     view: brd.Color,
     view_king_sq: u8,
@@ -876,7 +837,7 @@ inline fn refreshAccumulatorFromBoard(
 
     inline for (0..brd.num_colors) |ci| {
         inline for (0..6) |pi| {
-            var bb = board.piece_bb[ci][pi];
+            var bb = gs.cur_position.getPieceColorBoard(@enumFromInt(pi), @enumFromInt(ci));
             while (bb != 0) {
                 const sq: u8 = @intCast(@ctz(bb));
                 const idx = featureIndex(view, view_king_sq, @enumFromInt(ci), @enumFromInt(pi), sq);
@@ -893,13 +854,12 @@ inline fn refreshAccumulatorFromBoard(
     }
 }
 
-fn refreshPerspective(board: *const brd.Board, state: *NNUEState, view: brd.Color) void {
+fn refreshPerspective(gs: *const brd.GameState, state: *NNUEState, view: brd.Color) void {
     const c = @intFromEnum(view);
-    const king_bb = board.piece_bb[c][@intFromEnum(brd.Pieces.King)];
-    const view_king_sq: u8 = @intCast(@ctz(king_bb));
+    const view_king_sq: u8 = gs.cur_position.kingSquare(view);
     state.king_squares[c] = view_king_sq;
 
-    refreshAccumulatorFromBoard(board, state, view, view_king_sq);
+    refreshAccumulatorFromBoard(gs, state, view, view_king_sq);
 
     state.acc_ptr[c] = &state.accumulators[c];
     state.needs_refresh[c] = false;
@@ -907,7 +867,7 @@ fn refreshPerspective(board: *const brd.Board, state: *NNUEState, view: brd.Colo
 }
 
 fn refreshPerspectiveCached(
-board: *const brd.Board,
+gs: *const brd.GameState,
 state: *NNUEState,
 finny: *FinnyTable,
 view: brd.Color,
@@ -915,8 +875,7 @@ view: brd.Color,
     if (net_weights == null) return;
     const c = @intFromEnum(view);
 
-    const king_bb = board.piece_bb[c][@intFromEnum(brd.Pieces.King)];
-    const view_king_sq: u8 = @intCast(@ctz(king_bb));
+    const view_king_sq: u8 = gs.cur_position.kingSquare(view);
     state.king_squares[c] = view_king_sq;
     const slot = perspectiveSlotCached(view, view_king_sq);
     const entry = &finny.entries[c][slot];
@@ -927,7 +886,7 @@ view: brd.Color,
             if (piece == .None) continue;
             const pi = @intFromEnum(piece);
 
-            const current_bb = board.piece_bb[ci][pi];
+            const current_bb = gs.cur_position.getPieceColorBoard(piece, piece_color);
             const cached_bb = entry.pieces[ci][pi];
             if (current_bb == cached_bb) continue;
 
@@ -959,15 +918,15 @@ view: brd.Color,
     state.computed[c] = true;
 }
 
-pub fn refreshAccumulator(board: *const brd.Board, state: *NNUEState) void {
-    refreshPerspective(board, state, .White);
-    refreshPerspective(board, state, .Black);
+pub fn refreshAccumulator(gs: *const brd.GameState, state: *NNUEState) void {
+    refreshPerspective(gs, state, .White);
+    refreshPerspective(gs, state, .Black);
     state.dirty = .{};
 }
 
-pub fn refreshStack(stack: *NNUEStack, board: *const brd.Board) void {
-    refreshPerspectiveCached(board, &stack.states[stack.current], &stack.finny, .White);
-    refreshPerspectiveCached(board, &stack.states[stack.current], &stack.finny, .Black);
+pub fn refreshStack(stack: *NNUEStack, gs: *const brd.GameState) void {
+    refreshPerspectiveCached(gs, &stack.states[stack.current], &stack.finny, .White);
+    refreshPerspectiveCached(gs, &stack.states[stack.current], &stack.finny, .Black);
     stack.states[stack.current].dirty = .{};
 }
 
@@ -1106,12 +1065,12 @@ inline fn l1DenseI16(
     }
 }
 
-pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Board) i32 {
+pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, gs: *const brd.GameState) i32 {
     const w = net_weights orelse return 0;
-    stack.ensureComputed(stack.current, board);
+    stack.ensureComputed(stack.current, gs);
 
     const state = stack.top();
-    const bucket = materialBucket(board);
+    const bucket = materialBucket(gs);
     const stm: usize = @intFromEnum(side_to_move);
     const nstm = stm ^ 1;
 
@@ -1251,8 +1210,8 @@ pub fn reportSparsity() void {
     });
 }
 
-pub fn sparsityProbe(stack: *NNUEStack, side_to_move: brd.Color, board: *const brd.Board) struct { nonzero: u32, blocks4: u32 } {
-    stack.ensureComputed(stack.current, board);
+pub fn sparsityProbe(stack: *NNUEStack, side_to_move: brd.Color, gs: *const brd.GameState) struct { nonzero: u32, blocks4: u32 } {
+    stack.ensureComputed(stack.current, gs);
     const state = stack.top();
     const stm: usize = @intFromEnum(side_to_move);
 

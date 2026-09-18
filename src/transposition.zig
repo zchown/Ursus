@@ -19,7 +19,7 @@ pub const Entry = struct {
     hash: zob.ZobristKey = 0,
     eval: i32 = 0,
     static_eval: i32 = 0,
-    move: mv.EncodedMove = mv.EncodedMove.fromU32(0),
+    move: mv.Move = mv.Move.none,
     flag: EstimationType = .None,
     depth: u8 = 0,
     age: u8 = 0,
@@ -32,7 +32,7 @@ pub const Entry = struct {
 //
 //   bits   0-31:  hash key upper (bits 32-63 of zobrist)
 //   bits  32-47:  eval (i16, clamped)
-//   bits  48-63:  move (u16, compressed from u32)
+//   bits  48-63:  move (the 16-bit Move, stored as-is)
 //   bits  64-79:  static_eval (i16, clamped)
 //   bits  80-81:  flag (EstimationType, 2 bits)
 //   bits  82-89:  depth (u8)
@@ -104,7 +104,7 @@ pub const PackedEntry = extern struct {
             .hash = full_hash,
             .eval = @as(i32, eval_),
             .static_eval = @as(i32, static_eval),
-            .move = mv.EncodedMove.fromTTKey(move_u16),
+            .move = mv.Move.fromU16(move_u16),
             .flag = @enumFromInt(flag_bits),
             .depth = depth,
             .age = age,
@@ -153,9 +153,9 @@ pub const PackedEntry = extern struct {
         return ((self.data >> 100) & 1) != 0;
     }
 
-    pub inline fn getMove(self: PackedEntry) mv.EncodedMove {
+    pub inline fn getMove(self: PackedEntry) mv.Move {
         const move_u16: u16 = @truncate(self.data >> 48);
-        return mv.EncodedMove.fromTTKey(move_u16);
+        return mv.Move.fromU16(move_u16);
     }
 };
 
@@ -347,7 +347,7 @@ pub const TranspositionTable = struct {
         const new_packed = PackedEntry.pack(
             entry.hash,
             entry.eval,
-            best_move.toTTKey(),
+            best_move.toU16(),
             entry.static_eval,
             entry.flag,
             entry.depth,
@@ -365,8 +365,7 @@ pub const TranspositionTable = struct {
 
         for (self.buckets) |*bucket| {
             for (&bucket.entries) |*item| {
-                const packed_data = item.load(.monotonic);
-                const packed_entry = PackedEntry{ .data = packed_data };
+                const packed_entry = PackedEntry{ .data = item.loadPacked() };
                 if (packed_entry.getFlag() != .None) {
                     used += 1;
                 }
@@ -375,25 +374,6 @@ pub const TranspositionTable = struct {
 
         return .{ .used = used, .total = self.num_buckets * TT_BUCKET_SLOTS };
     }
-
-    // pub fn getFillPermill(self: *const TranspositionTable) usize {
-    //     const sample_size = @min(1000, self.num_buckets);
-    //     var used: usize = 0;
-    //
-    //     var i: usize = 0;
-    //     while (i < sample_size) : (i += 1) {
-    //         const idx = (i * self.num_buckets) / sample_size;
-    //         for (&self.buckets[idx].entries) |*item| {
-    //             const packed_data = item.load(.monotonic);
-    //             const packed_entry = PackedEntry{ .data = packed_data };
-    //             if (packed_entry.getFlag() != .None) {
-    //                 used += 1;
-    //             }
-    //         }
-    //     }
-    //
-    //     return (used * 1000) / (sample_size * 1);
-    // }
 };
 
 comptime {
@@ -404,4 +384,3 @@ comptime {
         @compileError("Bucket must be exactly 64 bytes to align with CPU cache lines");
     }
 }
-

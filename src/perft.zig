@@ -20,10 +20,10 @@ pub const PerftResult = struct {
     }
 };
 
-pub fn runPerft(mg: *mvs.MoveGen, board: *brd.Board, max_depth: usize) !void {
+pub fn runPerft(mg: *const mvs.MoveGen, gs: *brd.GameState, max_depth: usize) !void {
     for (0..max_depth) |depth| {
         const start = std.time.milliTimestamp();
-        const result = perft(mg, board, depth + 1, std.heap.page_allocator);
+        const result = perft(mg, gs, depth + 1);
         const end = std.time.milliTimestamp();
         const time = end - start;
 
@@ -49,12 +49,7 @@ pub fn runPerft(mg: *mvs.MoveGen, board: *brd.Board, max_depth: usize) !void {
     }
 }
 
-pub fn perft(
-    mg: *mvs.MoveGen,
-    board: *brd.Board,
-    depth: usize,
-    allocator: std.mem.Allocator,
-) PerftResult {
+pub fn perft(mg: *const mvs.MoveGen, gs: *brd.GameState, depth: usize) PerftResult {
     var result = PerftResult{};
 
     if (depth == 0) {
@@ -62,60 +57,67 @@ pub fn perft(
         return result;
     }
 
-    const moveList = mg.generateMoves(board, mvs.allMoves);
+    const info = mg.legalInfo(gs);
+    const list = mg.generateMoves(gs, .all);
 
-    for (0..moveList.len) |m| {
-        const move = moveList.items[m];
+    for (list.slice()) |move| {
+        if (!mg.isLegal(gs, move, &info)) continue;
 
-        // Capture original state and FEN
-        // const original_state = board.game_state;
-        // const original_fen = fen.toFEN(board, allocator) catch unreachable;
-        // defer allocator.free(original_fen);
-
-        mvs.makeMove(board, move);
-
-        // King safety check
-        // Recursive perft call
-        const child_result = perft(mg, board, depth - 1, allocator);
-        result.add(child_result);
-
-        // if (depth == 4) {
-        //     move.printAlgebraic();
-        //     std.debug.print(" -> {} nodes\n", .{child_result.total});
-        // }
-
-        // Update move type counters
         if (depth == 1) {
-            if (move.capture != 0) result.captures += child_result.total;
-            if (move.en_passant != 0) result.en_passant += child_result.total;
-            if (move.castling != 0) result.castling += child_result.total;
-            if (move.promoted_piece != 0) result.promotions += child_result.total;
+            result.total += 1;
+            if (move.isCapture()) result.captures += 1;
+            if (move.isEP()) result.en_passant += 1;
+            if (move.isCastle()) result.castling += 1;
+            if (move.isPromo()) result.promotions += 1;
+            continue;
         }
 
-        mvs.undoMove(board, move);
-
-        // Post-undo state validation
-        // const new_fen = fen.toFEN(board, allocator) catch unreachable;
-        // defer allocator.free(new_fen);
-        //
-        // if (!std.mem.eql(u8, original_fen, new_fen)) {
-        //     std.debug.print("\nFEN MISMATCH!\nOriginal: {s}\nNew: {s}\n", .{
-        //         original_fen,
-        //         new_fen,
-        //     });
-        //     @panic("FEN mismatch after move undo");
-        // }
-        //
-        // if (!std.meta.eql(board.game_state, original_state)) {
-        //     std.debug.print("\nSTATE MISMATCH!\nOriginal: {any}\nNew: {any}\n", .{
-        //         original_state,
-        //         board.game_state,
-        //     });
-        //     @panic("Game state mismatch after move undo");
-        // }
+        gs.makeMove(move);
+        result.add(perft(mg, gs, depth - 1));
+        gs.unmakeMove(move);
     }
 
     return result;
+}
+
+pub fn perftNodes(mg: *const mvs.MoveGen, gs: *brd.GameState, depth: usize) u64 {
+    if (depth == 0) return 1;
+    const info = mg.legalInfo(gs);
+    const list = mg.generateMoves(gs, .all);
+
+    var nodes: u64 = 0;
+    for (list.slice()) |move| {
+        if (!mg.isLegal(gs, move, &info)) continue;
+        if (depth == 1) {
+            nodes += 1;
+            continue;
+        }
+        gs.makeMove(move);
+        nodes += perftNodes(mg, gs, depth - 1);
+        gs.unmakeMove(move);
+    }
+    return nodes;
+}
+
+pub fn divide(mg: *const mvs.MoveGen, gs: *brd.GameState, depth: usize, chess960: bool) !u64 {
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    if (depth == 0) return 1;
+    const list = mg.generateLegal(gs, .all);
+    var total: u64 = 0;
+    for (list.slice()) |move| {
+        gs.makeMove(move);
+        const n = perftNodes(mg, gs, depth - 1);
+        gs.unmakeMove(move);
+        var buf: [5]u8 = undefined;
+        try stdout.print("{s}: {d}\n", .{ mvs.moveToUci(gs, move, chess960, &buf), n });
+        total += n;
+    }
+    try stdout.print("\nNodes searched: {d}\n", .{total});
+    try stdout.flush();
+    return total;
 }
 
 const Chess960Position = struct {
@@ -303,12 +305,14 @@ pub fn runChess960PerftTests() !void {
         },
     };
 
-    var allocator = std.heap.page_allocator;
+    const allocator = std.heap.page_allocator;
     const mg = try allocator.create(mvs.MoveGen);
     mg.init();
     defer allocator.destroy(mg);
 
-    var template = brd.Board.init();
+    const gs = try allocator.create(brd.GameState);
+    defer allocator.destroy(gs);
+    gs.initInPlace();
     var any_failed = false;
 
     std.debug.print("\n╔══════════════════════════════════════════════════════╗\n", .{});
@@ -317,20 +321,18 @@ pub fn runChess960PerftTests() !void {
 
     for (positions) |pos| {
         std.debug.print("\n[{s}]\n  FEN: {s}\n", .{ pos.note, pos.fen });
-        var board = template.copyBoard();
-        _ = try fen.parseFEN(&board, pos.fen);
+        try fen.parseFEN(gs, pos.fen);
 
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
         const start = std.time.milliTimestamp();
-        const result = perft(mg, &board, pos.depth, gpa.allocator());
+        const nodes = perftNodes(mg, gs, pos.depth);
         const elapsed = std.time.milliTimestamp() - start;
 
-        if (result.total != pos.expected) {
+        if (nodes != pos.expected) {
             std.debug.print("  FAIL  nodes: expected {}, got {} ({}ms)\n",
-                .{ pos.expected, result.total, elapsed });
+                .{ pos.expected, nodes, elapsed });
             any_failed = true;
         } else {
-            std.debug.print("  PASS  nodes: {} ({}ms)\n", .{ result.total, elapsed });
+            std.debug.print("  PASS  nodes: {} ({}ms)\n", .{ nodes, elapsed });
         }
     }
 
@@ -443,12 +445,14 @@ pub fn runShredderPerftTests() !void {
         .{ .fen = "bbq1nr1r/pppppk1p/2n2p2/6p1/P4P2/4P1P1/1PPP3P/BBQNNRKR w HF - 1 9", .depth = 6, .expected = 280056112, .note = "Shredder 960" },
     };
 
-    var allocator = std.heap.page_allocator;
+    const allocator = std.heap.page_allocator;
     const mg = try allocator.create(mvs.MoveGen);
     mg.init();
     defer allocator.destroy(mg);
 
-    var template = brd.Board.init();
+    const gs = try allocator.create(brd.GameState);
+    defer allocator.destroy(gs);
+    gs.initInPlace();
     var any_failed = false;
 
     std.debug.print("\n╔══════════════════════════════════════════════════════╗\n", .{});
@@ -457,20 +461,18 @@ pub fn runShredderPerftTests() !void {
 
     for (positions) |pos| {
         std.debug.print("\n[{s}]\n  FEN: {s}\n", .{ pos.note, pos.fen });
-        var board = template.copyBoard();
-        _ = try fen.parseFEN(&board, pos.fen);
+        try fen.parseFEN(gs, pos.fen);
 
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
         const start = std.time.milliTimestamp();
-        const result = perft(mg, &board, pos.depth, gpa.allocator());
+        const nodes = perftNodes(mg, gs, pos.depth);
         const elapsed = std.time.milliTimestamp() - start;
 
-        if (result.total != pos.expected) {
+        if (nodes != pos.expected) {
             std.debug.print("  FAIL  nodes: expected {}, got {} ({}ms)\n",
-                .{ pos.expected, result.total, elapsed });
+                .{ pos.expected, nodes, elapsed });
             any_failed = true;
         } else {
-            std.debug.print("  PASS  nodes: {} ({}ms)\n", .{ result.total, elapsed });
+            std.debug.print("  PASS  nodes: {} ({}ms)\n", .{ nodes, elapsed });
         }
     }
 
@@ -550,25 +552,22 @@ pub fn runPerftTest() !void {
         },
     };
 
-    // var mg = mvs.MoveGen.init();
-    var allocator = std.heap.page_allocator;
+    const allocator = std.heap.page_allocator;
     const mg = try allocator.create(mvs.MoveGen);
     mg.init();
     defer allocator.destroy(mg);
 
-    var sBoard = brd.Board.init();
+    const gs = try allocator.create(brd.GameState);
+    defer allocator.destroy(gs);
+    gs.initInPlace();
 
     for (positions) |pos| {
         std.debug.print("\nTesting position: {s}\n", .{pos.fen});
-        var board = sBoard.copyBoard();
-        _ = try fen.parseFEN(&board, pos.fen);
+        try fen.parseFEN(gs, pos.fen);
 
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
-        const result = perft(mg, &board, pos.depth, gpa.allocator());
+        const result = perft(mg, gs, pos.depth);
         var toReturn: usize = 0;
 
-        // Verify results
         if (result.total != pos.expected) {
             std.debug.print("FAIL: Nodes expected {} got {}\n", .{ pos.expected, result.total });
             toReturn = 1;

@@ -12,20 +12,14 @@ pub fn almostMate(score: i32) bool {
     return @abs(score) > mate_score - 256;
 }
 
-pub inline fn scalingMaterial(board: *const brd.Board) i32 {
-    const w  = @intFromEnum(brd.Color.White);
-    const b  = @intFromEnum(brd.Color.Black);
-    const P  = @intFromEnum(brd.Pieces.Pawn);
-    const N  = @intFromEnum(brd.Pieces.Knight);
-    const B  = @intFromEnum(brd.Pieces.Bishop);
-    const R  = @intFromEnum(brd.Pieces.Rook);
-    const Q  = @intFromEnum(brd.Pieces.Queen);
+pub inline fn scalingMaterial(gs: *const brd.GameState) i32 {
+    const pos = &gs.cur_position;
 
-    const pawns:   i32 = @intCast(@popCount(board.piece_bb[w][P] | board.piece_bb[b][P]));
-    const knights: i32 = @intCast(@popCount(board.piece_bb[w][N] | board.piece_bb[b][N]));
-    const bishops: i32 = @intCast(@popCount(board.piece_bb[w][B] | board.piece_bb[b][B]));
-    const rooks:   i32 = @intCast(@popCount(board.piece_bb[w][R] | board.piece_bb[b][R]));
-    const queens:  i32 = @intCast(@popCount(board.piece_bb[w][Q] | board.piece_bb[b][Q]));
+    const pawns:   i32 = @intCast(@popCount(pos.getPieceBoard(.Pawn)));
+    const knights: i32 = @intCast(@popCount(pos.getPieceBoard(.Knight)));
+    const bishops: i32 = @intCast(@popCount(pos.getPieceBoard(.Bishop)));
+    const rooks:   i32 = @intCast(@popCount(pos.getPieceBoard(.Rook)));
+    const queens:  i32 = @intCast(@popCount(pos.getPieceBoard(.Queen)));
 
     return tp.scale_pawn.value   * pawns
          + tp.scale_knight.value * knights
@@ -34,15 +28,15 @@ pub inline fn scalingMaterial(board: *const brd.Board) i32 {
          + tp.scale_queen.value  * queens;
 }
 
-pub fn adjustEval(board: *const brd.Board, optimism: i32, raw: i32, correction: i32) i32 {
-    const mat: i64 = scalingMaterial(board);
+pub fn adjustEval(gs: *const brd.GameState, optimism: i32, raw: i32, correction: i32) i32 {
+    const mat: i64 = scalingMaterial(gs);
     const opt_mul: i64 = @as(i64, tp.optimism_base.value)
         + @divTrunc(mat * @as(i64, tp.optimism_mat_scale.value), 1024);
 
     var v: i64 = @as(i64, raw)
         + @divTrunc(@as(i64, optimism) * opt_mul, @as(i64, tp.material_scale_div.value));
 
-    const hm: i64 = board.game_state.halfmove_clock;
+    const hm: i64 = gs.cur_position.halfmove;
     const fifty: i64 = tp.fifty_scale_base.value;
     v = @divTrunc(v * (fifty - hm), fifty);
 

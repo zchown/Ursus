@@ -61,46 +61,37 @@ const ViriGame = struct {
         };
     }
 
-    fn setStartingBoard(self: *ViriGame, board: *const brd.Board) void {
-        var occupancy: u64 = 0;
-        for (0..brd.num_colors) |ci| {
-            for (0..brd.num_pieces) |pi| {
-                occupancy |= board.piece_bb[ci][pi];
-            }
-        }
+    fn setStartingBoard(self: *ViriGame, gs: *const brd.GameState) void {
+        const pos = &gs.cur_position;
+        const occupancy = pos.getOccupancy();
         self.header.occupancy = occupancy;
 
         var pieces: u128 = 0;
         var occ = occupancy;
         var idx: u7 = 0;
         while (occ != 0) {
-            const sq: u6 = @intCast(@ctz(occ));
-            const piece_nibble: u128 = @intCast(encodePieceAt(board, sq));
-
+            const sq = brd.popLsb(&occ);
+            const piece_nibble: u128 = encodePieceAt(gs, sq);
             pieces |= piece_nibble << (@as(u7, idx) * 4);
             idx += 1;
-            occ &= occ - 1;
         }
         self.header.pieces = pieces;
 
-        const ep_sq: u8 = if (board.game_state.en_passant_square) |ep|
-            @intCast(ep)
-            else
-            64;
-        const stm_bit: u8 = if (board.game_state.side_to_move == .Black) 0x80 else 0;
+        const ep_sq: u8 = if (pos.ep_sq) |ep| ep else 64;
+        const stm_bit: u8 = if (gs.to_move == .Black) 0x80 else 0;
 
         self.header.ep_and_stm = stm_bit | ep_sq;
-        self.header.halfmove_clock = @intCast(@min(255, board.game_state.halfmove_clock));
-        self.header.fullmove_clock = @intCast(board.game_state.fullmove_number);
-        self.header.score = 0; 
+        self.header.halfmove_clock = pos.halfmove;
+        self.header.fullmove_clock = gs.fullmove;
+        self.header.score = 0;
         self.header.outcome = 0;
         self.header.extra = 0;
     }
 
-    fn addMove(self: *ViriGame, move_data: mvs.EncodedMove, white_score: i16, board: *const brd.Board) void {
+    fn addMove(self: *ViriGame, move: mvs.Move, white_score: i16, gs: *const brd.GameState) void {
         if (self.move_count >= max_moves_per_game) return;
         self.moves[self.move_count] = .{
-            .move_data = encodeViriMove(move_data, board),
+            .move_data = encodeViriMove(move, gs),
             .eval_score = white_score,
         };
         self.move_count += 1;
@@ -111,7 +102,6 @@ const ViriGame = struct {
     }
 
     fn writeToFile(self: *const ViriGame, file: std.fs.File) !void {
-        // Safe, strongly typed byte-slice conversion 
         try file.writeAll(std.mem.asBytes(&self.header));
         try file.writeAll(std.mem.sliceAsBytes(self.moves[0..self.move_count]));
         const null_term = [_]u8{ 0, 0, 0, 0 };
@@ -119,64 +109,37 @@ const ViriGame = struct {
     }
 };
 
-fn encodePieceAt(board: *const brd.Board, sq: u6) u8 {
-    const mask: u64 = @as(u64, 1) << sq;
-    for (0..brd.num_colors) |ci| {
-        for (0..brd.num_pieces) |pi| {
-            if (board.piece_bb[ci][pi] & mask != 0) {
-                var nibble: u8 = @intCast(pi);
-                if (ci == 1) nibble += 8; 
-
-                if (pi == @intFromEnum(brd.Pieces.Rook)) {
-                    if (isCastlingRook(board, sq, @enumFromInt(ci))) {
-                        nibble = if (ci == 0) 6 else 14;
-                    }
-                }
-                return nibble;
-            }
-        }
+fn encodePieceAt(gs: *const brd.GameState, sq: brd.Square) u8 {
+    const pc = gs.cur_position.getFromSquare(sq);
+    if (pc.isNone()) return 0;
+    if (pc.piece == .Rook and isCastlingRook(gs, sq, pc.color)) {
+        return if (pc.color == .White) 6 else 14;
     }
-    return 0;
+    const color_bit: u8 = if (pc.color == .Black) 8 else 0;
+    return @as(u8, @intFromEnum(pc.piece)) | color_bit;
 }
 
-fn isCastlingRook(board: *const brd.Board, sq: u6, color: brd.Color) bool {
-    const gs = board.game_state;
-    const cr = gs.castling_rights;
-    if (color == .White) {
-        if ((cr & @intFromEnum(brd.CastleRights.WhiteQueenside) != 0) and
-        @as(usize, sq) == gs.rookSquare(.White, false)) return true;
-        if ((cr & @intFromEnum(brd.CastleRights.WhiteKingside) != 0) and
-        @as(usize, sq) == gs.rookSquare(.White, true)) return true;
-    } else {
-        if ((cr & @intFromEnum(brd.CastleRights.BlackQueenside) != 0) and
-        @as(usize, sq) == gs.rookSquare(.Black, false)) return true;
-        if ((cr & @intFromEnum(brd.CastleRights.BlackKingside) != 0) and
-        @as(usize, sq) == gs.rookSquare(.Black, true)) return true;
+fn isCastlingRook(gs: *const brd.GameState, sq: brd.Square, color: brd.Color) bool {
+    const cr = gs.cur_position.castle;
+    inline for ([_]bool{ true, false }) |kingside| {
+        if (brd.hasCastleRight(cr, brd.castleRight(color, kingside)) and
+            sq == gs.rookSquare(color, kingside)) return true;
     }
     return false;
 }
 
-fn encodeViriMove(move_data: mvs.EncodedMove, board: *const brd.Board) u16 {
-    const from: u16 = @intCast(move_data.start_square);
-    var to: u16 = @intCast(move_data.end_square);
+fn encodeViriMove(move: mvs.Move, gs: *const brd.GameState) u16 {
+    const from: u16 = move.from;
+    var to: u16 = move.to;
 
     var flag: u16 = 0;
-    if (move_data.castling == 1) {
+    if (move.isCastle()) {
         flag = 0b10_00;
-        const moving_color = board.game_state.side_to_move;
-        const kingside = (move_data.end_square % 8) == 6; 
-        to = @intCast(board.game_state.rookSquare(moving_color, kingside));
-    } else if (move_data.en_passant == 1) {
+        to = gs.rookSquare(gs.to_move, move.isKingsideCastle());
+    } else if (move.isEP()) {
         flag = 0b01_00;
-    } else if (move_data.promoted_piece != 0) {
-        const promo: u16 = switch (move_data.promoted_piece) {
-            @intFromEnum(brd.Pieces.Knight) => 0b11_00,
-            @intFromEnum(brd.Pieces.Bishop) => 0b11_01,
-            @intFromEnum(brd.Pieces.Rook) => 0b11_10,
-            @intFromEnum(brd.Pieces.Queen) => 0b11_11,
-            else => 0b00_00,
-        };
-        flag = promo;
+    } else if (move.isPromo()) {
+        flag = 0b11_00 | @as(u16, move.flags);
     }
 
     return from | (to << 6) | (flag << 12);
@@ -286,7 +249,7 @@ rng: *Rng,
 config: *const DatagenConfig,
 game: *ViriGame,
 book: ?*const OpeningBook,
-board: *brd.Board,
+board: *brd.GameState,
 ) bool {
     game.* = ViriGame.init();
     board.initInPlace();
@@ -294,36 +257,15 @@ board: *brd.Board,
     if (book) |b| {
         const fen = b.pick(rng);
         fen_mod.parseFEN(board, fen) catch return false;
-        board.refreshNNUE();
     } else {
         fen_mod.setupStartingPosition(board);
         const jiggle: i32 = if (rng.next() % 2 == 0) -1 else 1;
         const actual_plies: u32 = @intCast(@max(0, @as(i32, @intCast(config.random_plies)) + jiggle));
 
-        var random_ok = true;
         for (0..actual_plies) |_| {
-            var move_list = searcher.move_gen.generateMoves(board, false);
-            var legal_count: usize = 0;
-            var legal_moves: [256]mvs.EncodedMove = undefined;
-            for (move_list.items[0..move_list.len]) |move_data| {
-                mvs.makeMove(board, move_data);
-                if (!searcher.move_gen.isInCheck(board, board.justMoved())) {
-                    if (legal_count < 256) {
-                        legal_moves[legal_count] = move_data;
-                        legal_count += 1;
-                    }
-                }
-                mvs.undoMove(board, move_data);
-            }
-            if (legal_count == 0) {
-                random_ok = false;
-                break;
-            }
-            const pick = rng.bounded(legal_count);
-            mvs.makeMove(board, legal_moves[pick]);
+            const move = pickRandomLegalMove(searcher, board, rng) orelse return false;
+            board.makeMove(move);
         }
-
-        if (!random_ok) return false;
     }
 
     if (board.isDraw(0)) return false;
@@ -349,21 +291,10 @@ board: *brd.Board,
             break;
         }
 
-        var move_list = searcher.move_gen.generateMoves(board, false);
-        var has_legal = false;
-        for (move_list.items[0..move_list.len]) |move_data| {
-            mvs.makeMove(board, move_data);
-            if (!searcher.move_gen.isInCheck(board, board.justMoved())) {
-                has_legal = true;
-            }
-            mvs.undoMove(board, move_data);
-            if (has_legal) break;
-        }
-
-        if (!has_legal) {
-            const in_check = searcher.move_gen.isInCheck(board, board.toMove());
+        if (!hasLegalMove(searcher, board)) {
+            const in_check = searcher.move_gen.isInCheck(&board.cur_position, board.to_move);
             if (in_check) {
-                result = if (board.toMove() == .White) .BlackWin else .WhiteWin;
+                result = if (board.to_move == .White) .BlackWin else .WhiteWin;
             } else {
                 result = .Draw;
             }
@@ -394,11 +325,11 @@ board: *brd.Board,
         const score = search_result.score;
         const best_move = search_result.move;
 
-        if (best_move.toU32() == 0) break;
+        if (best_move.isNull()) break;
 
         const white_score: i16 = blk: {
             const clamped = std.math.clamp(score, -32000, 32000);
-            break :blk if (board.toMove() == .White) @intCast(clamped) else @intCast(-clamped);
+            break :blk if (board.to_move == .White) @intCast(clamped) else @intCast(-clamped);
         };
 
         const abs_score = if (score < 0) -score else score;
@@ -406,9 +337,9 @@ board: *brd.Board,
             win_adj_counter += 1;
             if (win_adj_counter >= config.adjudication_count) {
                 if (score > 0) {
-                    result = if (board.toMove() == .White) .WhiteWin else .BlackWin;
+                    result = if (board.to_move == .White) .WhiteWin else .BlackWin;
                 } else {
-                    result = if (board.toMove() == .White) .BlackWin else .WhiteWin;
+                    result = if (board.to_move == .White) .BlackWin else .WhiteWin;
                 }
                 break;
             }
@@ -427,7 +358,7 @@ board: *brd.Board,
         }
 
         game.addMove(best_move, white_score, board);
-        mvs.makeMove(board, best_move);
+        board.makeMove(best_move);
         ply += 1;
     }
 
@@ -455,7 +386,7 @@ fn workerThread(ctx: *ThreadContext) void {
         return;
     };
 
-    const board = allocator.create(brd.Board) catch |err| {
+    const board = allocator.create(brd.GameState) catch |err| {
         std.debug.print("Thread {d}: Failed to allocate board: {}\n", .{ ctx.thread_id, err });
         return;
     };
@@ -812,33 +743,20 @@ pub fn parseGenfensCommand(args: [][]const u8) GenfensConfig {
 
 fn pickRandomLegalMove(
     searcher: *srch.Searcher,
-    board: *brd.Board,
+    board: *brd.GameState,
     rng: *Rng,
-) ?mvs.EncodedMove {
-    var move_list = searcher.move_gen.generateMoves(board, false);
-    var legal_count: usize = 0;
-    var legal_moves: [256]mvs.EncodedMove = undefined;
-    for (move_list.items[0..move_list.len]) |move_data| {
-        mvs.makeMove(board, move_data);
-        if (!searcher.move_gen.isInCheck(board, board.justMoved())) {
-            if (legal_count < 256) {
-                legal_moves[legal_count] = move_data;
-                legal_count += 1;
-            }
-        }
-        mvs.undoMove(board, move_data);
-    }
-    if (legal_count == 0) return null;
-    return legal_moves[rng.bounded(legal_count)];
+) ?mvs.Move {
+    const legal = searcher.move_gen.generateLegal(board, .all);
+    if (legal.len == 0) return null;
+    return legal.moves[rng.bounded(legal.len)];
 }
 
-fn hasLegalMove(searcher: *srch.Searcher, board: *brd.Board) bool {
-    var move_list = searcher.move_gen.generateMoves(board, false);
-    for (move_list.items[0..move_list.len]) |move_data| {
-        mvs.makeMove(board, move_data);
-        const legal = !searcher.move_gen.isInCheck(board, board.justMoved());
-        mvs.undoMove(board, move_data);
-        if (legal) return true;
+fn hasLegalMove(searcher: *srch.Searcher, board: *const brd.GameState) bool {
+    const mg = searcher.move_gen;
+    const info = mg.legalInfo(board);
+    const list = mg.generateMoves(board, .all);
+    for (list.slice()) |move| {
+        if (mg.isLegal(board, move, &info)) return true;
     }
     return false;
 }
@@ -848,7 +766,7 @@ fn buildOpening(
     rng: *Rng,
     config: *const GenfensConfig,
     book: ?*const OpeningBook,
-    board: *brd.Board,
+    board: *brd.GameState,
 ) bool {
     board.initInPlace();
 
@@ -856,7 +774,6 @@ fn buildOpening(
     if (book) |b| {
         const fen = b.pick(rng);
         fen_mod.parseFEN(board, fen) catch return false;
-        board.refreshNNUE();
         if (config.book_extra_plies > 0) {
             target_plies = @intCast(rng.bounded(config.book_extra_plies + 1));
         }
@@ -868,7 +785,7 @@ fn buildOpening(
 
     for (0..target_plies) |_| {
         const move = pickRandomLegalMove(searcher, board, rng) orelse return false;
-        mvs.makeMove(board, move);
+        board.makeMove(move);
     }
 
     if (board.isDraw(0)) return false;
@@ -904,7 +821,7 @@ pub fn runGenfens(config: GenfensConfig) !void {
 
     var thread_tt = try tt.TranspositionTable.init(allocator, 16);
 
-    const board = try allocator.create(brd.Board);
+    const board = try allocator.create(brd.GameState);
     var searcher = try allocator.create(srch.Searcher);
     searcher.* = srch.Searcher{};
     searcher.initInPlace();
@@ -937,4 +854,3 @@ pub fn runGenfens(config: GenfensConfig) !void {
         produced += 1;
     }
 }
-

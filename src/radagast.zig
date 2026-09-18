@@ -112,12 +112,14 @@ pub const Istari = struct {
         }
     }
     pub fn initMagicNumbers(self: *Istari) void {
-        for (0..64) |sq| {
+        for (0..64) |i| {
+            const sq: brd.Square = @intCast(i);
             self.rook_magics[sq] = self.findMagicNums(sq, @as(i32, @intCast(rook_relevant_bits[sq])), false);
             std.debug.print("0x{x},\n ", .{self.rook_magics[sq]});
         }
         std.debug.print("\n\n\n", .{});
-        for (0..64) |sq| {
+        for (0..64) |i| {
+            const sq: brd.Square = @intCast(i);
             self.bishop_magics[sq] = self.findMagicNums(sq, @as(i32, @intCast(bishop_relevant_bits[sq])), true);
             std.debug.print("0x{x}, \n", .{self.bishop_magics[sq]});
         }
@@ -158,7 +160,7 @@ fn calculateAttacks(rank_dir: isize, file_dir: isize, target_rank: isize, target
     while ((rank_dir == 0 or (rank >= 1 and rank <= 6)) and
         (file_dir == 0 or (file >= 1 and file <= 6)))
     {
-        const sq = @as(usize, @intCast(rank)) * 8 + @as(usize, @intCast(file));
+        const sq: brd.Square = @intCast(rank * 8 + file);
         attacks.* |= brd.getSquareBB(sq);
         rank += rank_dir;
         file += file_dir;
@@ -169,7 +171,7 @@ fn calculateAttacksWithBlocks(rank_dir: isize, file_dir: isize, target_rank: isi
     var rank = target_rank + rank_dir;
     var file = target_file + file_dir;
     while ((rank >= 0 and rank <= 7) and (file >= 0 and file <= 7)) {
-        const sq = @as(usize, @intCast(rank)) * 8 + @as(usize, @intCast(file));
+        const sq: brd.Square = @intCast(rank * 8 + file);
         attacks.* |= brd.getSquareBB(sq);
         if (brd.getBit(blockers, sq)) {
             break;
@@ -210,9 +212,8 @@ pub fn setOccupancy(index: Bitboard, bits: i32, attack_mask: Bitboard) Bitboard 
     var occupancy: Bitboard = 0;
 
     for (0..@intCast(bits)) |i| {
-        const square = brd.getLSB(atm);
-        brd.popBit(&atm, square);
-        if (index & brd.getSquareBB(i) != 0) {
+        const square = brd.popLsb(&atm);
+        if (index & (@as(Bitboard, 1) << @intCast(i)) != 0) {
             occupancy |= brd.getSquareBB(square);
         }
     }

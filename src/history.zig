@@ -88,18 +88,19 @@ inline fn applyBonus(comptime T: type, entry: *T, delta: i32, max: i32) void {
 pub fn updateCorrection(
     self: *Searcher,
     color: brd.Color,
-    board: *brd.Board,
-    best_move: mvs.EncodedMove,
+    gs: *const brd.GameState,
+    best_move: mvs.Move,
     best_score: i32,
     static_eval: i32,
     depth: usize,
 ) void {
     _ = best_move;
-    const corr_idx = board.game_state.pawn_hash & 16383;
-    const np_white_corr_idx = board.game_state.white_np_hash & 16383;
-    const np_black_corr_idx = board.game_state.black_np_hash & 16383;
-    const minor_corr_idx = board.game_state.minor_hash & 16383;
-    const major_corr_idx = board.game_state.major_hash & 16383;
+    const pos = &gs.cur_position;
+    const corr_idx = pos.pawn_hash & 16383;
+    const np_white_corr_idx = pos.non_pawn_hash[brd.Color.White.idx()] & 16383;
+    const np_black_corr_idx = pos.non_pawn_hash[brd.Color.Black.idx()] & 16383;
+    const minor_corr_idx = pos.minor_hash & 16383;
+    const major_corr_idx = pos.major_hash & 16383;
 
     const err = best_score - static_eval;
     const depth_i32 = @as(i32, @intCast(depth));
@@ -149,12 +150,13 @@ pub fn updateCorrection(
     ));
 }
 
-pub fn getCorrection(self: *Searcher, color: brd.Color, board: *brd.Board) i32 {
-    const corr_idx = board.game_state.pawn_hash & 16383;
-    const np_white_corr_idx = board.game_state.white_np_hash & 16383;
-    const np_black_corr_idx = board.game_state.black_np_hash & 16383;
-    const major_corr_idx = board.game_state.major_hash & 16383;
-    const minor_corr_idx = board.game_state.minor_hash & 16383;
+pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState) i32 {
+    const pos = &gs.cur_position;
+    const corr_idx = pos.pawn_hash & 16383;
+    const np_white_corr_idx = pos.non_pawn_hash[brd.Color.White.idx()] & 16383;
+    const np_black_corr_idx = pos.non_pawn_hash[brd.Color.Black.idx()] & 16383;
+    const major_corr_idx = pos.major_hash & 16383;
+    const minor_corr_idx = pos.minor_hash & 16383;
 
     const c = @as(usize, @intFromEnum(color));
 
@@ -175,14 +177,16 @@ pub fn getCorrection(self: *Searcher, color: brd.Color, board: *brd.Board) i32 {
 
 pub fn updateQuietHistory(
     self: *Searcher,
+    gs: *const brd.GameState,
     color: brd.Color,
-    best_move: mvs.EncodedMove,
+    best_move: mvs.Move,
     quiet_moves: *const mvs.MoveList,
     is_null: bool,
     depth: usize,
     threats: u64,
 ) void {
-    if(self.killer[self.ply][0].toU32() != best_move.toU32()) {
+    const pos = &gs.cur_position;
+    if (!self.killer[self.ply][0].eql(best_move)) {
         self.killer[self.ply][1] = self.killer[self.ply][0];
         self.killer[self.ply][0] = best_move;
     }
@@ -193,20 +197,18 @@ pub fn updateQuietHistory(
 
     if (!is_null and self.ply >= 1) {
         const last = self.move_history[self.ply - 1];
-        self.counter_moves[@intFromEnum(color)][last.start_square][last.end_square] = best_move;
+        self.counter_moves[@intFromEnum(color)][last.from][last.to] = best_move;
     }
 
-    const b = best_move.toU32();
-
-    for (quiet_moves.items) |m| {
-        const is_best = m.toU32() == b;
+    for (quiet_moves.slice()) |m| {
+        const is_best = m.eql(best_move);
 
         const delta = if (is_best) bonus else -malus;
 
-        const h = self.butterflyPtr(@intFromEnum(color), m.start_square, m.end_square);
+        const h = self.butterflyPtr(@intFromEnum(color), m.from, m.to);
         applyBonus(i32, h, delta, max_history);
 
-        const th = self.threatHistPtr(@intFromEnum(color), threats, m.start_square, m.end_square);
+        const th = self.threatHistPtr(@intFromEnum(color), threats, m.from, m.to);
         applyBonus(i32, th, delta, max_history);
 
         if (!is_null and self.ply >= 1) {
@@ -214,14 +216,14 @@ pub fn updateQuietHistory(
             for (plies) |p| {
                 if (self.ply >= p + 1) {
                     const prev = self.move_history[self.ply - p - 1];
-                    if (prev.toU32() == 0) continue;
+                    if (prev.isNull()) continue;
 
                     const prev_piece_color = self.moved_piece_history[self.ply - p - 1];
                     const prev_pc_index = @as(usize, @intCast(@intFromEnum(prev_piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(prev_piece_color.piece)));
 
-                    const cur_pc_index = @as(usize, @intFromEnum(color)) * 6 + @as(usize, @intCast(m.piece));
+                    const cur_pc_index = @as(usize, @intFromEnum(color)) * 6 + pos.movedPiece(m).piece.idx();
 
-                    const cont = &self.continuation[prev_pc_index][prev.end_square][cur_pc_index][m.end_square];
+                    const cont = &self.continuation[prev_pc_index][prev.to][cur_pc_index][m.to];
                     applyBonus(i16, cont, delta, max_history);
                 }
             }
@@ -231,39 +233,30 @@ pub fn updateQuietHistory(
 
 pub fn updateCaptureHistory(
     self: *Searcher,
-    board: *brd.Board,
+    gs: *const brd.GameState,
     color: brd.Color,
-    best_move: mvs.EncodedMove,
+    best_move: mvs.Move,
     other_moves: *const mvs.MoveList,
     depth: usize,
 ) void {
-    _ = board;
-    const captured_piece_idx = @as(usize, @intCast(best_move.captured_piece));
+    const pos = &gs.cur_position;
+    const depth_i32 = @as(i32, @intCast(depth));
+    const bonus = historyBonus(depth_i32);
+    const malus = historyMalus(depth_i32);
+    const side = @intFromEnum(color);
 
-    if (captured_piece_idx < 6) {
-        const depth_i32 = @as(i32, @intCast(depth));
-        const bonus = historyBonus(depth_i32);
-        const malus = historyMalus(depth_i32);
-
-        const best_attacker: brd.Pieces = @enumFromInt(best_move.piece);
-        const best_attacker_idx = @as(usize, @intCast(@intFromEnum(best_attacker)));
-
-        const best_entry = &self.capture_history[@intFromEnum(color)][best_attacker_idx][best_move.end_square][captured_piece_idx];
+    if (best_move.isCapture()) {
+        const attacker = pos.movedPiece(best_move).piece.idx();
+        const captured = pos.capturedPiece(best_move).piece.idx();
+        const best_entry = &self.capture_history[side][attacker][best_move.to][captured];
         applyBonus(i16, best_entry, bonus, max_cap_history);
+    }
 
-        // Penalize other captures that were tried but didn't cause cutoff
-        for (other_moves.items) |m| {
-            if (m.capture == 1 and m.toU32() != best_move.toU32()) {
-                const cap_p_idx = @as(usize, @intCast(m.captured_piece));
-
-                if (cap_p_idx < 6) {
-                    const attacker: brd.Pieces = @enumFromInt(m.piece);
-                    const attacker_idx = @as(usize, @intCast(@intFromEnum(attacker)));
-
-                    const entry = &self.capture_history[@intFromEnum(color)][attacker_idx][m.end_square][cap_p_idx];
-                    applyBonus(i16, entry, -malus, max_cap_history);
-                }
-            }
-        }
+    for (other_moves.slice()) |m| {
+        if (!m.isCapture() or m.eql(best_move)) continue;
+        const attacker = pos.movedPiece(m).piece.idx();
+        const captured = pos.capturedPiece(m).piece.idx();
+        const entry = &self.capture_history[side][attacker][m.to][captured];
+        applyBonus(i16, entry, -malus, max_cap_history);
     }
 }
