@@ -4,7 +4,7 @@ EVALFILE ?=
 ZIG   ?= zig
 CORES ?= 8
 
-NET_DEST := src/nnue/nets/Alkaid-ml.bin
+NET_DEST := src/nets/Alkaid-ml.bin
 
 build:
 	@if [ -n "$(EVALFILE)" ]; then \
