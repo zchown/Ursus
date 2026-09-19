@@ -1336,7 +1336,7 @@ pub const Searcher = struct {
                         reduction -= @divTrunc(self.quietHistScore(@intFromEnum(color), node_threats, move.from, move.to), tp.history_div.value);
                     }
 
-                    const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth + 1))));
+                    const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth))));
 
                     self.lmr_reduction[self.ply - 1] = @as(i32, @intCast(new_depth)) - @as(i32, @intCast(reduced_depth));
                     score = -self.negamax(gs, color.opposite(), reduced_depth, -alpha - 1, -alpha, false, NodeType.NonPV, true);
