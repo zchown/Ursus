@@ -9,7 +9,7 @@ pub var tb_probe_depth: usize = 1;
 // not SPSA tunable
 pub const rfp_depth: i32 = 6;
 pub const se_min_depth: usize = 7;
-pub const lmr_pv_min = 1;
+pub const lmr_pv_min = 3;
 pub const lmr_non_pv_min = 1;
 pub const hindsight_ext_min_red: i32 = 3;
 pub const hindsight_red_min_red: i32 = 2;
