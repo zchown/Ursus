@@ -74,7 +74,7 @@ pub var lmr_div = Tunable(i32, .{ .min = 100, .max = 350, .hook = .quiet_lmr }){
 pub var lmr_noisy_base = Tunable(i32, .{ .min = -100, .max = 80, .hook = .noisy_lmr }){ .value = -13 };
 pub var lmr_noisy_div = Tunable(i32, .{ .min = 150, .max = 600, .hook = .noisy_lmr }){ .value = 332 };
 
-pub var se_margin = Tunable(i32, .{ .min = 50, .max = 500}){ .value = 300};
+pub var se_margin = Tunable(i32, .{ .min = 50, .max = 500}){ .value = 150};
 
 pub var history_div = Tunable(i32, .{ .min = 2048, .max = 8192 }){ .value = 4107 };
 
