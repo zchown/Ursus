@@ -178,6 +178,7 @@ pub const Searcher = struct {
     killer: [max_ply][2]mvs.Move = undefined,
     lmr_reduction: [max_ply]i32 = @splat(0),
     history: [2][64][64]i32 = undefined,
+    piece_to_history: [2][7][64]i32 = undefined,
     threat_history: [2][2][2][64][64]i32 = undefined,
     counter_moves: [2][64][64]mvs.Move = undefined,
     excluded_moves: [max_ply]mvs.Move = undefined,
@@ -220,14 +221,20 @@ pub const Searcher = struct {
         return &self.history[side][from][to];
     }
 
+    pub inline fn pieceToHistoryPtr(self: *Searcher, side: usize, piece: usize, to: usize) *i32 {
+        return &self.piece_to_history[side][piece][to];
+    }
+
     pub inline fn threatHistPtr(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) *i32 {
         return &self.threat_history[side][threatIndex(threats, from)][threatIndex(threats, to)][from][to];
     }
 
     pub inline fn quietHistScore(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
+        const moved_piece: usize = @intFromEnum(self.moved_piece_history[self.ply].piece);
         const bf: i32 = self.butterflyPtr(side, from, to).*;
+        const ph: i32 = self.pieceToHistoryPtr(side, moved_piece, to).*;
         const th: i32 = self.threatHistPtr(side, threats, from, to).*;
-        return @divTrunc(bf * tp.butterfly_weight.value + th * tp.threat_hist_weight.value, 1024);
+        return @divTrunc(bf * tp.butterfly_weight.value + ph * tp.piece_hist_weight.value + th * tp.threat_hist_weight.value, 1536);
     }
 
 
