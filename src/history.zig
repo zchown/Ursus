@@ -45,12 +45,18 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     if (total) {
         @memset(std.mem.asBytes(&self.capture_history), 0);
         @memset(std.mem.asBytes(&self.history), 0);
+        @memset(std.mem.asBytes(&self.piece_to_history), 0);
         @memset(std.mem.asBytes(&self.threat_history), 0);
         @memset(std.mem.asBytes(self.continuation), 0);
     }
     else {
         const hist_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.history));
         for (hist_flat) |*entry| {
+            entry.* = entry.* - (entry.* >> 2) + 64;
+        }
+
+        const piece_hist_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.piece_to_history));
+        for (piece_hist_flat) |*entry| {
             entry.* = entry.* - (entry.* >> 2) + 64;
         }
 
