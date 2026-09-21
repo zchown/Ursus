@@ -234,7 +234,7 @@ pub const Searcher = struct {
         const bf: i32 = self.butterflyPtr(side, from, to).*;
         const ph: i32 = self.pieceToHistoryPtr(side, moved_piece, to).*;
         const th: i32 = self.threatHistPtr(side, threats, from, to).*;
-        return @divTrunc(bf * tp.butterfly_weight.value + ph * tp.piece_hist_weight.value + th * tp.threat_hist_weight.value, 1536);
+        return @divTrunc(bf * tp.butterfly_weight.value + ph * tp.piece_hist_weight.value + th * tp.threat_hist_weight.value, 1024);
     }
 
 

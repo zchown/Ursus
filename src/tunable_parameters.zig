@@ -145,7 +145,7 @@ pub var hindsight_red_margin = Tunable(i32, .{ .min = 0, .max = 200 }){ .value =
 
 pub var butterfly_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 512};
 pub var threat_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 512 };
-pub var piece_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 512};
+pub var piece_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 256};
 
 pub const TunableRef = struct {
     name: []const u8,
