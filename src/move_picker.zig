@@ -157,23 +157,20 @@ pub const MovePicker = struct {
     fn scoreNoisy(self: *MovePicker, s: *srch.Searcher, gs: *const GameState) void {
         const pos = &gs.cur_position;
         const side = @intFromEnum(gs.to_move);
-        const pawn_value = see.see_values[@intFromEnum(brd.Pieces.Pawn)];
-        const queen_value = see.see_values[@intFromEnum(brd.Pieces.Queen)];
         for (self.list.slice(), 0..) |move, i| {
             if (move.isCapture()) {
                 const victim = @intFromEnum(pos.capturedPiece(move).piece);
                 const attacker = @intFromEnum(pos.movedPiece(move).piece);
                 const capthist: i32 = s.capture_history[side][attacker][move.to][victim];
 
-                var score: i32 = tp.see_weight.value * see.see_values[victim] +
-                    @divTrunc(capthist * 10, tp.capthist_div.value);
+                var score: i32 = @divTrunc(capthist * 10, tp.capthist_div.value);
                 if (isQueenPromo(move)) {
                     score += score_promotion;
                 }
                 self.scores[i] = score;
             } else {
                 // Quiet queen promotion
-                self.scores[i] = tp.see_weight.value * (queen_value - pawn_value);
+                self.scores[i] = s.quietHistScore(side, 0, move.from, move.to) + score_promotion;
             }
         }
     }
