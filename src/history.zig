@@ -13,10 +13,6 @@ const PieceColor = Searcher.PieceColor;
 const max_history: i32 = 16384;
 const max_cap_history: i32 = 16384;
 
-pub inline fn quietHist(s: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
-    return s.quietHistScore(side, threats, from, to);
-}
-
 pub inline fn capHist(s: *Searcher, side: usize, attacker: usize, to: usize, captured: usize) i32 {
     return s.capture_history[side][attacker][to][captured];
 }

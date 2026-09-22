@@ -1340,7 +1340,7 @@ pub const Searcher = struct {
                     }
 
                     if (!is_capture) {
-                        const moved_piece = @as(usize, @intFromEnum(gs.cur_position.movedPiece(move).piece));
+                        const moved_piece = self.moved_piece_history[self.ply - 1].piece.idx();
                         reduction -= @divTrunc(self.quietHistScore(@intFromEnum(color), node_threats, moved_piece, move.from, move.to), tp.history_div.value);
                     }
 
