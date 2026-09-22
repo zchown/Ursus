@@ -232,12 +232,12 @@ pub const Searcher = struct {
     }
 
     pub inline fn contHistAt(self: *Searcher, idx: usize, back: usize, cur_pc: usize, to: usize) i32 {
-    if (idx < back) return 0;
-    const prev = self.move_history[idx - back];
-    if (prev.isNull()) return 0;
-    const prev_pc = @as(usize, @intFromEnum(self.moved_piece_history[idx - back].color)) * 6 + @intFromEnum(self.moved_piece_history[idx - back].piece);
-    return self.continuation[prev_pc][prev.to][cur_pc][to];
-}
+        if (idx < back) return 0;
+        const prev = self.move_history[idx - back];
+        if (prev.isNull()) return 0;
+        const prev_pc = @as(usize, @intFromEnum(self.moved_piece_history[idx - back].color)) * 6 + @intFromEnum(self.moved_piece_history[idx - back].piece);
+        return self.continuation[prev_pc][prev.to][cur_pc][to];
+    }
 
     pub inline fn threatHistPtr(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) *i32 {
         return &self.threat_history[side][threatIndex(threats, from)][threatIndex(threats, to)][from][to];
