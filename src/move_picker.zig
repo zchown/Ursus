@@ -188,7 +188,8 @@ pub const MovePicker = struct {
                 continue;
             }
 
-            var score: i32 = s.quietHistScore(side, threats, move.from, move.to);
+            const moved_piece = @as(usize, @intCast(@intFromEnum(pos.movedPiece(move).piece)));
+            var score: i32 = s.quietHistScore(side, threats, moved_piece, move.from, move.to);
             if (!self.is_null and s.ply >= 1) {
                 const cur_pc_index = @as(usize, side) * 6 + pos.movedPiece(move).piece.idx();
                 const plies: [3]usize = .{ 0, 1, 3 };

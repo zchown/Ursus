@@ -229,11 +229,10 @@ pub const Searcher = struct {
         return &self.threat_history[side][threatIndex(threats, from)][threatIndex(threats, to)][from][to];
     }
 
-    pub inline fn quietHistScore(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
-        const moved_piece: usize = @intFromEnum(self.moved_piece_history[self.ply].piece);
-        const bf: i32 = self.butterflyPtr(side, from, to).*;
-        const ph: i32 = self.pieceToHistoryPtr(side, moved_piece, to).*;
-        const th: i32 = self.threatHistPtr(side, threats, from, to).*;
+    pub inline fn quietHistScore(self: *Searcher, side: usize, threats: u64, piece: usize, from: usize, to: usize) i32 {
+        const bf = self.butterflyPtr(side, from, to).*;
+        const ph = self.pieceToHistoryPtr(side, piece, to).*;
+        const th = self.threatHistPtr(side, threats, from, to).*;
         return @divTrunc(bf * tp.butterfly_weight.value + ph * tp.piece_hist_weight.value + th * tp.threat_hist_weight.value, 1024);
     }
 
@@ -1203,7 +1202,8 @@ pub const Searcher = struct {
             if (!is_capture and !is_important and !in_check and !on_pv and
                 depth <= 4 and searched_moves >= 2)
             {
-                const hist_score = self.quietHistScore(@intFromEnum(color), node_threats, move.from, move.to);
+                const moved_piece = @as(usize, @intFromEnum(gs.cur_position.movedPiece(move).piece));
+                const hist_score = self.quietHistScore(@intFromEnum(color), node_threats, moved_piece, move.from, move.to);
                 const hist_threshold: i32 = -@as(i32, @intCast(depth)) * 1536;
                 if (hist_score < hist_threshold) {
                     continue;
@@ -1340,7 +1340,8 @@ pub const Searcher = struct {
                     }
 
                     if (!is_capture) {
-                        reduction -= @divTrunc(self.quietHistScore(@intFromEnum(color), node_threats, move.from, move.to), tp.history_div.value);
+                        const moved_piece = @as(usize, @intFromEnum(gs.cur_position.movedPiece(move).piece));
+                        reduction -= @divTrunc(self.quietHistScore(@intFromEnum(color), node_threats, moved_piece, move.from, move.to), tp.history_div.value);
                     }
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth))));
