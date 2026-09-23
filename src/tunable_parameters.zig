@@ -156,6 +156,8 @@ pub var threat_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 
 pub var lph_update_scale = Tunable(i32, .{ .min = 128, .max = 2048 }){ .value = 768 };
 pub var lph_order_mul = Tunable(i32, .{ .min = 10, .max = 120 }){ .value = 40};
 
+pub var tt_cut_bonus_scale = Tunable(i32, .{ .min = 128, .max = 2048 }){ .value = 1024 };
+
 pub const TunableRef = struct {
     name: []const u8,
     ptr: Value,

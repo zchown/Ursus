@@ -25,6 +25,12 @@ pub inline fn contHist(s: *Searcher, prev_pc: usize, prev_to: usize, cur_pc: usi
     return s.continuation[prev_pc][prev_to][cur_pc][cur_to];
 }
 
+pub const QuietUpdate = struct {
+    threats: ?u64 = null,
+    cont_idx: ?usize = null,
+};
+
+
 pub fn resetHeuristics(self: *Searcher, total: bool) void {
     @memset(std.mem.asBytes(&self.killer), 0);
     @memset(std.mem.asBytes(&self.pv_length), 0);
@@ -72,7 +78,7 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     }
 }
 
-inline fn historyBonus(depth: i32) i32 {
+pub inline fn historyBonus(depth: i32) i32 {
     return @max(1, @min(tp.hist_bonus_max.value, tp.hist_bonus_mul.value * depth - tp.hist_bonus_offset.value));
 }
 
@@ -174,6 +180,28 @@ pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState
         minor_val * tp.corr_minor_read_weight.value;
 
     return @divTrunc(combined, tp.corr_read_divisor.value);
+}
+
+pub fn updateContinuation(self: *Searcher, idx: usize, cur_pc: usize, to: usize, delta: i32) void {
+    const backs = [_]usize{ 1, 2, 4 };
+    for (backs) |b| {
+        if (idx < b) continue;
+        const prev = self.move_history[idx - b];
+        if (prev.isNull()) continue;
+        const prev_pc = @as(usize, @intCast(@intFromEnum(self.moved_piece_history[idx - b].color))) * 6 + @as(usize, @intCast(@intFromEnum(self.moved_piece_history[idx - b].piece)));
+        applyBonus(i16, &self.continuation[prev_pc][prev.to][cur_pc][to], delta, max_history);
+    }
+}
+
+pub fn updateQuietMove(self: *Searcher, side: usize, pc: PieceColor, m: mvs.Move, delta: i32, opts: QuietUpdate) void {
+    applyBonus(i32, self.butterflyPtr(side, m.from, m.to), delta, max_history);
+    if (opts.threats) |t| {
+        applyBonus(i32, self.threatHistPtr(side, t, m.from, m.to), delta, max_history);
+    }
+    if (opts.cont_idx) |idx| {
+        const pc_index = @as(usize, @intCast(@intFromEnum(pc.color))) * 6 + @as(usize, @intCast(@intFromEnum(pc.piece)));
+        updateContinuation(self, idx, pc_index, m.to, delta);
+    }
 }
 
 pub fn updateQuietHistory(

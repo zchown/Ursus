@@ -864,6 +864,16 @@ pub const Searcher = struct {
                     .None => false,
                 };
                 if (cut) {
+                    if (tt_eval >= beta and !hash_move.isNull() and !hash_move.isCapture() and !hash_move.isPromo()) {
+                        const pc = gs.cur_position.movedPiece(hash_move);
+                        if (pc.piece != .None and pc.color == color) {
+                            const d: i32 = @intCast(depth);
+                            const b = @divTrunc(hist.historyBonus(d) * tp.tt_cut_bonus_scale.value, 1024);
+                            hist.updateQuietMove(self, @intFromEnum(color), pc, hash_move, b, .{
+                                .cont_idx = if (!is_null and self.ply >= 1) self.ply else null,
+                            });
+                        }
+                    }
                     return tt_eval;
                 }
             }
