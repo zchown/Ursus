@@ -213,21 +213,23 @@ pub fn updateQuietHistory(
     is_null: bool,
     depth: usize,
     threats: u64,
+    cutoff: bool,
 ) void {
     const pos = &gs.cur_position;
-    if (!self.killer[self.ply][0].eql(best_move)) {
-        self.killer[self.ply][1] = self.killer[self.ply][0];
-        self.killer[self.ply][0] = best_move;
+    if (cutoff) {
+        if (!self.killer[self.ply][0].eql(best_move)) {
+            self.killer[self.ply][1] = self.killer[self.ply][0];
+            self.killer[self.ply][0] = best_move;
+        }
+        if (!is_null and self.ply >= 1) {
+            const last = self.move_history[self.ply - 1];
+            self.counter_moves[@intFromEnum(color)][last.from][last.to] = best_move;
+        }
     }
 
     const depth_i32 = @as(i32, @intCast(depth));
     const bonus = historyBonus(depth_i32);
     const malus = historyMalus(depth_i32);
-
-    if (!is_null and self.ply >= 1) {
-        const last = self.move_history[self.ply - 1];
-        self.counter_moves[@intFromEnum(color)][last.from][last.to] = best_move;
-    }
 
     for (quiet_moves.slice()) |m| {
         const is_best = m.eql(best_move);

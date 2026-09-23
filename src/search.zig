@@ -864,16 +864,6 @@ pub const Searcher = struct {
                     .None => false,
                 };
                 if (cut) {
-                    if (tt_eval >= beta and !hash_move.isNull() and !hash_move.isCapture() and !hash_move.isPromo()) {
-                        const pc = gs.cur_position.movedPiece(hash_move);
-                        if (pc.piece != .None and pc.color == color) {
-                            const d: i32 = @intCast(depth);
-                            const b = @divTrunc(hist.historyBonus(d) * tp.tt_cut_bonus_scale.value, 1024);
-                            hist.updateQuietMove(self, @intFromEnum(color), pc, hash_move, b, .{
-                                .cont_idx = if (!is_null and self.ply >= 1) self.ply else null,
-                            });
-                        }
-                    }
                     return tt_eval;
                 }
             }
@@ -1449,13 +1439,16 @@ pub const Searcher = struct {
             hist.updateCorrection(self, color, gs, best_move, best_score, static_eval, depth);
         }
 
-        if (alpha >= beta and !best_move.isCapture() and !best_move.isPromo()) {
-            hist.updateQuietHistory(self, gs, color, best_move, &quiet_moves, is_null, depth, node_threats);
-        }
+        const raised = alpha > alpha_ and !best_move.isNull();
+        const cutoff = alpha >= beta;
 
-        if (alpha >= beta) {
+        if (raised and !best_move.isCapture() and !best_move.isPromo()) {
+            hist.updateQuietHistory(self, gs, color, best_move, &quiet_moves, is_null, depth, node_threats, cutoff);
+        }
+        if (raised) {
             hist.updateCaptureHistory(self, gs, color, best_move, &other_moves, depth);
         }
+
 
        const skip_root_store = is_root and (self.root_pv_index > 0 or self.excluded_root_count > 0);
 
