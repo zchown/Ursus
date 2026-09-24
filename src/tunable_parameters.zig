@@ -152,8 +152,8 @@ pub var hindsight_red_margin = Tunable(i32, .{ .min = 0, .max = 200 }){ .value =
 
 pub var butterfly_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 512 };
 pub var threat_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 512 };
-pub var piece_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 128 };
-pub var piece_hist_delta_div = Tunable(i32, .{ .min = 1, .max = 8 }){ .value = 4 };
+pub var piece_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 256 };
+pub var piece_hist_delta_div = Tunable(i32, .{ .min = 1, .max = 100 }){ .value = 20 };
 
 pub var lph_update_scale = Tunable(i32, .{ .min = 128, .max = 2048 }){ .value = 768 };
 pub var lph_order_mul = Tunable(i32, .{ .min = 10, .max = 120 }){ .value = 40};
