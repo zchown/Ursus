@@ -180,6 +180,7 @@ pub const Searcher = struct {
     history: [2][64][64]i32 = undefined,
     piece_to_history: [2][7][64]i32 = undefined,
     threat_history: [2][2][2][64][64]i32 = undefined,
+    low_ply_history: [tp.low_ply_size][64][64]i16 = undefined,
     counter_moves: [2][64][64]mvs.Move = undefined,
     excluded_moves: [max_ply]mvs.Move = undefined,
     continuation: *[12][64][12][64]i16= undefined,
@@ -223,6 +224,26 @@ pub const Searcher = struct {
 
     pub inline fn pieceToHistoryPtr(self: *Searcher, side: usize, piece: usize, to: usize) *i32 {
         return &self.piece_to_history[side][piece][to];
+    }
+
+    pub fn quietStatScore(self: *Searcher, side: usize, threats: u64, pc: PieceColor, m: mvs.Move, use_cont: bool) i32 {
+        const p = @as(usize, @intFromEnum(pc.piece));
+        var s: i32 = self.quietHistScore(side, threats, p, m.from, m.to) * tp.stat_main_weight.value;
+        if (use_cont) {
+            const cp = @as(usize, @intFromEnum(pc.color)) * 6 + @intFromEnum(pc.piece);
+            s += self.contHistAt(self.ply, 1, cp, m.to) * tp.stat_cont1_weight.value;
+            s += self.contHistAt(self.ply, 2, cp, m.to) * tp.stat_cont2_weight.value;
+            s += self.contHistAt(self.ply, 4, cp, m.to) * tp.stat_cont4_weight.value;
+        }
+        return @divTrunc(s, 1024);
+    }
+
+    pub inline fn contHistAt(self: *Searcher, idx: usize, back: usize, cur_pc: usize, to: usize) i32 {
+        if (idx < back) return 0;
+        const prev = self.move_history[idx - back];
+        if (prev.isNull()) return 0;
+        const prev_pc = @as(usize, @intFromEnum(self.moved_piece_history[idx - back].color)) * 6 + @intFromEnum(self.moved_piece_history[idx - back].piece);
+        return self.continuation[prev_pc][prev.to][cur_pc][to];
     }
 
     pub inline fn threatHistPtr(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) *i32 {
@@ -1170,6 +1191,12 @@ pub const Searcher = struct {
             const is_capture = move.isCapture();
             const is_killer = move.eql(self.killer[self.ply][0]) or move.eql(self.killer[self.ply][1]);
 
+            const moved_pc = gs.cur_position.movedPiece(move);
+            const stat_score: i32 = if (!is_capture)
+                self.quietStatScore(@intFromEnum(color), node_threats, moved_pc, move, !is_null)
+                else
+                0;
+
             if (!is_root and moves_seen > 2 and !in_check and !on_pv) {
                 var lmp_threshold: usize = tp.lmp_base.value + depth * tp.lmp_mul.value;
 
@@ -1202,10 +1229,8 @@ pub const Searcher = struct {
             if (!is_capture and !is_important and !in_check and !on_pv and
                 depth <= 4 and searched_moves >= 2)
             {
-                const moved_piece = @as(usize, @intFromEnum(gs.cur_position.movedPiece(move).piece));
-                const hist_score = self.quietHistScore(@intFromEnum(color), node_threats, moved_piece, move.from, move.to);
-                const hist_threshold: i32 = -@as(i32, @intCast(depth)) * 1536;
-                if (hist_score < hist_threshold) {
+                const hist_threshold: i32 = -@as(i32, @intCast(depth)) * tp.history_prune_mult.value;
+                if (stat_score < hist_threshold) {
                     continue;
                 }
             }
@@ -1308,6 +1333,8 @@ pub const Searcher = struct {
             const min_lmr_move: usize = if (on_pv) tp.lmr_pv_min else tp.lmr_non_pv_min;
             var do_full_search = false;
 
+
+
             if (on_pv and searched_moves == 1) {
                 score = -self.negamax(gs, color.opposite(), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
@@ -1340,8 +1367,7 @@ pub const Searcher = struct {
                     }
 
                     if (!is_capture) {
-                        const moved_piece = self.moved_piece_history[self.ply - 1].piece.idx();
-                        reduction -= @divTrunc(self.quietHistScore(@intFromEnum(color), node_threats, moved_piece, move.from, move.to), tp.history_div.value);
+                        reduction -= @divTrunc(stat_score, tp.history_div.value);
                     }
 
                     const reduced_depth: usize = @intCast(std.math.clamp(@as(i32, @intCast(new_depth)) - reduction, 1, @as(i32, @intCast(new_depth))));

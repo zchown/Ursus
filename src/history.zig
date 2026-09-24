@@ -29,6 +29,7 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     @memset(std.mem.asBytes(&self.moved_piece_history), 0);
     @memset(std.mem.asBytes(&self.excluded_moves), 0);
     @memset(std.mem.asBytes(&self.lmr_reduction), 0);
+    @memset(std.mem.asBytes(&self.low_ply_history), 0);
 
     if (total) {
         @memset(std.mem.asBytes(&self.correction), 0);
@@ -231,6 +232,10 @@ pub fn updateQuietHistory(
 
                     const cont = &self.continuation[prev_pc_index][prev.to][cur_pc_index][m.to];
                     applyBonus(i16, cont, delta, max_history);
+                    if (self.ply < tp.low_ply_size) {
+                        const lp = &self.low_ply_history[self.ply][m.from][m.to];
+                        applyBonus(i16, lp, @divTrunc(delta * tp.lph_update_scale.value, 1024), max_history);
+                    }
                 }
             }
         }

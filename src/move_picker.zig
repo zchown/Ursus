@@ -201,6 +201,10 @@ pub const MovePicker = struct {
                         const prev_pc_index = @as(usize, @intCast(@intFromEnum(prev_piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(prev_piece_color.piece)));
 
                         score += s.continuation[prev_pc_index][prev.to][cur_pc_index][move.to];
+                        if (s.ply < tp.low_ply_size) {
+                            const lph: i32 = s.low_ply_history[s.ply][move.from][move.to];
+                            score += @divTrunc(@divTrunc(lph * tp.lph_order_mul.value, 10), @as(i32, @intCast(s.ply + 1)));
+                        }
                     }
                 }
             }

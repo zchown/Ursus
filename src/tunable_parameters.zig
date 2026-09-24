@@ -13,6 +13,7 @@ pub const lmr_pv_min = 3;
 pub const lmr_non_pv_min = 1;
 pub const hindsight_ext_min_red: i32 = 3;
 pub const hindsight_red_min_red: i32 = 2;
+pub const low_ply_size = 5;
 
 pub const Hook = enum { none, quiet_lmr, noisy_lmr };
 
@@ -76,7 +77,13 @@ pub var lmr_noisy_div = Tunable(i32, .{ .min = 150, .max = 600, .hook = .noisy_l
 
 pub var se_margin = Tunable(i32, .{ .min = 50, .max = 500}){ .value = 150};
 
-pub var history_div = Tunable(i32, .{ .min = 2048, .max = 8192 }){ .value = 4107 };
+pub var history_div = Tunable(i32, .{ .min = 2048, .max = 8192 }){ .value = 4098 };
+pub var history_prune_mult = Tunable(i32, .{ .min = 512, .max = 8192 }){ .value = 1536 };
+
+pub var stat_main_weight = Tunable(i32, .{ .min = 128, .max = 2048}){ .value = 1024};
+pub var stat_cont1_weight = Tunable(i32, .{ .min = 128, .max = 2048}){ .value = 512};
+pub var stat_cont2_weight = Tunable(i32, .{ .min = 128, .max = 2048}){ .value = 512};
+pub var stat_cont4_weight = Tunable(i32, .{ .min = 128, .max = 2048}){ .value = 256};
 
 pub var corr_div_bm = Tunable(i32, .{ .min = 4, .max = 24, .c_end = 0.10, .r_end = 0.01 }){ .value = 10 };
 pub var corr_div_nobm = Tunable(i32, .{ .min = 4, .max = 24, .c_end = 0.10, .r_end = 0.01 }){ .value = 9 };
@@ -146,6 +153,9 @@ pub var hindsight_red_margin = Tunable(i32, .{ .min = 0, .max = 200 }){ .value =
 pub var butterfly_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 384 };
 pub var threat_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 384 };
 pub var piece_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 384 };
+
+pub var lph_update_scale = Tunable(i32, .{ .min = 128, .max = 2048 }){ .value = 768 };
+pub var lph_order_mul = Tunable(i32, .{ .min = 10, .max = 120 }){ .value = 40};
 
 pub const TunableRef = struct {
     name: []const u8,
