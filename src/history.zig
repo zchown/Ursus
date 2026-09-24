@@ -213,7 +213,7 @@ pub fn updateQuietHistory(
         const h = self.butterflyPtr(@intFromEnum(color), m.from, m.to);
         const ph = self.pieceToHistoryPtr(@intFromEnum(color), moved_piece.piece.idx(), m.to);
         applyBonus(i32, h, delta, max_history);
-        applyBonus(i32, ph, delta, max_history);
+        applyBonus(i32, ph, @divFloor(delta, tp.piece_hist_delta_div.value), max_history);
 
         const th = self.threatHistPtr(@intFromEnum(color), threats, m.from, m.to);
         applyBonus(i32, th, delta, max_history);
