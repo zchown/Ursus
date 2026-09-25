@@ -77,8 +77,8 @@ pub var lmr_noisy_div = Tunable(i32, .{ .min = 150, .max = 600, .hook = .noisy_l
 
 pub var se_margin = Tunable(i32, .{ .min = 50, .max = 500}){ .value = 150};
 
-pub var history_div = Tunable(i32, .{ .min = 2048, .max = 8192 }){ .value = 4098 };
-pub var history_prune_mult = Tunable(i32, .{ .min = 512, .max = 8192 }){ .value = 1536 };
+pub var history_div = Tunable(i32, .{ .min = 2048, .max = 8192 }){ .value = 4040 };
+pub var history_prune_mult = Tunable(i32, .{ .min = 512, .max = 8192 }){ .value = 1547 };
 
 pub var stat_main_weight = Tunable(i32, .{ .min = 128, .max = 2048}){ .value = 1024};
 pub var stat_cont1_weight = Tunable(i32, .{ .min = 128, .max = 2048}){ .value = 512};
@@ -150,9 +150,9 @@ pub var see_capthist_div = Tunable(i32, .{ .min = 8, .max = 64 }){ .value = 16 }
 
 pub var hindsight_red_margin = Tunable(i32, .{ .min = 0, .max = 200 }){ .value = 60 };
 
-pub var butterfly_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 512 };
-pub var threat_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 512 };
-pub var piece_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 256 };
+pub var butterfly_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 532 };
+pub var threat_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 533 };
+pub var piece_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 257 };
 pub var piece_hist_delta_div = Tunable(i32, .{ .min = 1, .max = 100 }){ .value = 20 };
 
 pub var lph_update_scale = Tunable(i32, .{ .min = 128, .max = 2048 }){ .value = 768 };
