@@ -993,11 +993,12 @@ pub const Searcher = struct {
         }
 
         if (depth >= 3 and !in_check and hash_move.isNull() and self.excluded_moves[self.ply].isNull() and (on_pv or cutnode)) {
-            var r = @divTrunc(depth, 4);
-            if (r < 1) {
-                r = 1;
-            }
-            depth = depth - r;
+            // var r = @divTrunc(depth, 4);
+            // if (r < 1) {
+            //     r = 1;
+            // }
+            // depth = depth - r;
+            depth -= 1;
         }
 
         if (!in_check and !on_pv and self.excluded_moves[self.ply].isNull()) {
@@ -1680,7 +1681,7 @@ pub const Searcher = struct {
         self.tt_table.set(tt.Entry{
             .hash = gs.cur_position.hash,
             .eval = scoreToTT(best_score, self.ply),
-            .move = best_move,
+            .move = if (best_score > alpha_) best_move else mvs.Move.none,
             .static_eval = raw_static,
             .flag = if (best_score >= beta) tt.EstimationType.Under else tt.EstimationType.Over,
             .depth = 0,
