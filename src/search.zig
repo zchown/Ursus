@@ -1602,16 +1602,25 @@ pub const Searcher = struct {
 
         var moves_seen: usize = 0;
 
+        const futility_base: i32 = static_eval + tp.q_fut_margin.value;
+
         while (picker.next(self, gs)) |picked| {
             const move = picked.move;
             moves_seen += 1;
 
-            if (move.isCapture() and !in_check) {
-                const futile_below = alpha - static_eval - tp.q_delta_margin.value;
-                const threshold = @max(tp.q_see_min.value, @min(tp.q_see_margin.value, futile_below));
-                if (!picked.seeAtLeast(self, gs, threshold)) {
-                    continue;
+            if (!in_check and move.isCapture()) {
+                if (!move.isPromo()) {
+                    const victim = see.see_values[@intFromEnum(gs.cur_position.capturedPiece(move).piece)];
+                    if (futility_base + victim <= alpha) {
+                        best_score = @max(best_score, futility_base + victim);
+                        continue;
+                    }
+                    if (futility_base <= alpha and !picked.seeAtLeast(self, gs, 1)) {
+                        best_score = @max(best_score, futility_base);
+                        continue;
+                    }
                 }
+                if (!picked.seeAtLeast(self, gs, tp.q_see_min.value)) continue;
             }
 
             self.move_history[self.ply] = move;

@@ -66,7 +66,7 @@ pub var lmp_mul = Tunable(usize, .{ .min = 100, .max = 500 }){ .value = 229 };
 pub var futility_mul = Tunable(i32, .{ .min = 60, .max = 350 }){ .value = 170 };
 
 pub var q_see_min = Tunable(i32, .{ .min = -300, .max = 0 }){ .value = -25 };
-pub var q_see_margin = Tunable(i32, .{ .min = -200, .max = 0 }){ .value = -45 };
+pub var q_fut_margin = Tunable(i32, .{ .min = 50, .max = 400 }){ .value = 150 };
 pub var q_delta_margin = Tunable(i32, .{ .min = 50, .max = 500 }){ .value = 213 };
 
 pub var lmr_base = Tunable(i32, .{ .min = 40, .max = 180, .hook = .quiet_lmr }){ .value = 90 };
