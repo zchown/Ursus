@@ -11,7 +11,6 @@ const max_ply = search.max_ply;
 const PieceColor = Searcher.PieceColor;
 
 const max_history: i32 = 16384;
-const corr_limit: i32 = 1024;
 const max_cap_history: i32 = 16384;
 
 pub inline fn quietHist(s: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
@@ -116,8 +115,8 @@ pub fn updateQuietStats(
 
 inline fn corrGravity(entry: *i16, bonus: i32) void {
     const v: i32 = entry.*;
-    const nv = v + bonus - @divTrunc(v * @as(i32, @intCast(@abs(bonus))), corr_limit);
-    entry.* = @intCast(std.math.clamp(nv, -corr_limit, corr_limit));
+    const nv = v + bonus - @divTrunc(v * @as(i32, @intCast(@abs(bonus))), tp.corr_limit.value);
+    entry.* = @intCast(std.math.clamp(nv, -tp.corr_limit.value, tp.corr_limit.value));
 }
 
 pub fn updateCorrection(
@@ -133,8 +132,8 @@ pub fn updateCorrection(
     const d: i32 = @intCast(depth);
     const bonus = std.math.clamp(
         @divTrunc((best_score - static_eval) * d, 8),
-        -@divTrunc(corr_limit, 4),
-        @divTrunc(corr_limit, 4),
+        -@divTrunc(tp.corr_limit.value, 4),
+        @divTrunc(tp.corr_limit.value, 4),
     );
     const w = @intFromEnum(brd.Color.White);
     const b = @intFromEnum(brd.Color.Black);
