@@ -1457,9 +1457,9 @@ pub const Searcher = struct {
             hist.updateCaptureHistory(self, gs, color, best_move, &other_moves, depth);
         }
 
-       const skip_root_store = is_root and (self.root_pv_index > 0 or self.excluded_root_count > 0);
+        const skip_root_store = is_root and (self.root_pv_index > 0 or self.excluded_root_count > 0);
 
-       if ((!skip_quiet or best_score >= beta) and self.excluded_moves[self.ply].isNull() and !skip_root_store) {
+        if ((!skip_quiet or best_score >= beta) and self.excluded_moves[self.ply].isNull() and !skip_root_store) {
             var tt_flag = tt.EstimationType.Over;
             if (best_score >= beta) {
                 tt_flag = tt.EstimationType.Under;
@@ -1468,20 +1468,21 @@ pub const Searcher = struct {
             } 
 
             self.tt_table.set(
-                tt.Entry{
-                    .hash = gs.cur_position.hash,
-                    .eval = scoreToTT(best_score, self.ply),
-                    .move = best_move,
-                    .static_eval = raw_static_eval,
-                    .flag = tt_flag,
-                    .depth = @as(u8, @intCast(depth)),
-                    .age = self.tt_table.getAge(),
-                    .in_check = in_check,
-                    .is_pv = tt_pv,
-                    .static_eval_valid = !in_check and self.excluded_moves[self.ply].isNull(),
-                },
-            );
+            tt.Entry{
+                .hash = gs.cur_position.hash,
+                .eval = scoreToTT(best_score, self.ply),
+                .move = best_move,
+                .static_eval = raw_static_eval,
+                .flag = tt_flag,
+                .depth = @as(u8, @intCast(depth)),
+                .age = self.tt_table.getAge(),
+                .in_check = in_check,
+                .is_pv = tt_pv,
+                .static_eval_valid = !in_check and self.excluded_moves[self.ply].isNull(),
+            },
+        );
         }
+
         return best_score;
     }
 
