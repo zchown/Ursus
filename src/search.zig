@@ -1470,7 +1470,7 @@ pub const Searcher = struct {
             self.tt_table.set(tt.Entry{
                 .hash = gs.cur_position.hash,
                 .eval = scoreToTT(best_score, self.ply),
-                .move = best_move,
+                .move = alpha_move,
                 .static_eval = raw_static_eval,
                 .flag = tt_flag,
                 .depth = @as(u8, @intCast(depth)),
