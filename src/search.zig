@@ -1441,9 +1441,18 @@ pub const Searcher = struct {
             return alpha;
         }
 
-        if (!in_check and !is_null and !best_move.isCapture() and (best_score > -eval.mate_score and best_score < eval.mate_score) and self.excluded_moves[self.ply].isNull() and !(best_score >= beta and best_score <= static_eval) and !(best_move.isNull() and best_score >= static_eval)) {
+        const fail_high = best_score >= beta;
+        const fail_low = alpha_move.isNull();
+
+        if (!in_check and !is_null and
+            self.excluded_moves[self.ply].isNull() and
+            !(!alpha_move.isNull() and alpha_move.isCapture()) and
+            !eval.almostMate(best_score) and
+            !(fail_high and best_score <= static_eval) and
+            !(fail_low and best_score >= static_eval)) {
             hist.updateCorrection(self, color, gs, best_score, static_eval, depth);
         }
+
 
         if (alpha >= beta and !best_move.isCapture() and !best_move.isPromo()) {
             hist.updateQuietHistory(self, gs, color, best_move, &quiet_moves, is_null, depth, node_threats);
