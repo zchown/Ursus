@@ -993,11 +993,6 @@ pub const Searcher = struct {
         }
 
         if (depth >= 3 and !in_check and hash_move.isNull() and self.excluded_moves[self.ply].isNull() and (on_pv or cutnode)) {
-            // var r = @divTrunc(depth, 4);
-            // if (r < 1) {
-            //     r = 1;
-            // }
-            // depth = depth - r;
             depth -= 1;
         }
 
