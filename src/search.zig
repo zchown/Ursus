@@ -1459,16 +1459,15 @@ pub const Searcher = struct {
 
         const skip_root_store = is_root and (self.root_pv_index > 0 or self.excluded_root_count > 0);
 
-        if ((!skip_quiet or best_score >= beta) and self.excluded_moves[self.ply].isNull() and !skip_root_store) {
-            var tt_flag = tt.EstimationType.Over;
-            if (best_score >= beta) {
-                tt_flag = tt.EstimationType.Under;
-            } else if (!alpha_move.isNull() and !skip_quiet) {
-                tt_flag = tt.EstimationType.Exact;
-            } 
+        if (self.excluded_moves[self.ply].isNull() and !skip_root_store) {
+            const tt_flag: tt.EstimationType = if (best_score >= beta)
+                .Under
+                else if (!alpha_move.isNull())
+                    .Exact
+                    else
+                    .Over;
 
-            self.tt_table.set(
-            tt.Entry{
+            self.tt_table.set(tt.Entry{
                 .hash = gs.cur_position.hash,
                 .eval = scoreToTT(best_score, self.ply),
                 .move = best_move,
@@ -1479,8 +1478,7 @@ pub const Searcher = struct {
                 .in_check = in_check,
                 .is_pv = tt_pv,
                 .static_eval_valid = !in_check and self.excluded_moves[self.ply].isNull(),
-            },
-        );
+            });
         }
 
         return best_score;
