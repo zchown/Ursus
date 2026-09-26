@@ -8,8 +8,14 @@ const tp = root.tp;
 pub const mate_score: i32 = 32000;
 pub const tb_win_score: i32 = mate_score;
 
+pub const win_bound: i32 = mate_score - 256;
+
 pub fn almostMate(score: i32) bool {
-    return @abs(score) > mate_score - 256;
+    return @abs(score) > win_bound;
+}
+
+pub inline fn isLoss(score: i32) bool {
+    return score < -win_bound;
 }
 
 pub inline fn scalingMaterial(gs: *const brd.GameState) i32 {

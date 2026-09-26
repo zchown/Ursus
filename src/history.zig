@@ -72,11 +72,11 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     }
 }
 
-inline fn historyBonus(depth: i32) i32 {
+pub inline fn historyBonus(depth: i32) i32 {
     return @max(1, @min(tp.hist_bonus_max.value, tp.hist_bonus_mul.value * depth - tp.hist_bonus_offset.value));
 }
 
-inline fn historyMalus(depth: i32) i32 {
+pub inline fn historyMalus(depth: i32) i32 {
     return @max(0, @min(tp.hist_malus_max.value, tp.hist_malus_mul.value * depth - tp.hist_malus_offset.value));
 }
 
@@ -84,6 +84,33 @@ inline fn applyBonus(comptime T: type, entry: *T, delta: i32, max: i32) void {
     const v: i32 = entry.*;
     const updated = v + delta - @divTrunc(v * @as(i32, @intCast(@abs(delta))), max);
     entry.* = @intCast(std.math.clamp(updated, -max, max));
+}
+
+pub fn updateQuietStats(
+    self: *Searcher,
+    color: brd.Color,
+    piece: brd.Pieces,
+    m: mvs.Move,
+    ply: usize,
+    delta: i32,
+    threats: ?u64,
+    update_main: bool,
+) void {
+    const side: usize = @intFromEnum(color);
+    if (update_main) {
+        applyBonus(i32, self.butterflyPtr(side, m.from, m.to), delta, max_history);
+        if (threats) |t| applyBonus(i32, self.threatHistPtr(side, t, m.from, m.to), delta, max_history);
+    }
+
+    const cur_pc = side * 6 + piece.idx();
+    for ([_]usize{ 1, 2, 4 }) |back| {
+        if (ply < back) break;
+        const prev = self.move_history[ply - back];
+        if (prev.isNull()) continue;
+        const ppc = self.moved_piece_history[ply - back];
+        const prev_pc = @as(usize, @intFromEnum(ppc.color)) * 6 + @as(usize, @intFromEnum(ppc.piece));
+        applyBonus(i16, &self.continuation[prev_pc][prev.to][cur_pc][m.to], delta, max_history);
+    }
 }
 
 pub fn updateCorrection(

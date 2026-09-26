@@ -35,14 +35,14 @@ pub fn initQuietLMR() [64][64]i32 {
 }
 
 inline fn scoreToTT(score: i32, ply: usize) i32 {
-    if (score >= eval.mate_score - 256) return score + @as(i32, @intCast(ply));
-    if (score <= -eval.mate_score + 256) return score - @as(i32, @intCast(ply));
+    if (score >= eval.win_bound) return score + @as(i32, @intCast(ply));
+    if (score <= -eval.win_bound) return score - @as(i32, @intCast(ply));
     return score;
 }
 
 inline fn scoreFromTT(score: i32, ply: usize) i32 {
-    if (score >= eval.mate_score - 256) return score - @as(i32, @intCast(ply));
-    if (score <= -eval.mate_score + 256) return score + @as(i32, @intCast(ply));
+    if (score >= eval.win_bound) return score - @as(i32, @intCast(ply));
+    if (score <= -eval.win_bound) return score + @as(i32, @intCast(ply));
     return score;
 }
 
@@ -250,6 +250,19 @@ pub const Searcher = struct {
         return @divTrunc(bf * tp.butterfly_weight.value + th * tp.threat_hist_weight.value, 1024);
     }
 
+
+    pub inline fn capHistOf(self: *const Searcher, gs: *const brd.GameState, color: brd.Color, move: mvs.Move) i32 {
+        const pos = &gs.cur_position;
+        return self.capture_history[@intFromEnum(color)][pos.movedPiece(move).piece.idx()][move.to][pos.capturedPiece(move).piece.idx()];
+    }
+
+    pub inline fn predictedLmrDepth(depth: usize, move_number: usize, is_capture: bool, stat_score: i32) i32 {
+        const d = @min(depth, 63);
+        const m = @min(move_number, 63);
+        const r: i32 = if (is_capture) noisy_lmr[d][m] else quiet_lmr[d][m];
+        const hist_adj: i32 = if (is_capture) 0 else @divTrunc(stat_score, tp.history_div.value);
+        return @max(0, @as(i32, @intCast(depth)) - 1 - r + hist_adj);
+    }
 
     pub inline fn sameRootMove(a: mvs.Move, b: mvs.Move) bool {
         return a.from == b.from and a.to == b.to and a.promo == b.promo and
@@ -989,7 +1002,7 @@ pub const Searcher = struct {
 
         if (!in_check and !on_pv and self.excluded_moves[self.ply].isNull()) {
             var pruning_eval = static_eval;
-            if (tt_hit and !in_check and tt_eval < eval.mate_score - 256 and tt_eval > -eval.mate_score + 256) {
+            if (tt_hit and !in_check and tt_eval < eval.win_bound and tt_eval > -eval.win_bound) {
                 const use_tt = switch (tt_e_flag) {
                     .Exact => true,
                     .Under => tt_eval > static_eval,
@@ -1000,7 +1013,7 @@ pub const Searcher = struct {
             }
 
             // reverse futility pruning
-            if (@abs(beta) < eval.mate_score - 256 and
+            if (@abs(beta) < eval.win_bound and
                 depth <= @as(usize, @intCast(tp.rfp_depth)))
             {
                 var n: i32 = @as(i32, @intCast(depth)) * tp.rfp_mul.value;
@@ -1056,7 +1069,7 @@ pub const Searcher = struct {
                 }
 
                 if (null_score >= beta) {
-                    if (null_score >= eval.mate_score - 256) {
+                    if (null_score >= eval.win_bound) {
                         null_score = beta;
                     }
                     return null_score;
@@ -1071,6 +1084,7 @@ pub const Searcher = struct {
         self.killer[self.ply + 1][1] = mvs.Move.none;
 
         var best_move = mvs.Move.none;
+        var alpha_move = mvs.Move.none;
         best_score = -eval.mate_score + @as(i32, @intCast(self.ply));
 
 
@@ -1082,14 +1096,13 @@ pub const Searcher = struct {
         }
 
 
-        if (cutnode and depth >= 6 and !in_check and beta < eval.mate_score - 256 and beta > -eval.mate_score + 256 and self.excluded_moves[self.ply].isNull()) {
+        if (cutnode and depth >= 6 and !in_check and beta < eval.win_bound and beta > -eval.win_bound and self.excluded_moves[self.ply].isNull()) {
             const probcut_depth = depth - 3;
             var pc_picker: mp.MovePicker = undefined;
             pc_picker.initProbcut(hash_move, tp.probcut_min_see.value);
             while (pc_picker.next(self, gs)) |pc_picked| {
                 const move = pc_picked.move;
 
-                // Losing captures signal there is nothing left worth probing.
                 if (pc_picked.stage == .bad_noisy) {
                     break;
                 }
@@ -1242,13 +1255,9 @@ pub const Searcher = struct {
 
             if (is_capture and !in_check and !on_pv and depth <= 6 and searched_moves >= 2 and !is_important) {
                 const d: i32 = @intCast(depth);
-                const attacker_idx = gs.cur_position.movedPiece(move).piece.idx();
-                const captured_idx = gs.cur_position.capturedPiece(move).piece.idx();
-                const ch: i32 = self.capture_history[@intFromEnum(color)][attacker_idx][move.to][captured_idx];
+                const ch: i32 = self.capHistOf(gs, color, move);
                 const margin = -tp.see_capture_mul.value * d * d -
                 @divTrunc(ch, tp.see_capthist_div.value);
-                // Captures the picker already classed as good pass any
-                // non-positive margin without another SEE.
                 if (!picked.seeAtLeast(self, gs, margin)) {
                     continue;
                 }
@@ -1271,8 +1280,8 @@ pub const Searcher = struct {
             move.eql(hash_move) and
             tt_depth + 3 >= depth and
         (tt_e_flag == .Under or tt_e_flag == .Exact) and
-            tt_eval < eval.mate_score - 256 and
-            tt_eval > -eval.mate_score + 256)
+            tt_eval < eval.win_bound and
+            tt_eval > -eval.win_bound)
         {
                 const s_beta: i32 = tt_eval - @divTrunc(@as(i32, @intCast(depth)) * tp.se_margin.value, 100);
                 const s_depth: usize = (depth - 1) / 2;
@@ -1412,6 +1421,7 @@ pub const Searcher = struct {
 
                 if (score > alpha) {
                     alpha = score;
+                    alpha_move = move;
 
                     if (alpha >= beta) {
                         break;
@@ -1453,7 +1463,7 @@ pub const Searcher = struct {
             var tt_flag = tt.EstimationType.Over;
             if (best_score >= beta) {
                 tt_flag = tt.EstimationType.Under;
-            } else if (alpha != alpha_ and !skip_quiet) {
+            } else if (!alpha_move.isNull() and !skip_quiet) {
                 tt_flag = tt.EstimationType.Exact;
             } 
 

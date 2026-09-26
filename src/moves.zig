@@ -342,6 +342,84 @@ pub const MoveGen = struct {
         return true;
     }
 
+    pub const CheckInfo = struct {
+        ksq: Square,
+        squares: [7]Bitboard,
+        blockers: Bitboard,
+    };
+
+    pub fn checkInfo(self: *const MoveGen, gs: *const GameState) CheckInfo {
+        const p = &gs.cur_position;
+        const us = gs.to_move;
+        const them = us.opposite();
+        const ksq = p.kingSquare(them);
+        const occ = p.getOccupancy();
+
+        var ci: CheckInfo = .{ .ksq = ksq, .squares = @splat(0), .blockers = 0 };
+        const bishop = self.getBishopAttacks(ksq, occ);
+        const rook = self.getRookAttacks(ksq, occ);
+        ci.squares[@intFromEnum(Pieces.Pawn)] = self.pawns[@intFromEnum(them)][ksq];
+        ci.squares[@intFromEnum(Pieces.Knight)] = self.knights[ksq];
+        ci.squares[@intFromEnum(Pieces.Bishop)] = bishop;
+        ci.squares[@intFromEnum(Pieces.Rook)] = rook;
+        ci.squares[@intFromEnum(Pieces.Queen)] = bishop | rook;
+
+        var snipers = (self.getRookAttacks(ksq, 0) & p.straightSliders(us)) |
+            (self.getBishopAttacks(ksq, 0) & p.diagonalSliders(us));
+        while (snipers != 0) {
+            const s = brd.popLsb(&snipers);
+            const between = self.between[ksq][s] & occ;
+            if (between != 0 and (between & (between - 1)) == 0) {
+                ci.blockers |= between & p.getColorBoard(us);
+            }
+        }
+        return ci;
+    }
+
+    pub fn givesCheck(self: *const MoveGen, gs: *const GameState, m: Move, ci: *const CheckInfo) bool {
+        const p = &gs.cur_position;
+        const to_bb = brd.getSquareBB(m.to);
+
+        if (m.isPromo()) {
+            const occ = (p.getOccupancy() ^ brd.getSquareBB(m.from)) | to_bb;
+            const att: Bitboard = switch (m.promoPiece()) {
+                .Knight => self.knights[m.to],
+                .Bishop => self.getBishopAttacks(m.to, occ),
+                .Rook => self.getRookAttacks(m.to, occ),
+                .Queen => self.getQueenAttacks(m.to, occ),
+                else => 0,
+            };
+            if (att & brd.getSquareBB(ci.ksq) != 0) return true;
+        } else if (!m.isCastle()) {
+            const piece = p.getPieceFromSquare(m.from);
+            if (ci.squares[@intFromEnum(piece)] & to_bb != 0) return true;
+        }
+
+        if (brd.getBit(ci.blockers, m.from) and (self.line[ci.ksq][m.from] & to_bb) == 0) return true;
+
+        return false;
+    }
+
+    pub fn verifyGivesCheck(self: *const MoveGen, gs: *GameState) bool {
+        const ci = self.checkInfo(gs);
+        const them = gs.to_move.opposite();
+        const list = self.generateLegal(gs, .all);
+        var ok = true;
+        for (list.slice()) |m| {
+            const predicted = self.givesCheck(gs, m, &ci);
+            gs.makeMove(m);
+            const actual = self.isInCheck(&gs.cur_position, them);
+            gs.unmakeMove(m);
+            const exact = !m.isCastle() and !m.isEP();
+            if (predicted != actual and (exact or predicted)) {
+                var buf: [5]u8 = undefined;
+                std.debug.print("givesCheck mismatch: {s} predicted={} actual={}\n", .{ m.toUci(&buf), predicted, actual });
+                ok = false;
+            }
+        }
+        return ok;
+    }
+
     pub fn isPseudoLegal(self: *const MoveGen, gs: *const GameState, m: Move) bool {
         if (m.isNull()) return false;
 
