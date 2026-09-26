@@ -205,6 +205,11 @@ pub fn updateQuietHistory(
         const th = self.threatHistPtr(@intFromEnum(color), threats, m.from, m.to);
         applyBonus(i32, th, delta, max_history);
 
+        if (self.ply < tp.low_ply_size) {
+            const lp = &self.low_ply_history[self.ply][m.from][m.to];
+            applyBonus(i16, lp, @divTrunc(delta * tp.lph_update_scale.value, 1024), max_history);
+        }
+
         if (!is_null and self.ply >= 1) {
             const plies: [3]usize = .{ 0, 1, 3 };
             for (plies) |p| {
@@ -219,10 +224,6 @@ pub fn updateQuietHistory(
 
                     const cont = &self.continuation[prev_pc_index][prev.to][cur_pc_index][m.to];
                     applyBonus(i16, cont, delta, max_history);
-                    if (self.ply < tp.low_ply_size) {
-                        const lp = &self.low_ply_history[self.ply][m.from][m.to];
-                        applyBonus(i16, lp, @divTrunc(delta * tp.lph_update_scale.value, 1024), max_history);
-                    }
                 }
             }
         }

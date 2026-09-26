@@ -189,6 +189,11 @@ pub const MovePicker = struct {
             }
 
             var score: i32 = s.quietHistScore(side, threats, move.from, move.to);
+            if (s.ply < tp.low_ply_size) {
+                const lph: i32 = s.low_ply_history[s.ply][move.from][move.to];
+                score += @divTrunc(@divTrunc(lph * tp.lph_order_mul.value, 10), @as(i32, @intCast(s.ply + 1)));
+            }
+
             if (!self.is_null and s.ply >= 1) {
                 const cur_pc_index = @as(usize, side) * 6 + pos.movedPiece(move).piece.idx();
                 const plies: [3]usize = .{ 0, 1, 3 };
@@ -200,10 +205,6 @@ pub const MovePicker = struct {
                         const prev_pc_index = @as(usize, @intCast(@intFromEnum(prev_piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(prev_piece_color.piece)));
 
                         score += s.continuation[prev_pc_index][prev.to][cur_pc_index][move.to];
-                        if (s.ply < tp.low_ply_size) {
-                            const lph: i32 = s.low_ply_history[s.ply][move.from][move.to];
-                            score += @divTrunc(@divTrunc(lph * tp.lph_order_mul.value, 10), @as(i32, @intCast(s.ply + 1)));
-                        }
                     }
                 }
             }
