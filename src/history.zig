@@ -11,6 +11,7 @@ const max_ply = search.max_ply;
 const PieceColor = Searcher.PieceColor;
 
 const max_history: i32 = 16384;
+const corr_limit: i32 = 1024;
 const max_cap_history: i32 = 16384;
 
 pub inline fn quietHist(s: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
@@ -113,69 +114,35 @@ pub fn updateQuietStats(
     }
 }
 
+inline fn corrGravity(entry: *i16, bonus: i32) void {
+    const v: i32 = entry.*;
+    const nv = v + bonus - @divTrunc(v * @as(i32, @intCast(@abs(bonus))), corr_limit);
+    entry.* = @intCast(std.math.clamp(nv, -corr_limit, corr_limit));
+}
+
 pub fn updateCorrection(
     self: *Searcher,
     color: brd.Color,
     gs: *const brd.GameState,
-    best_move: mvs.Move,
     best_score: i32,
     static_eval: i32,
     depth: usize,
 ) void {
-    _ = best_move;
     const pos = &gs.cur_position;
-    const corr_idx = pos.pawn_hash & 16383;
-    const np_white_corr_idx = pos.non_pawn_hash[@intFromEnum(brd.Color.White)] & 16383;
-    const np_black_corr_idx = pos.non_pawn_hash[@intFromEnum(brd.Color.Black)] & 16383;
-    const minor_corr_idx = pos.minor_hash & 16383;
-    const major_corr_idx = pos.major_hash & 16383;
-
-    const err = best_score - static_eval;
-    const depth_i32 = @as(i32, @intCast(depth));
-    const c = @as(usize, @intFromEnum(color));
-
-    const corr_limit: i32 = 16000;
-
-    // Pawn correction
-    const pawn_weight: i32 = @min(128, depth_i32 * 16);
-    const pawn_entry = &self.correction[c][@as(usize, @intCast(corr_idx))];
-    const pawn_old: i32 = pawn_entry.*;
-    pawn_entry.* = @intCast(std.math.clamp(
-        pawn_old + @divTrunc(err * pawn_weight - pawn_old * pawn_weight, 256),
-        -corr_limit, corr_limit,
-    ));
-
-    const np_weight: i32 = @min(128, depth_i32 * 16);
-
-    const npw_entry = &self.np_white_correction[c][@as(usize, @intCast(np_white_corr_idx))];
-    const npw_old: i32 = npw_entry.*;
-    npw_entry.* = @intCast(std.math.clamp(
-        npw_old + @divTrunc(err * np_weight - npw_old * np_weight, 256),
-        -corr_limit, corr_limit,
-    ));
-
-    const npb_entry = &self.np_black_correction[c][@as(usize, @intCast(np_black_corr_idx))];
-    const npb_old: i32 = npb_entry.*;
-    npb_entry.* = @intCast(std.math.clamp(
-        npb_old + @divTrunc(err * np_weight - npb_old * np_weight, 256),
-        -corr_limit, corr_limit,
-    ));
-
-    const major_weight: i32 = @min(128, depth_i32 * 16);
-    const major_entry = &self.major_correction[c][@as(usize, @intCast(major_corr_idx))];
-    const major_old: i32 = major_entry.*;
-    major_entry.* = @intCast(std.math.clamp(
-        major_old + @divTrunc(err * major_weight - major_old * major_weight, 256),
-        -corr_limit, corr_limit,
-    ));
-
-    const minor_weight: i32 = @min(128, depth_i32 * 16);
-    const minor_entry = &self.minor_correction[c][@as(usize, @intCast(minor_corr_idx))];
-    const minor_old: i32 = minor_entry.*;
-    minor_entry.* = @intCast(std.math.clamp(
-        minor_old + @divTrunc(err * minor_weight - minor_old * minor_weight, 256),
-        -corr_limit, corr_limit,
-    ));
+    const c: usize = @intFromEnum(color);
+    const d: i32 = @intCast(depth);
+    const bonus = std.math.clamp(
+        @divTrunc((best_score - static_eval) * d, 8),
+        -@divTrunc(corr_limit, 4),
+        @divTrunc(corr_limit, 4),
+    );
+    const w = @intFromEnum(brd.Color.White);
+    const b = @intFromEnum(brd.Color.Black);
+    corrGravity(&self.correction[c][@intCast(pos.pawn_hash & 16383)], bonus);
+    corrGravity(&self.np_white_correction[c][@intCast(pos.non_pawn_hash[w] & 16383)], bonus);
+    corrGravity(&self.np_black_correction[c][@intCast(pos.non_pawn_hash[b] & 16383)], bonus);
+    corrGravity(&self.major_correction[c][@intCast(pos.major_hash & 16383)], bonus);
+    corrGravity(&self.minor_correction[c][@intCast(pos.minor_hash & 16383)], bonus);
 }
 
 pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState) i32 {

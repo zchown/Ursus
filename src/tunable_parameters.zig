@@ -94,7 +94,7 @@ pub var corr_np_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .value =
 pub var corr_major_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .value = 119 };
 pub var corr_minor_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .value = 117 };
 
-pub var corr_read_divisor = Tunable(i32, .{ .min = 65536, .max = 327680 }){ .value = 156991 };
+pub var corr_read_divisor = Tunable(i32, .{ .min = 1024, .max = 12288 }){ .value = 3072 };
 
 pub var probcut_margin = Tunable(i32, .{ .min = 100, .max = 500 }){ .value = 259 };
 pub var probcut_improve = Tunable(i32, .{ .min = 400, .max = 2000 }){ .value = 1046 };

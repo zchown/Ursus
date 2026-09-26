@@ -1446,7 +1446,7 @@ pub const Searcher = struct {
         }
 
         if (!in_check and !is_null and !best_move.isCapture() and (best_score > -eval.mate_score and best_score < eval.mate_score) and self.excluded_moves[self.ply].isNull() and !(best_score >= beta and best_score <= static_eval) and !(best_move.isNull() and best_score >= static_eval)) {
-            hist.updateCorrection(self, color, gs, best_move, best_score, static_eval, depth);
+            hist.updateCorrection(self, color, gs, best_score, static_eval, depth);
         }
 
         if (alpha >= beta and !best_move.isCapture() and !best_move.isPromo()) {
