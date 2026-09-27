@@ -1186,11 +1186,11 @@ pub const Searcher = struct {
 
             moves_seen += 1;
 
-            const can_prune = !is_root and !in_check and !eval.isLoss(best_score);
 
             if (move.eql(self.excluded_moves[self.ply])) {
                 continue;
             }
+            const can_prune = !is_root and !in_check and !eval.isLoss(best_score);
 
             const is_capture = move.isCapture();
             const is_killer = move.eql(self.killer[self.ply][0]) or move.eql(self.killer[self.ply][1]);
@@ -1201,7 +1201,8 @@ pub const Searcher = struct {
                 else
                 0;
 
-            if (can_prune and moves_seen > 2) {
+            const lmp_moves_seen = if (on_pv) 4 else 2;
+            if (can_prune and moves_seen > lmp_moves_seen) {
                 var lmp_threshold: usize = tp.lmp_base.value + depth * tp.lmp_mul.value;
 
                 lmp_threshold = @divTrunc(lmp_threshold, 100);
@@ -1249,7 +1250,7 @@ pub const Searcher = struct {
                 }
             }
 
-            if (is_capture and !in_check and !on_pv and depth <= 6 and searched_moves >= 2 and !is_important) {
+            if (is_capture and can_prune and depth <= 6 and searched_moves >= 2 and !is_important) {
                 const d: i32 = @intCast(depth);
                 const ch: i32 = self.capHistOf(gs, color, move);
                 const margin = -tp.see_capture_mul.value * d * d -
