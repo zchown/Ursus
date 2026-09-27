@@ -1186,14 +1186,14 @@ pub const Searcher = struct {
 
             moves_seen += 1;
 
-
             if (move.eql(self.excluded_moves[self.ply])) {
                 continue;
             }
-            const can_prune = !is_root and !in_check and !eval.isLoss(best_score);
 
             const is_capture = move.isCapture();
             const is_killer = move.eql(self.killer[self.ply][0]) or move.eql(self.killer[self.ply][1]);
+
+            const can_prune = !is_root and !in_check and (!on_pv or !eval.isLoss(best_score));
 
             const moved_pc = gs.cur_position.movedPiece(move);
             const stat_score: i32 = if (!is_capture)
@@ -1201,8 +1201,7 @@ pub const Searcher = struct {
                 else
                 0;
 
-            const prune_moves_seen = if (on_pv) 4 else 2;
-            if (can_prune and moves_seen > prune_moves_seen) {
+            if (!is_root and moves_seen > 2 and !in_check and !on_pv) {
                 var lmp_threshold: usize = tp.lmp_base.value + depth * tp.lmp_mul.value;
 
                 lmp_threshold = @divTrunc(lmp_threshold, 100);
@@ -1231,7 +1230,9 @@ pub const Searcher = struct {
                 continue;
             }
 
-            if (can_prune and !is_capture and !is_important and depth <= 8 and searched_moves >= prune_moves_seen) {
+            if (can_prune and !is_capture and !is_important and
+                depth <= 4 and searched_moves >= 2)
+            {
                 const hist_threshold: i32 = -@as(i32, @intCast(depth)) * tp.history_prune_mult.value;
                 if (stat_score < hist_threshold) {
                     continue;
@@ -1239,18 +1240,18 @@ pub const Searcher = struct {
             }
 
             // futility pruning
-            if (can_prune and !is_capture and depth <= 8 and !is_important and
-    static_eval + ((@as(i32, @intCast(depth)) + 1) * tp.futility_mul.value) <= alpha and searched_moves >= prune_moves_seen) continue;
-
+            if (can_prune and searched_moves >= 1 and !move.isCapture() and depth <= 8 and !is_important and static_eval + ((@as(i32, @intCast(depth)) + 1) * tp.futility_mul.value) <= alpha) {
+                continue;
+            }
 
             // SEE pruning
-            if (!is_capture and can_prune and !is_important and depth <= 6 and searched_moves >= prune_moves_seen) {
+            if (can_prune and !is_capture and !is_important and depth <= 6 and searched_moves >= 2) {
                 if (!see.seeAtLeast(gs, self.move_gen, move, -@as(i32, @intCast(depth)) * 25)) {
                     continue;
                 }
             }
 
-            if (is_capture and can_prune and depth <= 6 and searched_moves >= prune_moves_seen and !is_important) {
+            if (can_prune and is_capture and depth <= 6 and searched_moves >= 2 and !is_important) {
                 const d: i32 = @intCast(depth);
                 const ch: i32 = self.capHistOf(gs, color, move);
                 const margin = -tp.see_capture_mul.value * d * d -
