@@ -1201,8 +1201,8 @@ pub const Searcher = struct {
                 else
                 0;
 
-            const lmp_moves_seen = if (on_pv) 4 else 2;
-            if (can_prune and moves_seen > lmp_moves_seen) {
+            const prune_moves_seen = if (on_pv) 4 else 2;
+            if (can_prune and moves_seen > prune_moves_seen) {
                 var lmp_threshold: usize = tp.lmp_base.value + depth * tp.lmp_mul.value;
 
                 lmp_threshold = @divTrunc(lmp_threshold, 100);
@@ -1231,7 +1231,7 @@ pub const Searcher = struct {
                 continue;
             }
 
-            if (can_prune and !is_capture and !is_important and depth <= 8 and searched_moves >= 2) {
+            if (can_prune and !is_capture and !is_important and depth <= 8 and searched_moves >= prune_moves_seen) {
                 const hist_threshold: i32 = -@as(i32, @intCast(depth)) * tp.history_prune_mult.value;
                 if (stat_score < hist_threshold) {
                     continue;
@@ -1240,17 +1240,17 @@ pub const Searcher = struct {
 
             // futility pruning
             if (can_prune and !is_capture and depth <= 8 and !is_important and
-    static_eval + ((@as(i32, @intCast(depth)) + 1) * tp.futility_mul.value) <= alpha) continue;
+    static_eval + ((@as(i32, @intCast(depth)) + 1) * tp.futility_mul.value) <= alpha and searched_moves >= prune_moves_seen) continue;
 
 
             // SEE pruning
-            if (!is_capture and can_prune and !is_important and depth <= 6 and searched_moves >= 2) {
+            if (!is_capture and can_prune and !is_important and depth <= 6 and searched_moves >= prune_moves_seen) {
                 if (!see.seeAtLeast(gs, self.move_gen, move, -@as(i32, @intCast(depth)) * 25)) {
                     continue;
                 }
             }
 
-            if (is_capture and can_prune and depth <= 6 and searched_moves >= 2 and !is_important) {
+            if (is_capture and can_prune and depth <= 6 and searched_moves >= prune_moves_seen and !is_important) {
                 const d: i32 = @intCast(depth);
                 const ch: i32 = self.capHistOf(gs, color, move);
                 const margin = -tp.see_capture_mul.value * d * d -
