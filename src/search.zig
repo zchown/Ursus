@@ -1234,13 +1234,14 @@ pub const Searcher = struct {
                 other_count += 1;
             }
 
-            const is_important = move.isPromo() and move.promoPiece() == .Queen;
+            const is_killer = move.eql(self.killer[self.ply][0]) or move.eql(self.killer[self.ply][1]);
+            const is_important = (move.isPromo() and move.promoPiece() == .Queen) or is_killer or gives_check;
 
             if (skip_quiet and !is_capture and !is_important) {
                 continue;
             }
 
-            if (can_prune and !is_important and !gives_check and !is_capture and !is_important and
+            if (can_prune and !is_important and !is_capture and !is_important and
                 depth <= 4 and searched_moves >= 2)
             {
                 const hist_threshold: i32 = -@as(i32, @intCast(depth)) * tp.history_prune_mult.value;
@@ -1250,7 +1251,7 @@ pub const Searcher = struct {
             }
 
             // futility pruning
-            if (can_prune and !is_capture and !is_important and !gives_check and lmr_depth <= 8) {
+            if (can_prune and !is_capture and !is_important and lmr_depth <= 8) {
                 const fut = static_eval + tp.futility_base.value + lmr_depth * tp.futility_mul.value +
                 @divTrunc(stat_score, tp.futility_hist_div.value);
                 if (fut <= alpha) {
