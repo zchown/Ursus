@@ -1176,8 +1176,11 @@ pub const Searcher = struct {
 
         picker.setThreats(node_threats);
 
+        const check_info = self.move_gen.checkInfo(gs);
+
         while (picker.next(self, gs)) |picked| {
             const move = picked.move;
+            const gives_check = self.move_gen.givesCheck(gs, move, &check_info);
 
             if (is_root) {
                 if (!self.isRootMoveAllowed(move)) continue;
@@ -1191,7 +1194,6 @@ pub const Searcher = struct {
             }
 
             const is_capture = move.isCapture();
-            const is_killer = move.eql(self.killer[self.ply][0]) or move.eql(self.killer[self.ply][1]);
 
             const can_prune = !is_root and !in_check and (!on_pv or !eval.isLoss(best_score));
 
@@ -1232,13 +1234,13 @@ pub const Searcher = struct {
                 other_count += 1;
             }
 
-            const is_important = is_killer or (move.isPromo() and move.promoPiece() == .Queen);
+            const is_important = move.isPromo() and move.promoPiece() == .Queen;
 
             if (skip_quiet and !is_capture and !is_important) {
                 continue;
             }
 
-            if (can_prune and !is_capture and !is_important and
+            if (can_prune and !is_important and !gives_check and !is_capture and !is_important and
                 depth <= 4 and searched_moves >= 2)
             {
                 const hist_threshold: i32 = -@as(i32, @intCast(depth)) * tp.history_prune_mult.value;
@@ -1248,7 +1250,7 @@ pub const Searcher = struct {
             }
 
             // futility pruning
-            if (can_prune and !is_capture and !is_important and lmr_depth <= 8) {
+            if (can_prune and !is_capture and !is_important and !gives_check and lmr_depth <= 8) {
                 const fut = static_eval + tp.futility_base.value + lmr_depth * tp.futility_mul.value +
                 @divTrunc(stat_score, tp.futility_hist_div.value);
                 if (fut <= alpha) {
