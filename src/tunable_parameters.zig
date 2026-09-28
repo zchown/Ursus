@@ -59,9 +59,8 @@ pub var nmp_beta_div = Tunable(usize, .{ .min = 50, .max = 300 }){ .value = 129 
 pub var razoring_base = Tunable(i32, .{ .min = 100, .max = 600 }){ .value = 282 };
 pub var razoring_mul = Tunable(i32, .{ .min = 20, .max = 180 }){ .value = 61 };
 
-pub var lmp_improve = Tunable(usize, .{ .min = 100, .max = 500 }){ .value = 223 };
-pub var lmp_base = Tunable(usize, .{ .min = 150, .max = 900 }){ .value = 426 };
-pub var lmp_mul = Tunable(usize, .{ .min = 100, .max = 500 }){ .value = 229 };
+pub var lmp_base = Tunable(usize, .{ .min = 100, .max = 800 }){ .value = 300 };
+pub var lmp_mul = Tunable(usize, .{ .min = 30, .max = 200 }){ .value = 100 };
 
 pub var futility_base = Tunable(i32, .{ .min = 0, .max = 300 }){ .value = 100 };
 pub var futility_mul = Tunable(i32, .{ .min = 50, .max = 300 }){ .value = 120 };

@@ -1212,15 +1212,9 @@ pub const Searcher = struct {
 
 
             if (!is_root and moves_seen > 2 and !in_check and !on_pv) {
-                var lmp_threshold: usize = tp.lmp_base.value + depth * tp.lmp_mul.value;
-
-                lmp_threshold = @divTrunc(lmp_threshold, 100);
-
-                lmp_threshold += self.thread_id;
-
-                if (improving) {
-                    lmp_threshold += @divTrunc(tp.lmp_improve.value, 100);
-                }
+                var lmp_threshold: usize = (tp.lmp_base.value + depth * depth * tp.lmp_mul.value) / 100;
+                if (!improving) lmp_threshold /= 2;
+                lmp_threshold += self.thread_id % 4;
 
                 if (quiet_count > lmp_threshold) {
                     skip_quiet = true;
