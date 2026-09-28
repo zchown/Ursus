@@ -623,13 +623,13 @@ pub const Searcher = struct {
                 const prev_line = prev_line_scores[pv_idx];
                 const have_prev = outer_depth > 1 and prev_line != -eval.mate_score;
 
-                var alpha = if (have_prev) prev_line - tp.aspiration_window.value else -eval.mate_score;
-                var beta = if (have_prev) prev_line + tp.aspiration_window.value else eval.mate_score;
-                var delta: i32 = tp.aspiration_window.value;
+                var delta: i32 = tp.aspiration_window.value +
+            (if (have_prev) @divTrunc(prev_line * prev_line, tp.asp_score_div.value) else 0); // (d)
+                var alpha = if (have_prev) @max(prev_line - delta, -eval.mate_score) else -eval.mate_score;
+                var beta = if (have_prev) @min(prev_line + delta, eval.mate_score) else eval.mate_score;
+                var fail_high_count: usize = 0;
 
                 const depth = outer_depth;
-
-                var window_failed = false;
 
                 if (pv_idx == 0 and self.avg_root_valid) {
                     const avg = self.avg_root_score;
@@ -643,8 +643,8 @@ pub const Searcher = struct {
 
                 while (true) {
                     self.root_moves_searched = 0;
-
-                    line_score = self.negamax(gs, gs.to_move, depth, alpha, beta, false, NodeType.Root, false);
+                    const d: usize = @max(@as(usize, 1), depth -| @min(fail_high_count, 3)); // (b)
+                    line_score = self.negamax(gs, gs.to_move, d, alpha, beta, false, NodeType.Root, false);
 
                     if (self.time_stop or self.should_stop()) {
                         self.time_stop = true;
@@ -653,17 +653,16 @@ pub const Searcher = struct {
                     }
 
                     if (line_score <= alpha) {
-                        alpha = @max(alpha - delta, -eval.mate_score);
-                        delta = @min(delta * 2, eval.mate_score);
-                        window_failed = true;
+                        beta = @divTrunc(alpha + beta, 2); // (a)
+                        alpha = @max(line_score - delta, -eval.mate_score);
+                        fail_high_count = 0;
                     } else if (line_score >= beta) {
-                        beta = @min(beta + delta, eval.mate_score);
-                        delta = @min(delta * 2, eval.mate_score);
-                        window_failed = false;
-                    } else {
-                        window_failed = false;
-                        break;
-                    }
+                        beta = @min(line_score + delta, eval.mate_score);
+                        fail_high_count += 1; // (b)
+                    } else break;
+
+                    delta += @divTrunc(delta * tp.asp_growth.value, 100);
+
                 }
 
                 if (pv_idx == 0) score = line_score;
