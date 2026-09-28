@@ -63,7 +63,11 @@ pub var lmp_improve = Tunable(usize, .{ .min = 100, .max = 500 }){ .value = 223 
 pub var lmp_base = Tunable(usize, .{ .min = 150, .max = 900 }){ .value = 426 };
 pub var lmp_mul = Tunable(usize, .{ .min = 100, .max = 500 }){ .value = 229 };
 
-pub var futility_mul = Tunable(i32, .{ .min = 60, .max = 350 }){ .value = 170 };
+pub var futility_base = Tunable(i32, .{ .min = 0, .max = 300 }){ .value = 100 };
+pub var futility_mul = Tunable(i32, .{ .min = 50, .max = 300 }){ .value = 120 };
+pub var futility_hist_div = Tunable(i32, .{ .min = 32, .max = 512 }){ .value = 128 };
+
+pub var see_quiet_mul = Tunable(i32, .{ .min = 5, .max = 60 }){ .value = 25 };
 
 pub var q_see_min = Tunable(i32, .{ .min = -300, .max = 0 }){ .value = -25 };
 pub var q_fut_margin = Tunable(i32, .{ .min = 10, .max = 600 }){ .value = 400 };

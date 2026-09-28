@@ -1196,10 +1196,18 @@ pub const Searcher = struct {
             const can_prune = !is_root and !in_check and (!on_pv or !eval.isLoss(best_score));
 
             const moved_pc = gs.cur_position.movedPiece(move);
+            const base_r: i32 = if (is_capture)
+                noisy_lmr[@min(depth, 63)][@min(searched_moves + 1, 63)]
+                else
+                quiet_lmr[@min(depth, 63)][@min(searched_moves + 1, 63)];
+
             const stat_score: i32 = if (!is_capture)
                 self.quietStatScore(@intFromEnum(color), node_threats, moved_pc, move, !is_null)
                 else
                 0;
+            const lmr_depth: i32 = @max(0, @as(i32, @intCast(depth)) - 1 - base_r +
+        (if (is_capture) 0 else @divTrunc(stat_score, tp.history_div.value)));
+
 
             if (!is_root and moves_seen > 2 and !in_check and !on_pv) {
                 var lmp_threshold: usize = tp.lmp_base.value + depth * tp.lmp_mul.value;
@@ -1240,15 +1248,19 @@ pub const Searcher = struct {
             }
 
             // futility pruning
-            if (can_prune and searched_moves >= 1 and !move.isCapture() and depth <= 8 and !is_important and static_eval + ((@as(i32, @intCast(depth)) + 1) * tp.futility_mul.value) <= alpha) {
-                continue;
-            }
-
-            // SEE pruning
-            if (can_prune and !is_capture and !is_important and depth <= 6 and searched_moves >= 2) {
-                if (!see.seeAtLeast(gs, self.move_gen, move, -@as(i32, @intCast(depth)) * 25)) {
+            if (can_prune and !is_capture and !is_important and lmr_depth <= 8) {
+                const fut = static_eval + tp.futility_base.value + lmr_depth * tp.futility_mul.value +
+                @divTrunc(stat_score, tp.futility_hist_div.value);
+                if (fut <= alpha) {
+                    if (!eval.almostMate(fut) and fut > best_score) best_score = fut;
                     continue;
                 }
+            }
+
+
+            // SEE pruning
+            if (can_prune and !is_capture and !is_important and searched_moves >= 2) {
+                if (!see.seeAtLeast(gs, self.move_gen, move, -tp.see_quiet_mul.value * lmr_depth * lmr_depth)) continue;
             }
 
             if (can_prune and is_capture and depth <= 6 and searched_moves >= 2 and !is_important) {
