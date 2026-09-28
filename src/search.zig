@@ -624,12 +624,14 @@ pub const Searcher = struct {
                 const have_prev = outer_depth > 1 and prev_line != -eval.mate_score;
 
                 var delta: i32 = tp.aspiration_window.value +
-            (if (have_prev) @divTrunc(prev_line * prev_line, tp.asp_score_div.value) else 0); // (d)
+            (if (have_prev) @divTrunc(prev_line * prev_line, tp.asp_score_div.value) else 0);
                 var alpha = if (have_prev) @max(prev_line - delta, -eval.mate_score) else -eval.mate_score;
                 var beta = if (have_prev) @min(prev_line + delta, eval.mate_score) else eval.mate_score;
                 var fail_high_count: usize = 0;
 
                 const depth = outer_depth;
+                var window_failed = false;
+
 
                 if (pv_idx == 0 and self.avg_root_valid) {
                     const avg = self.avg_root_score;
@@ -643,7 +645,7 @@ pub const Searcher = struct {
 
                 while (true) {
                     self.root_moves_searched = 0;
-                    const d: usize = @max(@as(usize, 1), depth -| @min(fail_high_count, 3)); // (b)
+                    const d: usize = @max(@as(usize, 1), depth -| @min(fail_high_count, 3));
                     line_score = self.negamax(gs, gs.to_move, d, alpha, beta, false, NodeType.Root, false);
 
                     if (self.time_stop or self.should_stop()) {
@@ -653,13 +655,18 @@ pub const Searcher = struct {
                     }
 
                     if (line_score <= alpha) {
-                        beta = @divTrunc(alpha + beta, 2); // (a)
+                        beta = @divTrunc(alpha + beta, 2);
                         alpha = @max(line_score - delta, -eval.mate_score);
                         fail_high_count = 0;
+                        window_failed = true;
                     } else if (line_score >= beta) {
                         beta = @min(line_score + delta, eval.mate_score);
-                        fail_high_count += 1; // (b)
-                    } else break;
+                        fail_high_count += 1;
+                        window_failed = false;
+                    } else {
+                        window_failed = false;
+                        break;
+                    }
 
                     delta += @divTrunc(delta * tp.asp_growth.value, 100);
 
