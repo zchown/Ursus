@@ -1308,16 +1308,6 @@ pub const Searcher = struct {
                 }
             }
 
-            if (!is_root and self.ply <= depth and !hash_move.isCapture()) {
-                if (is_capture and last_move.isCapture() and move.to == last_move.to) {
-                    extension += 1;
-                } else if (is_capture and self.ply >= 3 and last_last_last_move.isCapture() and
-                    move.to == last_last_last_move.to)
-                {
-                    extension += 1;
-                }
-            }
-
             self.move_history[self.ply] = move;
             self.moved_piece_history[self.ply] = gs.cur_position.movedPiece(move);
 
