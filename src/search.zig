@@ -820,15 +820,16 @@ pub const Searcher = struct {
         if (self.ply >= max_ply - 1) {
             return eval.adjustEval(gs, self.optimism[@intFromEnum(color)], gs.evaluateNNUE(), 0);
         }
+        const is_root = comptime (node_type == NodeType.Root);
 
-        if (gs.isDraw(self.ply)) {
+        const on_pv = comptime (node_type != NodeType.NonPV);
+
+        if (!is_root and gs.isDraw(self.ply)) {
             return 0;
         }
 
         self.seldepth = @max(self.seldepth, self.ply);
 
-        const is_root = comptime (node_type == NodeType.Root);
-        const on_pv = comptime (node_type != NodeType.NonPV);
 
         if (depth == 0) {
             return self.qsearch(gs, color, alpha, beta, on_pv);
