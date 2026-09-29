@@ -1108,7 +1108,7 @@ pub const Searcher = struct {
                     }
                 }
                 else if (!pc_picked.seeAtLeast(self, gs, tp.probcut_min_see.value)) {
-                    break;
+                    continue;
                 }
 
                 self.move_history[self.ply] = move;
@@ -1126,7 +1126,7 @@ pub const Searcher = struct {
                 }
 
                 if (score >= probcut_beta) {
-                    score = -self.negamax(gs, color.opposite(), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, true);
+                    score = -self.negamax(gs, color.opposite(), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, false);
                 }
 
                 if (self.time_stop) {

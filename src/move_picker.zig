@@ -119,7 +119,7 @@ pub const MovePicker = struct {
     pub fn initProbcut(self: *MovePicker, hash_move: Move, see_threshold: i32) void {
         self.reset(hash_move);
         self.noisy_only = true;
-        self.allow_quiet_tt = true;
+        self.allow_quiet_tt = false;
         self.see_threshold = see_threshold;
     }
 
