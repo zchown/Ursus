@@ -123,6 +123,9 @@ pub var tm_nodetm_base = Tunable(f32, .{ .min = 0.80, .max = 2.20 }){ .value = 1
 pub var tm_nodetm_mul = Tunable(f32, .{ .min = 0.60, .max = 2.20 }){ .value = 1.33 };
 pub var tm_horizon_div = Tunable(u64, .{ .min = 2, .max = 12, .c_end = 0.10, .r_end = 0.01 }){ .value = 5 };
 pub var tm_horizon_min = Tunable(u64, .{ .min = 5, .max = 30, .c_end = 0.50, .r_end = 0.004 }){ .value = 14 };
+pub var tm_score_rise = Tunable(f32, .{ .min = 0.7, .max = 1.4 }){ .value = 0.9 };
+pub var tm_score_drop = Tunable(f32, .{ .min = 1.0, .max = 2.0 }){ .value = 1.5 };
+pub var tm_next_iter_mul = Tunable(u64, .{ .min = 1, .max = 4, .c_end = 0.5, .r_end = 0.01 }){ .value = 2 };
 
 pub var hist_bonus_mul = Tunable(i32, .{ .min = 100, .max = 600 }){ .value = 300 };
 pub var hist_bonus_offset = Tunable(i32, .{ .min = 0, .max = 800 }){ .value = 300 };
