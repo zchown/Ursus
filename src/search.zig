@@ -167,6 +167,7 @@ pub const Searcher = struct {
     root_move_count: usize = 0,
     root_moves_searched: usize = 0,
     root_pv_index: usize = 0,
+    partial_best: mvs.Move = mvs.Move.none,
     root_lines: [max_multipv]RootLine = undefined,
 
     search_score: i32 = 0,
@@ -611,6 +612,7 @@ pub const Searcher = struct {
 
         outer: while (outer_depth <= bound) : (outer_depth += 1) {
             self.excluded_root_count = 0;
+            self.partial_best = mvs.Move.none;
 
             var pv_idx: usize = 0;
             while (pv_idx < multipv) : (pv_idx += 1) {
@@ -630,8 +632,6 @@ pub const Searcher = struct {
                 var fail_high_count: usize = 0;
 
                 const depth = outer_depth;
-                var window_failed = false;
-
 
                 if (pv_idx == 0 and self.avg_root_valid) {
                     const avg = self.avg_root_score;
@@ -651,6 +651,16 @@ pub const Searcher = struct {
                     if (self.time_stop or self.should_stop()) {
                         self.time_stop = true;
                         tt.stop_signal.store(true, .release);
+                        if (pv_idx == 0 and !bm.isNull() and !self.partial_best.isNull() and !self.partial_best.eql(bm)) {
+                            bm = self.partial_best;
+                            if (self.pv_length[0] > 0 and self.pv[0][0].eql(bm)) {
+                                best_pv = self.pv[0];
+                                best_pv_length = self.pv_length[0];
+                            } else {
+                                best_pv[0] = bm;
+                                best_pv_length = 1;
+                            }
+                        }
                         break :outer;
                     }
 
@@ -658,13 +668,10 @@ pub const Searcher = struct {
                         beta = @divTrunc(alpha + beta, 2);
                         alpha = @max(line_score - delta, -eval.mate_score);
                         fail_high_count = 0;
-                        window_failed = true;
                     } else if (line_score >= beta) {
                         beta = @min(line_score + delta, eval.mate_score);
                         fail_high_count += 1;
-                        window_failed = false;
                     } else {
-                        window_failed = false;
                         break;
                     }
 
@@ -693,11 +700,9 @@ pub const Searcher = struct {
                         stability += 1;
                     }
 
-                    if (!window_failed) {
-                        bm = self.best_move;
-                        best_pv = self.pv[0];
-                        best_pv_length = self.pv_length[0];
-                    }
+                    bm = self.best_move;
+                    best_pv = self.pv[0];
+                    best_pv_length = self.pv_length[0];
                 }
 
                 if (!self.silent_output) {
@@ -731,10 +736,11 @@ pub const Searcher = struct {
             var factor: f32 = tp.tm_stability_scale.values[stability_idx];
 
             if (score - prev_score > tp.aspiration_window.value) {
-                factor *= 1.3;
+                factor *= tp.tm_score_rise.value;
             } else if (prev_score - score > tp.aspiration_window.value) {
-                factor *= 1.5;
+                factor *= tp.tm_score_drop.value;
             }
+
 
             if (outer_depth >= tp.tm_nodetm_min_depth.value and !bm.isNull() and self.nodes > 0) {
                 const bm_nodes = self.root_node_counts[bm.from][bm.to];
@@ -758,7 +764,7 @@ pub const Searcher = struct {
             const this_depth_ms = now_ms -| self.prev_depth_ms;
             self.prev_depth_ms = now_ms;
 
-            const predicted_next_ms = this_depth_ms * 3;
+            const predicted_next_ms = this_depth_ms * tp.tm_next_iter_mul.value;
             const thinking = @atomicLoad(bool, &self.force_think, .acquire);
             if (!thinking and now_ms +| predicted_next_ms > self.max_ms) {
                 break;
@@ -1436,6 +1442,7 @@ pub const Searcher = struct {
                 if (score > alpha) {
                     alpha = score;
                     alpha_move = move;
+                    if (is_root and self.root_pv_index == 0) self.partial_best = move;
 
                     if (alpha >= beta) {
                         break;
