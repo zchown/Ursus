@@ -1295,7 +1295,7 @@ pub const Searcher = struct {
 
             var extension: i32 = 0;
 
-            // Singular Extensions, also double and triple
+            // Singular Extensions
             if (!is_root and
             self.excluded_moves[self.ply].isNull() and
             depth >= tp.se_min_depth and
@@ -1318,6 +1318,9 @@ pub const Searcher = struct {
 
                 if (s_score < s_beta) {
                     extension = 1;
+                    if (s_score <  s_beta  - tp.se_double_margin.value) {
+                        extension = 2;
+                    }
                 } else if (!on_pv and s_score >= beta and !eval.almostMate(s_score)) {
                     return s_score;
                 } else if (tt_eval >= beta) {
