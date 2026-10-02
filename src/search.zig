@@ -660,6 +660,10 @@ pub const Searcher = struct {
                                 best_pv[0] = bm;
                                 best_pv_length = 1;
                             }
+                            if (!self.silent_output) {
+                                self.printInfo(self.nodes, self.tb_hits, self.best_move_score,
+                                best_pv[0..best_pv_length], 1, std.heap.smp_allocator);
+                            }
                         }
                         break :outer;
                     }
