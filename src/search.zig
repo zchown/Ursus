@@ -1228,7 +1228,7 @@ pub const Searcher = struct {
         (if (is_capture) 0 else @divTrunc(stat_score, tp.history_div.value)));
 
 
-            if (!is_root and moves_seen > 2 and !in_check and !on_pv) {
+            if (can_prune and moves_seen > 2) {
                 var lmp_threshold: usize = (tp.lmp_base.value + depth * depth * tp.lmp_mul.value) / 100;
                 if (!improving) lmp_threshold /= 2;
                 lmp_threshold += self.thread_id % 4;
@@ -1252,7 +1252,7 @@ pub const Searcher = struct {
                 continue;
             }
 
-            if (can_prune and !is_important and !is_capture and !is_important and
+            if (can_prune and !is_important and !is_capture and 
                 depth <= 4 and searched_moves >= 2)
             {
                 const hist_threshold: i32 = -@as(i32, @intCast(depth)) * tp.history_prune_mult.value;
@@ -1262,7 +1262,7 @@ pub const Searcher = struct {
             }
 
             // futility pruning
-            if (can_prune and !is_capture and !is_important and lmr_depth <= 8) {
+            if (can_prune and !is_important and lmr_depth <= 8) {
                 const fut = static_eval + tp.futility_base.value + lmr_depth * tp.futility_mul.value +
                 @divTrunc(stat_score, tp.futility_hist_div.value);
                 if (fut <= alpha) {
