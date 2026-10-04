@@ -886,7 +886,10 @@ pub const Searcher = struct {
                 self.best_move_score = tt_eval;
             }
 
-            if (!on_pv and !is_root and self.excluded_moves[self.ply].isNull() and e.depth >= @as(u8, @intCast(depth))) {
+            if (!on_pv and !is_root and self.excluded_moves[self.ply].isNull() and
+            tt_depth + @as(usize, @intFromBool(e.flag == .Over)) >= depth and
+            (cutnode == (tt_eval >= beta) or depth > 5) and gs.cur_position.halfmove < 90) {
+
                 const cut = switch (e.flag) {
                     .Exact => true,
                     .Under => tt_eval >= beta,
@@ -894,6 +897,14 @@ pub const Searcher = struct {
                     .None => false,
                 };
                 if (cut) {
+                    if (tt_eval >= beta and !hash_move.isNull() and hash_move.isQuiet() and
+                    self.move_gen.isPseudoLegal(gs, hash_move))
+                {
+                        const pc = gs.cur_position.movedPiece(hash_move).piece;
+                        const thr = computeThreats(self.move_gen, gs, color.opposite());
+                        hist.updateQuietStats(self, color, pc, hash_move, self.ply,
+                        hist.historyBonus(@intCast(depth)), thr, true);
+                    }
                     return tt_eval;
                 }
             }
