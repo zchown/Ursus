@@ -1026,19 +1026,17 @@ pub const Searcher = struct {
             }
 
             // reverse futility pruning
-            if (@abs(beta) < eval.win_bound and
-                depth <= @as(usize, @intCast(tp.rfp_depth)))
-            {
+            if (!tt_pv and
+            !eval.almostMate(beta) and
+            depth <= @as(usize, @intCast(tp.rfp_depth))) {
                 var n: i32 = @as(i32, @intCast(depth)) * tp.rfp_mul.value;
-
-                if (improving) {
-                    n -= tp.rfp_improve.value;
-                }
+                if (improving) n -= tp.rfp_improve.value;
 
                 if (pruning_eval - n >= beta) {
-                    return pruning_eval - n;
+                    return beta + @divTrunc(pruning_eval - beta, 3);
                 }
             }
+
 
             // razoring
             if (depth <= 4) {

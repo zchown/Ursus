@@ -7,7 +7,7 @@ pub const max_game_ply = 1024;
 pub var tb_probe_depth: usize = 1;
 
 // not SPSA tunable
-pub const rfp_depth: i32 = 6;
+pub const rfp_depth: i32 = 8;
 pub const se_min_depth: usize = 7;
 pub const lmr_pv_min = 3;
 pub const lmr_non_pv_min = 1;
