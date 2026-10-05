@@ -1473,6 +1473,11 @@ pub const Searcher = struct {
         const fail_high = best_score >= beta;
         const fail_low = alpha_move.isNull();
 
+        if (!on_pv and best_score >= beta and !eval.almostMate(best_score) and !eval.almostMate(beta)) {
+            const d: i32 = @intCast(depth);
+            best_score = @divTrunc(best_score * d + beta, d + 1);
+        }
+
         if (!in_check and !is_null and
             self.excluded_moves[self.ply].isNull() and
             !(!alpha_move.isNull() and alpha_move.isCapture()) and
