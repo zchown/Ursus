@@ -1600,6 +1600,7 @@ pub const Searcher = struct {
             best_score = static_eval;
 
             if (best_score >= beta) {
+                if (!eval.almostMate(best_score)) best_score = @divTrunc(best_score + beta, 2);
                 self.tt_table.set(tt.Entry{
                     .hash = gs.cur_position.hash,
                     .eval = scoreToTT(best_score, self.ply),
