@@ -1103,16 +1103,17 @@ pub const Searcher = struct {
 
         // Probcut
         var probcut_beta = beta + tp.probcut_margin.value;
+        const see_thr = probcut_beta - static_eval;
 
         if (improving) {
             probcut_beta += (tp.probcut_improve.value - 1000);
         }
 
 
-        if (cutnode and depth >= 6 and !in_check and beta < eval.win_bound and beta > -eval.win_bound and self.excluded_moves[self.ply].isNull()) {
+        if (!on_pv and depth >= 5 and !in_check and beta < eval.win_bound and beta > -eval.win_bound and self.excluded_moves[self.ply].isNull() and !(tt_hit and tt_e_flag != .None and tt_depth + 3 >= depth and tt_eval < probcut_beta)) {
             const probcut_depth = depth - 3;
             var pc_picker: mp.MovePicker = undefined;
-            pc_picker.initProbcut(hash_move, tp.probcut_min_see.value);
+            pc_picker.initProbcut(hash_move, see_thr);
             while (pc_picker.next(self, gs)) |pc_picked| {
                 const move = pc_picked.move;
 
@@ -1124,7 +1125,7 @@ pub const Searcher = struct {
                         continue;
                     }
                 }
-                else if (!pc_picked.seeAtLeast(self, gs, tp.probcut_min_see.value)) {
+                else if (!pc_picked.seeAtLeast(self, gs, see_thr)) {
                     break;
                 }
 
@@ -1143,7 +1144,7 @@ pub const Searcher = struct {
                 }
 
                 if (score >= probcut_beta) {
-                    score = -self.negamax(gs, color.opposite(), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, true);
+                    score = -self.negamax(gs, color.opposite(), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, cutnode);
                 }
 
                 if (self.time_stop) {
@@ -1170,8 +1171,7 @@ pub const Searcher = struct {
                         .static_eval_valid = !in_check and self.excluded_moves[self.ply].isNull(),
                     });
 
-
-                    return score;
+                    return if (eval.almostMate(score)) score else score - (probcut_beta - beta);
                 } 
                 else {
                     gs.unmakeMove(move);
