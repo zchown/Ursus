@@ -16,5 +16,6 @@ pub const tb = @import("tb.zig");
 pub const mp = @import("move_picker.zig");
 pub const see = @import("see.zig");
 pub const datagen = @import("datagen.zig");
+pub const cuckoo = @import("cuckoo.zig");
 
 pub const build_options = @import("build_options");

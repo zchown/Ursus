@@ -11,6 +11,7 @@ const nnue = root.nnue;
 const perft = root.perft;
 const tp = root.tp;
 const tb = root.tb;
+const cuckoo = root.cuckoo;
 const build_options = root.build_options;
 
 var move_overhead: u64 = 15;
@@ -406,6 +407,9 @@ pub const UciProtocol = struct {
         if (build_options.is_dev) {
             try reportTunables();
         }
+
+        const move_gen = self.searcher.move_gen;
+        cuckoo.cuckoo.init(move_gen);
 
         try self.newGame();
 

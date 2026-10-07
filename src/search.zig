@@ -9,6 +9,8 @@ const mp = root.mp;
 const tp = root.tp;
 const hist = root.hist;
 const tb = root.tb;
+const cuckoo = root.cuckoo;
+const zob = root.zob;
 
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
@@ -216,6 +218,46 @@ pub const Searcher = struct {
     pub fn deinit(self: *Searcher) void {
         std.heap.smp_allocator.destroy(self.continuation);
         std.heap.smp_allocator.destroy(self.move_gen);
+    }
+
+    fn pliesFromNull(self: *const Searcher) usize {
+        var i: usize = self.ply;
+        while (i > 0) : (i -= 1) {
+            if (self.move_history[i - 1].isNull()) return self.ply - i;
+        }
+        return std.math.maxInt(usize);
+    }
+
+    fn upcomingRepetition(self: *const Searcher, gs: *const brd.GameState) bool {
+        const pos = &gs.cur_position;
+        const end = @min(@min(@as(usize, pos.halfmove), self.pliesFromNull()), gs.ply);
+        if (end < 3) return false;
+
+        const side = zob.ZobristKeys.sideKeys(.White) ^ zob.ZobristKeys.sideKeys(.Black);
+        const original = pos.hash;
+        const occ = pos.getOccupancy();
+        var other: u64 = original ^ gs.history[gs.ply - 1].key ^ side;
+
+        var i: usize = 3;
+        while (i <= end) : (i += 2) {
+            other ^= gs.history[gs.ply - (i - 1)].key ^ gs.history[gs.ply - i].key ^ side;
+            if (other != 0) continue;
+
+            const move_key = original ^ gs.history[gs.ply - i].key;
+            var j = cuckoo.Cuckoo.h1(move_key);
+            if (cuckoo.cuckoo.keys[j] != move_key) {
+                j = cuckoo.Cuckoo.h2(move_key);
+                if (cuckoo.cuckoo.keys[j] != move_key) continue;
+            }
+            const mv = cuckoo.cuckoo.moves[j];
+            if ((self.move_gen.between[mv.from][mv.to] & occ) != 0) continue;
+
+            const sq = if (brd.getBit(occ, mv.from)) mv.from else mv.to;
+            if (pos.getColorFromSquare(sq) != gs.to_move) continue;
+
+            if (self.ply > i) return true;
+        }
+        return false;
     }
 
     pub inline fn butterflyPtr(self: *Searcher, side: usize, from: usize, to: usize) *i32 {
@@ -836,6 +878,11 @@ pub const Searcher = struct {
 
         if (!is_root and gs.isDraw(self.ply)) {
             return 0;
+        }
+
+        if (!is_root and alpha < 0 and self.upcomingRepetition(gs)) {
+            alpha = 0;
+            if (alpha >= beta) return alpha;
         }
 
         self.seldepth = @max(self.seldepth, self.ply);
@@ -1551,6 +1598,11 @@ pub const Searcher = struct {
 
         if (gs.isDraw(self.ply)) {
             return 0;
+        }
+
+        if (alpha < 0 and self.upcomingRepetition(gs)) {
+            alpha = 0;
+            if (alpha >= beta) return alpha;
         }
 
         if (self.ply >= max_ply - 1) {
