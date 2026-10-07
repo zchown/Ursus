@@ -1491,6 +1491,18 @@ pub const Searcher = struct {
             hist.updateCaptureHistory(self, gs, color, best_move, &other_moves, depth);
         }
 
+        if (best_score <= alpha_ and !is_root and !is_null and self.ply >= 1 and
+        self.excluded_moves[self.ply].isNull())
+    {
+            const prev = self.move_history[self.ply - 1];
+            if (!prev.isNull() and !prev.isCapture() and !prev.isPromo()) {
+                const prev_pc = self.moved_piece_history[self.ply - 1];
+                const bonus = @divTrunc(hist.historyBonus(@intCast(depth)) * tp.prior_bonus_scale.value, 1024);
+                hist.updateQuietStats(self, color.opposite(), prev_pc.piece, prev, self.ply - 1, bonus, null, true);
+            }
+        }
+
+
         const skip_root_store = is_root and (self.root_pv_index > 0 or self.excluded_root_count > 0);
 
         if (self.excluded_moves[self.ply].isNull() and !skip_root_store) {
