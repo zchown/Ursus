@@ -1110,7 +1110,7 @@ pub const Searcher = struct {
         }
 
 
-        if (!on_pv and depth >= 5 and !in_check and beta < eval.win_bound and beta > -eval.win_bound and self.excluded_moves[self.ply].isNull() and !(tt_hit and tt_e_flag != .None and tt_depth + 3 >= depth and tt_eval < probcut_beta)) {
+        if (!on_pv and depth >= 6 and !in_check and beta < eval.win_bound and beta > -eval.win_bound and self.excluded_moves[self.ply].isNull() and !(tt_hit and tt_e_flag != .None and tt_depth + 3 >= depth and tt_eval < probcut_beta)) {
             const probcut_depth = depth - 3;
             var pc_picker: mp.MovePicker = undefined;
             pc_picker.initProbcut(hash_move, see_thr);
@@ -1171,7 +1171,7 @@ pub const Searcher = struct {
                         .static_eval_valid = !in_check and self.excluded_moves[self.ply].isNull(),
                     });
 
-                    return if (eval.almostMate(score)) score else score - (probcut_beta - beta);
+                    return score;
                 } 
                 else {
                     gs.unmakeMove(move);
