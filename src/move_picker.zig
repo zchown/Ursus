@@ -61,6 +61,8 @@ pub const MovePicker = struct {
     bad_index: usize,
 
     see_threshold: i32,
+    dynamic_see: bool,
+
     skip_quiets: bool,
     noisy_only: bool,
     allow_quiet_tt: bool,
@@ -90,11 +92,13 @@ pub const MovePicker = struct {
         self.info_ready = false;
         self.threats = 0;
         self.threats_ready = false;
+        self.dynamic_see = false;
     }
 
     pub fn init(self: *MovePicker, hash_move: Move, is_null: bool) void {
         self.reset(hash_move);
         self.is_null = is_null;
+        self.dynamic_see = true;
     }
 
     pub fn setThreats(self: *MovePicker, t: u64) void {
@@ -114,6 +118,7 @@ pub const MovePicker = struct {
         self.reset(hash_move);
         self.noisy_only = true;
         self.allow_quiet_tt = false;
+        self.dynamic_see = false;
     }
 
     pub fn initProbcut(self: *MovePicker, hash_move: Move, see_threshold: i32) void {
@@ -121,6 +126,7 @@ pub const MovePicker = struct {
         self.noisy_only = true;
         self.allow_quiet_tt = true;
         self.see_threshold = see_threshold;
+        self.dynamic_see = false;
     }
 
     fn ensureInfo(self: *MovePicker, s: *srch.Searcher, gs: *const GameState) void {
@@ -255,13 +261,18 @@ pub const MovePicker = struct {
                         if (!self.legal(s, gs, m)) continue;
 
                         if (m.isCapture()) {
-                            const good = see.seeAtLeast(gs, s.move_gen, m, self.see_threshold);
+                            const sc = self.scores[self.index - 1];
+                            const thr: i32 = if (self.dynamic_see and !isQueenPromo(m))
+                                @min(0, -@divTrunc(sc, tp.good_cap_see_div.value))
+                                else
+                                self.see_threshold;
+                            const good = see.seeAtLeast(gs, s.move_gen, m, thr);
                             if (!good and self.bad_count < max_bad_noisy) {
                                 self.bad_noisy[self.bad_count] = m;
                                 self.bad_count += 1;
                                 continue;
                             }
-                            return PickedMove{ .move = m, .stage = .good_noisy, .see_passed = good, .see_bound = self.see_threshold };
+                            return PickedMove{ .move = m, .stage = .good_noisy, .see_passed = good, .see_bound = thr };
                         }
 
                         return PickedMove{ .move = m, .stage = .good_noisy };
