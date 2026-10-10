@@ -167,6 +167,11 @@ pub const MovePicker = struct {
 
                 var score: i32 = tp.see_weight.value * see.see_values[victim] +
                     @divTrunc(capthist * 10, tp.capthist_div.value);
+                if (s.ply == 0) {
+                    const n = s.root_node_counts[move.from][move.to];
+                    if (n > 0) score += @as(i32, @intCast(std.math.log2_int(u64, n))) * tp.root_order_mul_noisy.value;
+                }
+
                 if (isQueenPromo(move)) {
                     score += score_promotion;
                 }
@@ -189,6 +194,12 @@ pub const MovePicker = struct {
             }
 
             var score: i32 = s.quietHistScore(side, threats, move.from, move.to);
+
+            if (s.ply == 0) {
+                const n = s.root_node_counts[move.from][move.to];
+                if (n > 0) score += @as(i32, @intCast(std.math.log2_int(u64, n))) * tp.root_order_mul_quiet.value;
+            }
+
             if (s.ply < tp.low_ply_size) {
                 const lph: i32 = s.low_ply_history[s.ply][move.from][move.to];
                 score += @divTrunc(@divTrunc(lph * tp.lph_order_mul.value, 10), @as(i32, @intCast(s.ply + 1)));
