@@ -59,7 +59,7 @@ pub const PackedEntry = extern struct {
         is_pv: bool,
         static_eval_valid: bool,
     ) PackedEntry {
-        const hash_upper: u32 = @truncate(hash >> 32);
+        const hash_upper: u32 = @truncate(hash >> 27);
         const hash_lower: u27 = @truncate(hash);
 
         const clamped_eval: i16 = @intCast(@max(-32768, @min(32767, eval_)));
@@ -123,7 +123,7 @@ pub const PackedEntry = extern struct {
     pub inline fn verify(self: PackedEntry, full_hash: u64) bool {
         const stored_upper: u32 = @truncate(self.data);
         const stored_lower: u27 = @truncate(self.data >> 101);
-        const hash_upper: u32 = @truncate(full_hash >> 32);
+        const hash_upper: u32 = @truncate(full_hash >> 27);
         const hash_lower: u27 = @truncate(full_hash);
         return stored_upper == hash_upper and stored_lower == hash_lower;
     }
@@ -204,8 +204,7 @@ pub const TranspositionTable = struct {
     age: std.atomic.Value(u8),
 
     pub fn init(allocator: std.mem.Allocator, size_in_mb: usize) !TranspositionTable {
-        const raw_num_buckets = (size_in_mb * mb) / @sizeOf(Bucket);
-        const num_buckets = std.math.floorPowerOfTwo(usize, raw_num_buckets);
+        const num_buckets = @max(@as(usize, 1), (size_in_mb * mb) / @sizeOf(Bucket));
 
         // alignedAlloc guarantees each bucket starts exactly on a cache line boundary
         const buckets = try allocator.alignedAlloc(Bucket, std.mem.Alignment.@"64", num_buckets);
@@ -238,8 +237,9 @@ pub const TranspositionTable = struct {
     }
 
     pub inline fn index(self: *TranspositionTable, hash: zob.ZobristKey) usize {
-        return @as(usize, hash & (@as(zob.ZobristKey, self.num_buckets) - 1));
+        return @intCast((@as(u128, hash) * @as(u128, self.num_buckets)) >> 64); // uses high bits
     }
+
 
     pub inline fn incrementAge(self: *TranspositionTable) void {
         const old_age = self.age.load(.monotonic);
