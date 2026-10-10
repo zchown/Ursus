@@ -1633,7 +1633,7 @@ pub const Searcher = struct {
         }
 
 
-        const queen_val = see.see_values[@intFromEnum(brd.Pieces.Queen)];
+        const queen_val = tp.see_values.values[@intFromEnum(brd.Pieces.Queen)];
 
         if (!in_check) {
             if (static_eval + queen_val + tp.q_delta_margin.value < alpha) {
@@ -1654,7 +1654,7 @@ pub const Searcher = struct {
 
             if (!in_check and move.isCapture()) {
                 if (!move.isPromo()) {
-                    const victim = see.see_values[@intFromEnum(gs.cur_position.capturedPiece(move).piece)];
+                    const victim = tp.see_values.values[@intFromEnum(gs.cur_position.capturedPiece(move).piece)];
                     if (futility_base + victim <= alpha) {
                         best_score = @max(best_score, futility_base + victim);
                         continue;

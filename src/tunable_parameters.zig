@@ -46,6 +46,16 @@ pub fn TunableArray(comptime T: type, comptime specs: []const Spec) type {
     };
 }
 
+pub var see_values = TunableArray(i32, &.{
+    .{ .min = 0, .max = 200 },
+    .{ .min = 0, .max = 400 },
+    .{ .min = 0, .max = 600 },
+    .{ .min = 0, .max = 800 },
+    .{ .min = 0, .max = 1000 },
+    .{ .min = 20000, .max = 20000 },
+    .{ .min = 0, .max = 0},
+}){ .values = .{ 93, 308, 346, 521, 994, 20000, 0} };
+
 pub var aspiration_window = Tunable(i32, .{ .min = 8, .max = 80 }){ .value = 32 };
 pub var asp_score_div = Tunable(i32, .{ .min = 5000, .max = 40000 }){ .value = 13000 };
 pub var asp_growth = Tunable(i32, .{ .min = 20, .max = 100 }){ .value = 50 };

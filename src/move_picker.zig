@@ -157,15 +157,15 @@ pub const MovePicker = struct {
     fn scoreNoisy(self: *MovePicker, s: *srch.Searcher, gs: *const GameState) void {
         const pos = &gs.cur_position;
         const side = @intFromEnum(gs.to_move);
-        const pawn_value = see.see_values[@intFromEnum(brd.Pieces.Pawn)];
-        const queen_value = see.see_values[@intFromEnum(brd.Pieces.Queen)];
+        const pawn_value = tp.see_values.values[@intFromEnum(brd.Pieces.Pawn)];
+        const queen_value = tp.see_values.values[@intFromEnum(brd.Pieces.Queen)];
         for (self.list.slice(), 0..) |move, i| {
             if (move.isCapture()) {
                 const victim = @intFromEnum(pos.capturedPiece(move).piece);
                 const attacker = @intFromEnum(pos.movedPiece(move).piece);
                 const capthist: i32 = s.capture_history[side][attacker][move.to][victim];
 
-                var score: i32 = tp.see_weight.value * see.see_values[victim] +
+                var score: i32 = tp.see_weight.value * tp.see_values.values[victim] +
                     @divTrunc(capthist * 10, tp.capthist_div.value);
                 if (s.ply == 0) {
                     const n = s.root_node_counts[move.from][move.to];
