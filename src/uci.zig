@@ -15,7 +15,7 @@ const build_options = root.build_options;
 
 var move_overhead: u64 = 15;
 
-pub const EXPECTED_BENCH_NODES: u64 = 5213741;
+pub const EXPECTED_BENCH_NODES: u64 = 5985347;
 
 pub const SearchLimits = struct {
     wtime: ?u64 = null,

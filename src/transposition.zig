@@ -269,7 +269,7 @@ pub const TranspositionTable = struct {
         const bucket = &self.buckets[self.index(hash)];
         for (&bucket.entries) |*slot| {
             const packed_entry = PackedEntry{ .data = slot.loadPacked() };
-            if (packed_entry.verify(hash) and packed_entry.getFlag() != .None) {
+            if (packed_entry.verify(hash) and packed_entry.verify(hash)) {
                const current_age = self.getAge();
                 if (packed_entry.getAge() != current_age) {
                     const age_mask: u128 = @as(u128, 0xFF) << 90;
@@ -294,10 +294,10 @@ pub const TranspositionTable = struct {
         const current_age = self.getAge();
 
         var best_move = entry.move;
-        
+
         var match_idx: ?usize = null;
         var empty_idx: ?usize = null;
-        
+
         var worst_idx: usize = 0;
         var worst_score: i32 = std.math.maxInt(i32);
 
@@ -307,7 +307,7 @@ pub const TranspositionTable = struct {
             const packed_entry = PackedEntry{ .data = packed_data };
             const flag = packed_entry.getFlag();
 
-            if (flag == .None) {
+            if (packed_data == 0) {
                 empty_idx = i;
                 continue;
             }
@@ -366,7 +366,7 @@ pub const TranspositionTable = struct {
         for (self.buckets) |*bucket| {
             for (&bucket.entries) |*item| {
                 const packed_entry = PackedEntry{ .data = item.loadPacked() };
-                if (packed_entry.getFlag() != .None) {
+                if (packed_entry.data != 0) {
                     used += 1;
                 }
             }

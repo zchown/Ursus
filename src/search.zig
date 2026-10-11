@@ -965,6 +965,21 @@ pub const Searcher = struct {
             const correction = hist.getCorrection(self, color, gs);
             static_eval = eval.adjustEval(gs, self.optimism[@intFromEnum(color)], raw_static_eval, correction);
             self.eval_history[self.ply] = static_eval;
+
+            if (!tt_hit) {
+                self.tt_table.set(tt.Entry{
+                    .hash = gs.cur_position.hash,
+                    .eval = 0,
+                    .move = mvs.Move.none,
+                    .static_eval = raw_static_eval,
+                    .flag = .None,
+                    .depth = 0,
+                    .age = self.tt_table.getAge(),
+                    .in_check = false,
+                    .is_pv = tt_pv,
+                    .static_eval_valid = true,
+                });
+            }
         }
 
         var best_score: i32 = if (is_root) -eval.mate_score else static_eval;
@@ -1621,7 +1636,7 @@ pub const Searcher = struct {
         }
 
 
-        const queen_val = see.see_values[@intFromEnum(brd.Pieces.Queen)];
+        const queen_val = tp.see_values.values[@intFromEnum(brd.Pieces.Queen)];
 
         if (!in_check) {
             if (static_eval + queen_val + tp.q_delta_margin.value < alpha) {
@@ -1642,7 +1657,7 @@ pub const Searcher = struct {
 
             if (!in_check and move.isCapture()) {
                 if (!move.isPromo()) {
-                    const victim = see.see_values[@intFromEnum(gs.cur_position.capturedPiece(move).piece)];
+                    const victim = tp.see_values.values[@intFromEnum(gs.cur_position.capturedPiece(move).piece)];
                     if (futility_base + victim <= alpha) {
                         best_score = @max(best_score, futility_base + victim);
                         continue;

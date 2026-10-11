@@ -46,6 +46,16 @@ pub fn TunableArray(comptime T: type, comptime specs: []const Spec) type {
     };
 }
 
+pub var see_values = TunableArray(i32, &.{
+    .{ .min = 0, .max = 200 },
+    .{ .min = 0, .max = 400 },
+    .{ .min = 0, .max = 600 },
+    .{ .min = 0, .max = 800 },
+    .{ .min = 0, .max = 1000 },
+    .{ .min = 20000, .max = 20000 },
+    .{ .min = 0, .max = 0},
+}){ .values = .{ 93, 308, 346, 521, 994, 20000, 0} };
+
 pub var aspiration_window = Tunable(i32, .{ .min = 8, .max = 80 }){ .value = 32 };
 pub var asp_score_div = Tunable(i32, .{ .min = 5000, .max = 40000 }){ .value = 13000 };
 pub var asp_growth = Tunable(i32, .{ .min = 20, .max = 100 }){ .value = 50 };
@@ -165,6 +175,9 @@ pub var threat_hist_weight = Tunable(i32, .{ .min = 0, .max = 1024 }){ .value = 
 
 pub var lph_update_scale = Tunable(i32, .{ .min = 128, .max = 2048 }){ .value = 768 };
 pub var lph_order_mul = Tunable(i32, .{ .min = 10, .max = 120 }){ .value = 40};
+
+pub var root_order_mul_quiet = Tunable(i32, .{ .min = 0, .max = 4000 }){ .value = 1000 };
+pub var root_order_mul_noisy = Tunable(i32, .{ .min = 0, .max = 4000 }){ .value = 1000 };
 
 pub const TunableRef = struct {
     name: []const u8,
