@@ -49,27 +49,6 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
         @memset(std.mem.asBytes(&self.threat_history), 0);
         @memset(std.mem.asBytes(self.continuation), 0);
     }
-    else {
-        const hist_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.history));
-        for (hist_flat) |*entry| {
-            entry.* = entry.* - (entry.* >> 2) + 64;
-        }
-
-        const threat_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.threat_history));
-        for (threat_flat) |*entry| {
-            entry.* = entry.* - (entry.* >> 2) + 64;
-        }
-
-        const cap_flat = std.mem.bytesAsSlice(i16, std.mem.asBytes(&self.capture_history));
-        for (cap_flat) |*entry| {
-            entry.* -= (entry.* >> 2);
-        }
-
-        const cont_flat = std.mem.bytesAsSlice(i16, std.mem.asBytes(self.continuation));
-        for (cont_flat) |*entry| {
-            entry.* -= (entry.* >> 2);
-        }
-    }
 }
 
 pub inline fn historyBonus(depth: i32) i32 {
