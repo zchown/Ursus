@@ -787,7 +787,9 @@ pub const Searcher = struct {
 
         self.is_searching = false;
 
-        self.tt_table.incrementAge();
+        if (self.thread_id == 0) {
+            self.tt_table.incrementAge();
+        }
 
         // Guard against null moves
         if (self.best_move.isNull() and self.root_move_count > 0) {
