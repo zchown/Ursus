@@ -41,11 +41,10 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
         @memset(std.mem.asBytes(&self.np_black_correction), 0);
         @memset(std.mem.asBytes(&self.major_correction), 0);
         @memset(std.mem.asBytes(&self.minor_correction), 0);
-    }
 
-    if (total) {
         @memset(std.mem.asBytes(&self.capture_history), 0);
         @memset(std.mem.asBytes(&self.history), 0);
+        @memset(std.mem.asBytes(&self.piece_history), 0);
         @memset(std.mem.asBytes(&self.threat_history), 0);
         @memset(std.mem.asBytes(self.continuation), 0);
     }
@@ -183,6 +182,9 @@ pub fn updateQuietHistory(
 
         const th = self.threatHistPtr(@intFromEnum(color), threats, m.from, m.to);
         applyBonus(i32, th, delta, max_history);
+
+        const ph = self.pieceHistPtr(@intFromEnum(color), @intFromEnum(pos.movedPiece(m).piece), m.to);
+        applyBonus(i32, ph, delta, max_history);
 
         if (self.ply < tp.low_ply_size) {
             const lp = &self.low_ply_history[self.ply][m.from][m.to];
