@@ -65,6 +65,7 @@ pub const MovePicker = struct {
     noisy_only: bool,
     allow_quiet_tt: bool,
     is_null: bool,
+    drop_bad_noisy: bool,
 
     info: mvs.MoveGen.LegalInfo,
     info_ready: bool,
@@ -90,6 +91,7 @@ pub const MovePicker = struct {
         self.info_ready = false;
         self.threats = 0;
         self.threats_ready = false;
+        self.drop_bad_noisy = false;
     }
 
     pub fn init(self: *MovePicker, hash_move: Move, is_null: bool) void {
@@ -110,11 +112,14 @@ pub const MovePicker = struct {
         return self.threats;
     }
 
-    pub fn initNoisy(self: *MovePicker, hash_move: Move) void {
+    pub fn initNoisy(self: *MovePicker, hash_move: Move, see_threshold: i32) void {
         self.reset(hash_move);
         self.noisy_only = true;
         self.allow_quiet_tt = false;
+        self.see_threshold = see_threshold;
+        self.drop_bad_noisy = true;
     }
+
 
     pub fn initProbcut(self: *MovePicker, hash_move: Move, see_threshold: i32) void {
         self.reset(hash_move);
@@ -267,10 +272,13 @@ pub const MovePicker = struct {
 
                         if (m.isCapture()) {
                             const good = see.seeAtLeast(gs, s.move_gen, m, self.see_threshold);
-                            if (!good and self.bad_count < max_bad_noisy) {
-                                self.bad_noisy[self.bad_count] = m;
-                                self.bad_count += 1;
-                                continue;
+                            if (!good) {
+                                if (self.drop_bad_noisy) continue;
+                                if (self.bad_count < max_bad_noisy) {
+                                    self.bad_noisy[self.bad_count] = m;
+                                    self.bad_count += 1;
+                                    continue;
+                                }
                             }
                             return PickedMove{ .move = m, .stage = .good_noisy, .see_passed = good, .see_bound = self.see_threshold };
                         }

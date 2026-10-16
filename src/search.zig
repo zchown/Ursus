@@ -1647,7 +1647,7 @@ pub const Searcher = struct {
         }
 
         var picker: mp.MovePicker = undefined;
-        if (in_check) picker.init(hash_move, false) else picker.initNoisy(hash_move);
+if (in_check) picker.init(hash_move, false) else picker.initNoisy(hash_move, tp.q_see_min.value);
 
         var moves_seen: usize = 0;
 
