@@ -168,11 +168,6 @@ pub fn updateQuietHistory(
     const bonus = historyBonus(depth_i32);
     const malus = historyMalus(depth_i32);
 
-    if (!is_null and self.ply >= 1) {
-        const last = self.move_history[self.ply - 1];
-        self.counter_moves[@intFromEnum(color)][last.from][last.to] = best_move;
-    }
-
     for (quiet_moves.slice()) |m| {
         const is_best = m.eql(best_move);
 

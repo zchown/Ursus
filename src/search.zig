@@ -181,7 +181,6 @@ pub const Searcher = struct {
     history: [2][64][64]i32 = undefined,
     threat_history: [2][2][2][64][64]i32 = undefined,
     low_ply_history: [tp.low_ply_size][64][64]i16 = undefined,
-    counter_moves: [2][64][64]mvs.Move = undefined,
     excluded_moves: [max_ply]mvs.Move = undefined,
     continuation: *[12][64][12][64]i16= undefined,
     correction: [2][16384]i16 = undefined,
@@ -1394,9 +1393,7 @@ pub const Searcher = struct {
                         reduction -= 1;
                     }
 
-                    if (!last_move.isNull() and
-                    self.counter_moves[@intFromEnum(color)][last_move.from][last_move.to].eql(move))
-                {
+                    if (!last_move.isNull()) {
                         reduction -= 1;
                     }
 

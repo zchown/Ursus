@@ -17,7 +17,6 @@ pub const Stage = enum(u8) {
     good_noisy,
     killer_1,
     killer_2,
-    counter,
     gen_quiet,
     quiet,
     bad_noisy,
@@ -50,7 +49,6 @@ pub const MovePicker = struct {
     tt_move: Move,
     killer1: Move,
     killer2: Move,
-    counter_move: Move,
 
     list: mvs.MoveList,
     scores: [mvs.max_moves]i32,
@@ -77,7 +75,6 @@ pub const MovePicker = struct {
         self.tt_move = hash_move;
         self.killer1 = Move.none;
         self.killer2 = Move.none;
-        self.counter_move = Move.none;
         self.list.len = 0;
         self.index = 0;
         self.bad_count = 0;
@@ -289,25 +286,10 @@ pub const MovePicker = struct {
                 },
 
                 .killer_2 => {
-                    self.stage = .counter;
+                    self.stage = .gen_quiet;
                     if (self.trySpecialQuiet(s, gs, s.killer[s.ply][1])) |m| {
                         self.killer2 = m;
                         return PickedMove{ .move = m, .stage = .killer_2 };
-                    }
-                },
-
-                .counter => {
-                    self.stage = .gen_quiet;
-                    if (s.ply > 0) {
-                        const last = s.move_history[s.ply - 1];
-                        if (!last.isNull()) {
-                            const side = @intFromEnum(gs.to_move);
-                            const cm = s.counter_moves[side][last.from][last.to];
-                            if (self.trySpecialQuiet(s, gs, cm)) |m| {
-                                self.counter_move = m;
-                                return PickedMove{ .move = m, .stage = .counter };
-                            }
-                        }
                     }
                 },
 
@@ -334,8 +316,7 @@ pub const MovePicker = struct {
 
                         if (self.isTTDup(m)) continue;
                         if (m.eql(self.killer1) or
-                            m.eql(self.killer2) or
-                            m.eql(self.counter_move)) continue;
+                            m.eql(self.killer2)) continue;
                         if (!self.legal(s, gs, m)) continue;
 
                         return PickedMove{ .move = m, .stage = .quiet };
