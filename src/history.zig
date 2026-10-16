@@ -36,14 +36,12 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     @memset(std.mem.asBytes(&self.low_ply_history), 0);
 
     if (total) {
+        @memset(std.mem.asBytes(&self.counter_moves), 0);
         @memset(std.mem.asBytes(&self.correction), 0);
         @memset(std.mem.asBytes(&self.np_white_correction), 0);
         @memset(std.mem.asBytes(&self.np_black_correction), 0);
         @memset(std.mem.asBytes(&self.major_correction), 0);
         @memset(std.mem.asBytes(&self.minor_correction), 0);
-    }
-
-    if (total) {
         @memset(std.mem.asBytes(&self.capture_history), 0);
         @memset(std.mem.asBytes(&self.history), 0);
         @memset(std.mem.asBytes(&self.threat_history), 0);
