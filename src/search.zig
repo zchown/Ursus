@@ -1126,7 +1126,7 @@ pub const Searcher = struct {
         }
 
 
-        if (!on_pv and depth >= 6 and !in_check and beta < eval.win_bound and beta > -eval.win_bound and self.excluded_moves[self.ply].isNull()) {
+        if (cutnode and depth >= 6 and !in_check and beta < eval.win_bound and beta > -eval.win_bound and self.excluded_moves[self.ply].isNull()) {
             const probcut_depth = depth - 3;
             var pc_picker: mp.MovePicker = undefined;
             pc_picker.initProbcut(hash_move, tp.probcut_min_see.value);
@@ -1160,7 +1160,7 @@ pub const Searcher = struct {
                 }
 
                 if (score >= probcut_beta) {
-                    score = -self.negamax(gs, color.opposite(), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, cutnode);
+                    score = -self.negamax(gs, color.opposite(), probcut_depth, -probcut_beta, -probcut_beta+1, false, NodeType.NonPV, true);
                 }
 
                 if (self.time_stop) {
