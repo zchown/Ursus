@@ -180,6 +180,7 @@ pub const Searcher = struct {
     lmr_reduction: [max_ply]i32 = @splat(0),
     history: [2][64][64]i32 = undefined,
     threat_history: [2][2][2][64][64]i32 = undefined,
+    pawn_history: *[tp.pawn_hist_size][12][64]i16 = undefined,
     low_ply_history: [tp.low_ply_size][64][64]i16 = undefined,
     counter_moves: [2][64][64]mvs.Move = undefined,
     excluded_moves: [max_ply]mvs.Move = undefined,
@@ -210,11 +211,13 @@ pub const Searcher = struct {
         self.move_gen = std.heap.smp_allocator.create(mvs.MoveGen) catch unreachable;
         self.move_gen.init();
         self.continuation = std.heap.smp_allocator.create([12][64][12][64]i16) catch unreachable;
+    self.pawn_history = std.heap.smp_allocator.create([tp.pawn_hist_size][12][64]i16) catch unreachable;
         hist.resetHeuristics(self, true);
     }
 
     pub fn deinit(self: *Searcher) void {
         std.heap.smp_allocator.destroy(self.continuation);
+        std.heap.smp_allocator.destroy(self.pawn_history);
         std.heap.smp_allocator.destroy(self.move_gen);
     }
 
@@ -222,13 +225,19 @@ pub const Searcher = struct {
         return &self.history[side][from][to];
     }
 
-    pub fn quietStatScore(self: *Searcher, side: usize, threats: u64, pc: PieceColor, m: mvs.Move, use_cont: bool) i32 {
+    pub inline fn pawnHistPtr(self: *Searcher, gs: *const brd.GameState, pc: usize, to: usize) *i16 {
+        const idx: usize = @intCast(gs.cur_position.pawn_hash & (tp.pawn_hist_size - 1));
+        return &self.pawn_history[idx][pc][to];
+    }
+
+    pub fn quietStatScore(self: *Searcher, gs: *const brd.GameState, side: usize, threats: u64, pc: PieceColor, m: mvs.Move, use_cont: bool) i32 {
         var s: i32 = self.quietHistScore(side, threats, m.from, m.to) * tp.stat_main_weight.value;
         if (use_cont) {
             const cp = @as(usize, @intFromEnum(pc.color)) * 6 + @intFromEnum(pc.piece);
             s += self.contHistAt(self.ply, 1, cp, m.to) * tp.stat_cont1_weight.value;
             s += self.contHistAt(self.ply, 2, cp, m.to) * tp.stat_cont2_weight.value;
             s += self.contHistAt(self.ply, 4, cp, m.to) * tp.stat_cont4_weight.value;
+            s += @as(i32, self.pawnHistPtr(gs, cp, m.to).*) * tp.stat_pawn_weight.value;
         }
         return @divTrunc(s, 1024);
     }
@@ -1238,7 +1247,7 @@ pub const Searcher = struct {
                 quiet_lmr[@min(depth, 63)][@min(searched_moves + 1, 63)];
 
             const stat_score: i32 = if (!is_capture)
-                self.quietStatScore(@intFromEnum(color), node_threats, moved_pc, move, !is_null)
+                self.quietStatScore(gs, @intFromEnum(color), node_threats, moved_pc, move, !is_null)
                 else
                 0;
             const lmr_depth: i32 = @max(0, @as(i32, @intCast(depth)) - 1 - base_r +
