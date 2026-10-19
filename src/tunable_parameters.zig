@@ -180,8 +180,8 @@ pub var lph_order_mul = Tunable(i32, .{ .min = 10, .max = 120 }){ .value = 40};
 pub var root_order_mul_quiet = Tunable(i32, .{ .min = 0, .max = 4000 }){ .value = 1000 };
 pub var root_order_mul_noisy = Tunable(i32, .{ .min = 0, .max = 4000 }){ .value = 1000 };
 
-pub var stat_pawn_weight = Tunable(i32, .{ .min = 0, .max = 2048 }){ .value = 256 };
-pub var pawn_hist_order_weight = Tunable(i32, .{ .min = 0, .max = 2048 }){ .value = 256 };
+pub var stat_pawn_weight = Tunable(i32, .{ .min = 0, .max = 2048 }){ .value = 512 };
+pub var pawn_hist_order_weight = Tunable(i32, .{ .min = 0, .max = 2048 }){ .value = 1024 };
 
 pub const TunableRef = struct {
     name: []const u8,
