@@ -189,7 +189,10 @@ pub const Searcher = struct {
     np_black_correction: [2][16384]i16 = undefined,
     major_correction: [2][16384]i16 = undefined,
     minor_correction: [2][16384]i16 = undefined,
+    cont_correction: *[12][64][12][64]i16 = undefined,
+
     capture_history: [2][7][64][7]i16 = undefined,
+
     root_node_counts: [64][64]u64 = undefined,
 
     optimism: [2]i32 = .{0, 0},
@@ -210,11 +213,13 @@ pub const Searcher = struct {
         self.move_gen = std.heap.smp_allocator.create(mvs.MoveGen) catch unreachable;
         self.move_gen.init();
         self.continuation = std.heap.smp_allocator.create([12][64][12][64]i16) catch unreachable;
+        self.cont_correction = std.heap.smp_allocator.create([12][64][12][64]i16) catch unreachable;
         hist.resetHeuristics(self, true);
     }
 
     pub fn deinit(self: *Searcher) void {
         std.heap.smp_allocator.destroy(self.continuation);
+        std.heap.smp_allocator.destroy(self.cont_correction);
         std.heap.smp_allocator.destroy(self.move_gen);
     }
 
@@ -251,6 +256,17 @@ pub const Searcher = struct {
         return @divTrunc(bf * tp.butterfly_weight.value + th * tp.threat_hist_weight.value, 1024);
     }
 
+    pub inline fn contCorrPtr(self: *Searcher, back: usize) ?*i16 {
+        if (self.ply < back) return null;
+        const m1 = self.move_history[self.ply - 1];
+        const mb = self.move_history[self.ply - back];
+        if (m1.isNull() or mb.isNull()) return null;
+        const p1 = self.moved_piece_history[self.ply - 1];
+        const pb = self.moved_piece_history[self.ply - back];
+        const pc1 = @as(usize, @intFromEnum(p1.color)) * 6 + @as(usize, @intFromEnum(p1.piece));
+        const pcb = @as(usize, @intFromEnum(pb.color)) * 6 + @as(usize, @intFromEnum(pb.piece));
+        return &self.cont_correction[pcb][mb.to][pc1][m1.to];
+    }
 
     pub inline fn capHistOf(self: *const Searcher, gs: *const brd.GameState, color: brd.Color, move: mvs.Move) i32 {
         const pos = &gs.cur_position;

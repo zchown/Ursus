@@ -109,6 +109,7 @@ pub var corr_pawn_read_weight = Tunable(i32, .{ .min = 64, .max = 400 }){ .value
 pub var corr_np_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .value = 125 };
 pub var corr_major_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .value = 119 };
 pub var corr_minor_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .value = 117 };
+pub var corr_cont_read_weight = Tunable(i32, .{ .min = 0, .max = 320 }){ .value = 120 };
 
 pub var corr_read_divisor = Tunable(i32, .{ .min = 1024, .max = 12288 }){ .value = 3072 };
 pub var corr_limit = Tunable(i32, .{ .min = 128, .max = 4096 }){ .value = 1024 };
