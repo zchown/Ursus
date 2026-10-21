@@ -180,6 +180,7 @@ pub const Searcher = struct {
     lmr_reduction: [max_ply]i32 = @splat(0),
     history: [2][64][64]i32 = undefined,
     threat_history: [2][2][2][64][64]i32 = undefined,
+    pieceto_history: [12][64]i32 = undefined, // [color*6 + piece][to]
     low_ply_history: [tp.low_ply_size][64][64]i16 = undefined,
     counter_moves: [2][64][64]mvs.Move = undefined,
     excluded_moves: [max_ply]mvs.Move = undefined,
@@ -228,9 +229,9 @@ pub const Searcher = struct {
     }
 
     pub fn quietStatScore(self: *Searcher, side: usize, threats: u64, pc: PieceColor, m: mvs.Move, use_cont: bool) i32 {
-        var s: i32 = self.quietHistScore(side, threats, m.from, m.to) * tp.stat_main_weight.value;
+        const cp = @as(usize, @intFromEnum(pc.color)) * 6 + @intFromEnum(pc.piece);
+        var s: i32 = self.quietHistScore(side, threats, cp, m.from, m.to) * tp.stat_main_weight.value;
         if (use_cont) {
-            const cp = @as(usize, @intFromEnum(pc.color)) * 6 + @intFromEnum(pc.piece);
             s += self.contHistAt(self.ply, 1, cp, m.to) * tp.stat_cont1_weight.value;
             s += self.contHistAt(self.ply, 2, cp, m.to) * tp.stat_cont2_weight.value;
             s += self.contHistAt(self.ply, 4, cp, m.to) * tp.stat_cont4_weight.value;
@@ -250,10 +251,16 @@ pub const Searcher = struct {
         return &self.threat_history[side][threatIndex(threats, from)][threatIndex(threats, to)][from][to];
     }
 
-    pub inline fn quietHistScore(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
+    pub inline fn quietHistScore(self: *Searcher, side: usize, threats: u64, pc: usize, from: usize, to: usize) i32 {
         const bf: i32 = self.butterflyPtr(side, from, to).*;
         const th: i32 = self.threatHistPtr(side, threats, from, to).*;
-        return @divTrunc(bf * tp.butterfly_weight.value + th * tp.threat_hist_weight.value, 1024);
+        const pt: i32 = self.pieceto_history[pc][to];
+        return @divTrunc(
+            bf * tp.butterfly_weight.value +
+                th * tp.threat_hist_weight.value +
+                pt * tp.pieceto_weight.value,
+            1024,
+        );
     }
 
     pub inline fn contCorrPtr(self: *Searcher, back: usize) ?*i16 {

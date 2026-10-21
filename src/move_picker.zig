@@ -193,7 +193,8 @@ pub const MovePicker = struct {
                 continue;
             }
 
-            var score: i32 = s.quietHistScore(side, threats, move.from, move.to);
+            const cur_pc_index = @as(usize, side) * 6 + pos.movedPiece(move).piece.idx();
+            var score: i32 = s.quietHistScore(side, threats, cur_pc_index, move.from, move.to);
 
             if (s.ply == 0) {
                 const n = s.root_node_counts[move.from][move.to];
@@ -206,7 +207,6 @@ pub const MovePicker = struct {
             }
 
             if (!self.is_null and s.ply >= 1) {
-                const cur_pc_index = @as(usize, side) * 6 + pos.movedPiece(move).piece.idx();
                 const plies: [3]usize = .{ 0, 1, 3 };
                 for (plies) |p| {
                     if (s.ply >= p + 1) {

@@ -13,10 +13,6 @@ const PieceColor = Searcher.PieceColor;
 const max_history: i32 = 16384;
 const max_cap_history: i32 = 16384;
 
-pub inline fn quietHist(s: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
-    return s.quietHistScore(side, threats, from, to);
-}
-
 pub inline fn capHist(s: *Searcher, side: usize, attacker: usize, to: usize, captured: usize) i32 {
     return s.capture_history[side][attacker][to][captured];
 }
@@ -47,6 +43,7 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
         @memset(std.mem.asBytes(&self.threat_history), 0);
         @memset(std.mem.asBytes(self.continuation), 0);
         @memset(std.mem.asBytes(self.cont_correction), 0);
+        @memset(std.mem.asBytes(&self.pieceto_history), 0);
     }
 }
 
@@ -78,6 +75,7 @@ pub fn updateQuietStats(
     if (update_main) {
         applyBonus(i32, self.butterflyPtr(side, m.from, m.to), delta, max_history);
         if (threats) |t| applyBonus(i32, self.threatHistPtr(side, t, m.from, m.to), delta, max_history);
+        applyBonus(i32, &self.pieceto_history[side * 6 + piece.idx()][m.to], delta, max_history);
     }
 
     const cur_pc = side * 6 + piece.idx();
@@ -175,16 +173,14 @@ pub fn updateQuietHistory(
         self.counter_moves[@intFromEnum(color)][last.from][last.to] = best_move;
     }
 
+    const side: usize = @intFromEnum(color);
     for (quiet_moves.slice()) |m| {
-        const is_best = m.eql(best_move);
+        const delta = if (m.eql(best_move)) bonus else -malus;
+        const cur_pc_index = side * 6 + pos.movedPiece(m).piece.idx();
 
-        const delta = if (is_best) bonus else -malus;
-
-        const h = self.butterflyPtr(@intFromEnum(color), m.from, m.to);
-        applyBonus(i32, h, delta, max_history);
-
-        const th = self.threatHistPtr(@intFromEnum(color), threats, m.from, m.to);
-        applyBonus(i32, th, delta, max_history);
+        applyBonus(i32, self.butterflyPtr(side, m.from, m.to), delta, max_history);
+        applyBonus(i32, self.threatHistPtr(side, threats, m.from, m.to), delta, max_history);
+        applyBonus(i32, &self.pieceto_history[cur_pc_index][m.to], delta, max_history); // 1.1
 
         if (self.ply < tp.low_ply_size) {
             const lp = &self.low_ply_history[self.ply][m.from][m.to];
@@ -194,18 +190,12 @@ pub fn updateQuietHistory(
         if (!is_null and self.ply >= 1) {
             const plies: [3]usize = .{ 0, 1, 3 };
             for (plies) |p| {
-                if (self.ply >= p + 1) {
-                    const prev = self.move_history[self.ply - p - 1];
-                    if (prev.isNull()) continue;
-
-                    const prev_piece_color = self.moved_piece_history[self.ply - p - 1];
-                    const prev_pc_index = @as(usize, @intCast(@intFromEnum(prev_piece_color.color))) * 6 + @as(usize, @intCast(@intFromEnum(prev_piece_color.piece)));
-
-                    const cur_pc_index = @as(usize, @intFromEnum(color)) * 6 + pos.movedPiece(m).piece.idx();
-
-                    const cont = &self.continuation[prev_pc_index][prev.to][cur_pc_index][m.to];
-                    applyBonus(i16, cont, delta, max_history);
-                }
+                if (self.ply < p + 1) continue;
+                const prev = self.move_history[self.ply - p - 1];
+                if (prev.isNull()) continue;
+                const ppc = self.moved_piece_history[self.ply - p - 1];
+                const prev_pc_index = @as(usize, @intFromEnum(ppc.color)) * 6 + @as(usize, @intFromEnum(ppc.piece));
+                applyBonus(i16, &self.continuation[prev_pc_index][prev.to][cur_pc_index][m.to], delta, max_history);
             }
         }
     }
