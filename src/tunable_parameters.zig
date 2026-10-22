@@ -92,6 +92,7 @@ pub var lmr_noisy_div = Tunable(i32, .{ .min = 150, .max = 600, .hook = .noisy_l
 
 pub var se_margin = Tunable(i32, .{ .min = 50, .max = 500}){ .value = 100 };
 pub var se_double_margin = Tunable(i32, .{ .min = 0, .max = 100 }){ .value = 50 };
+pub var se_triple_margin = Tunable(i32, .{ .min = 0, .max = 100 }){ .value = 50 };
 
 pub var history_div = Tunable(i32, .{ .min = 2048, .max = 8192 }){ .value = 4098 };
 pub var history_prune_mult = Tunable(i32, .{ .min = 512, .max = 8192 }){ .value = 1536 };
