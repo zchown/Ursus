@@ -11,8 +11,8 @@ pub const rfp_depth: i32 = 6;
 pub const se_min_depth: usize = 7;
 pub const lmr_pv_min = 3;
 pub const lmr_non_pv_min = 1;
-pub const hindsight_ext_min_red: i32 = 3;
-pub const hindsight_red_min_red: i32 = 2;
+pub const hindsight_ext_min_red: i32 = 2;
+pub const hindsight_red_min_red: i32 = 1;
 pub const low_ply_size = 5;
 
 pub const Hook = enum { none, quiet_lmr, noisy_lmr };
