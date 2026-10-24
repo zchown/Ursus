@@ -168,6 +168,7 @@ pub const Searcher = struct {
     root_moves_searched: usize = 0,
     root_pv_index: usize = 0,
     partial_best: mvs.Move = mvs.Move.none,
+    partial_best_score: i32 = 0,
     root_lines: [max_multipv]RootLine = undefined,
 
     search_score: i32 = 0,
@@ -332,9 +333,6 @@ pub const Searcher = struct {
     pub inline fn should_stop(self: *Searcher) bool {
         if (self.stop) return true;
         if (self.search_depth <= self.min_depth) return false;
-        if (self.soft_max_nodes) |soft_limit| {
-            if (self.nodes >= soft_limit) return true;
-        }
         const thinking = @atomicLoad(bool, &self.force_think, .acquire);
         return self.thread_id == 0 and
             ((self.max_nodes != null and self.nodes >= self.max_nodes.?) or
@@ -478,8 +476,6 @@ pub const Searcher = struct {
             return try main_searcher.iterativeDeepening(gs, max_depth);
         }
 
-        tt.stop_signal.store(false, .release);
-        main_searcher.stop = false;
         main_searcher.time_stop = false;
 
         try startParallelSearch(main_searcher, gs, max_depth, num_threads);
@@ -513,7 +509,6 @@ pub const Searcher = struct {
     }
 
     pub fn iterativeDeepening(self: *Searcher, gs: *brd.GameState, max_depth: ?u8) !SearchResult {
-        self.stop = false;
         self.is_searching = true;
         self.time_stop = false;
         self.time_offset = 0;
@@ -615,6 +610,8 @@ pub const Searcher = struct {
         var score: i32 = -eval.mate_score;
 
         var bm = mvs.Move.none;
+        var bm_score: i32 = -eval.mate_score;
+        var bm_depth: usize = 0;
         var best_pv: [max_ply]mvs.Move = undefined;
         var best_pv_length: usize = 0;
 
@@ -669,6 +666,7 @@ pub const Searcher = struct {
                         tt.stop_signal.store(true, .release);
                         if (pv_idx == 0 and !bm.isNull() and !self.partial_best.isNull() and !self.partial_best.eql(bm)) {
                             bm = self.partial_best;
+                            bm_score = self.partial_best_score;
                             if (self.pv_length[0] > 0 and self.pv[0][0].eql(bm)) {
                                 best_pv = self.pv[0];
                                 best_pv_length = self.pv_length[0];
@@ -677,26 +675,25 @@ pub const Searcher = struct {
                                 best_pv_length = 1;
                             }
                             if (!self.silent_output) {
-                                self.printInfo(self.nodes, self.tb_hits, self.best_move_score,
+                                self.printInfo(self.nodes, self.tb_hits, bm_score,
                                 best_pv[0..best_pv_length], 1, std.heap.smp_allocator);
                             }
                         }
                         break :outer;
                     }
 
-                    if (line_score <= alpha) {
+                    if (line_score <= alpha and alpha > -eval.mate_score) {
                         beta = @divTrunc(alpha + beta, 2);
                         alpha = @max(line_score - delta, -eval.mate_score);
                         fail_high_count = 0;
-                    } else if (line_score >= beta) {
+                    } else if (line_score >= beta and beta < eval.mate_score) {
                         beta = @min(line_score + delta, eval.mate_score);
                         fail_high_count += 1;
                     } else {
                         break;
                     }
 
-                    delta += @divTrunc(delta * tp.asp_growth.value, 100);
-
+                    delta = @min(delta + @divTrunc(delta * tp.asp_growth.value, 100), eval.mate_score);
                 }
 
                 if (pv_idx == 0) score = line_score;
@@ -721,6 +718,8 @@ pub const Searcher = struct {
                     }
 
                     bm = self.best_move;
+                    bm_score = line_score;
+                    bm_depth = outer_depth;
                     best_pv = self.pv[0];
                     best_pv_length = self.pv_length[0];
                 }
@@ -823,8 +822,8 @@ pub const Searcher = struct {
 
         return SearchResult{
             .move = self.best_move,
-            .score = self.best_move_score,
-            .depth = self.search_depth,
+            .score = bm_score,
+            .depth = bm_depth,
             .nodes = self.nodes,
             .time_ms = (self.timer.read() / std.time.ns_per_ms) -| self.time_offset,
             .pv = best_pv,
@@ -919,6 +918,9 @@ pub const Searcher = struct {
 
         const in_check: bool = self.move_gen.isInCheck(&gs.cur_position, color);
         const tt_pv: bool = on_pv or (tt_hit and tt_is_pv);
+        var tb_floor: i32 = -eval.mate_score;
+        var tb_ceiling: i32 = eval.mate_score;
+
 
         if (!is_root and self.excluded_moves[self.ply].isNull() and depth >= tp.tb_probe_depth) {
             const tb_max = tb.largest();
@@ -928,11 +930,13 @@ pub const Searcher = struct {
                     if (tb.probeWdl(gs)) |wdl| {
                         self.tb_hits += 1;
 
+                        const ply_i: i32 = @intCast(self.ply);
                         const tb_score: i32 = switch (wdl) {
-                            tb.TB_LOSS => -eval.tb_win_score,
-                            tb.TB_WIN => eval.tb_win_score,
+                            tb.TB_LOSS => -eval.tb_win_score + ply_i,
+                            tb.TB_WIN => eval.tb_win_score - ply_i,
                             else => 0,
                         };
+
                         const tb_flag: tt.EstimationType = switch (wdl) {
                             tb.TB_LOSS => .Over,
                             tb.TB_WIN => .Under,
@@ -947,7 +951,7 @@ pub const Searcher = struct {
                             const tdepth: u8 = @intCast(@min(depth + 6, 255));
                             self.tt_table.set(tt.Entry{
                                 .hash = gs.cur_position.hash,
-                                .eval = tb_score,
+                                .eval = scoreToTT(tb_score, self.ply),
                                 .move = mvs.Move.none,
                                 .static_eval = 0,
                                 .flag = tb_flag,
@@ -955,9 +959,18 @@ pub const Searcher = struct {
                                 .age = self.tt_table.getAge(),
                                 .in_check = in_check,
                                 .is_pv = tt_pv,
-                                .static_eval_valid = !in_check,
+                                .static_eval_valid = false
                             });
                             return tb_score;
+                        }
+
+                        if (on_pv) {
+                            if (tb_flag == .Under) {
+                                tb_floor = tb_score;
+                                alpha = @max(alpha, tb_score);
+                            } else if (tb_flag == .Over) {
+                                tb_ceiling = tb_score;
+                            }
                         }
                     }
                 }
@@ -1482,7 +1495,10 @@ pub const Searcher = struct {
                 if (score > alpha) {
                     alpha = score;
                     alpha_move = move;
-                    if (is_root and self.root_pv_index == 0) self.partial_best = move;
+                    if (is_root and self.root_pv_index == 0) {
+                        self.partial_best = move;
+                        self.partial_best_score = score;
+                    }
 
                     if (alpha >= beta) {
                         break;
@@ -1506,6 +1522,7 @@ pub const Searcher = struct {
             return alpha;
         }
 
+        if (on_pv) best_score = std.math.clamp(best_score, tb_floor, tb_ceiling);
         const fail_high = best_score >= beta;
         const fail_low = alpha_move.isNull();
 
@@ -1774,11 +1791,11 @@ pub const Searcher = struct {
 
     fn formatScore(score: i32, buf: []u8) []const u8 {
         const mate_threshold = eval.mate_score - max_ply;
-        if (score + 20 >= mate_threshold) {
+        if (score > mate_threshold) {
             const plies = eval.mate_score - score;
             const moves = @divTrunc(plies + 1, 2);
             return std.fmt.bufPrint(buf, "score mate {d}", .{moves}) catch "score cp 0";
-        } else if (score - 20 <= -mate_threshold) {
+        } else if (score < -mate_threshold) {
             const plies = eval.mate_score + score;
             const moves = @divTrunc(plies + 1, 2);
             return std.fmt.bufPrint(buf, "score mate -{d}", .{moves}) catch "score cp 0";
