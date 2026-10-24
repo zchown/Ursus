@@ -1090,7 +1090,9 @@ pub const Searcher = struct {
             if (depth <= 4) {
                 const threshold = tp.razoring_base.value + (tp.razoring_mul.value * @as(i32, @intCast(depth)));
                 if (pruning_eval + threshold < alpha) {
-                    return self.qsearch(gs, color, alpha, beta, false);
+                    const razor_score = self.qsearch(gs, color, alpha, beta, false);
+                    if (self.time_stop) return 0;
+                    if (razor_score <= alpha) return razor_score;
                 }
             }
 
