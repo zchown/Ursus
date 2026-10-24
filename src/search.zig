@@ -899,7 +899,7 @@ pub const Searcher = struct {
 
             hash_move = e.move;
 
-            if (is_root and self.root_pv_index == 0) {
+            if (is_root and self.root_pv_index == 0 and e.flag != .None) {
                 self.best_move_score = tt_eval;
             }
 
