@@ -1715,6 +1715,8 @@ pub const Searcher = struct {
             self.ply -= 1;
             gs.unmakeMove(move);
 
+            if (self.time_stop) return 0;
+
             if (score > best_score) {
                 best_score = score;
                 best_move = move;
