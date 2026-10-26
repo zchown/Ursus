@@ -67,6 +67,7 @@ pub var nmp_improve = Tunable(i32, .{ .min = 0, .max = 80 }){ .value = 19 };
 pub var nmp_base = Tunable(usize, .{ .min = 2, .max = 5, .c_end = 0.10, .r_end = 0.01 }){ .value = 3 };
 pub var nmp_depth_div = Tunable(usize, .{ .min = 2, .max = 8, .c_end = 0.10, .r_end = 0.01 }){ .value = 3 };
 pub var nmp_beta_div = Tunable(usize, .{ .min = 50, .max = 300 }){ .value = 129 };
+pub var nmp_beta_add = Tunable(i32, .{ .min = 0, .max = 100 }){ .value = 30 };
 
 pub var razoring_base = Tunable(i32, .{ .min = 100, .max = 600 }){ .value = 282 };
 pub var razoring_mul = Tunable(i32, .{ .min = 20, .max = 180 }){ .value = 61 };
