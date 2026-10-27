@@ -47,6 +47,7 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
         @memset(std.mem.asBytes(&self.threat_history), 0);
         @memset(std.mem.asBytes(self.continuation), 0);
         @memset(std.mem.asBytes(self.cont_correction), 0);
+        @memset(std.mem.asBytes(&self.threat_correction), 0);
     }
 }
 
@@ -104,6 +105,7 @@ pub fn updateCorrection(
     best_score: i32,
     static_eval: i32,
     depth: usize,
+    threat_key: u64,
 ) void {
     const pos = &gs.cur_position;
     const c: usize = @intFromEnum(color);
@@ -121,9 +123,10 @@ pub fn updateCorrection(
     corrGravity(&self.major_correction[c][@intCast(pos.major_hash & 16383)], bonus);
     corrGravity(&self.minor_correction[c][@intCast(pos.minor_hash & 16383)], bonus);
     if (self.contCorrPtr(2)) |p| corrGravity(p, bonus);
+    if (threat_key != 0) corrGravity(&self.threat_correction[c][@intCast(threat_key & 16383)], bonus);
 }
 
-pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState) i32 {
+pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState, threat_key: u64) i32 {
     const pos = &gs.cur_position;
     const corr_idx = pos.pawn_hash & 16383;
     const np_white_corr_idx = pos.non_pawn_hash[@intFromEnum(brd.Color.White)] & 16383;
@@ -139,13 +142,15 @@ pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState
     const major_val: i32 = self.major_correction[c][@as(usize, @intCast(major_corr_idx))];
     const minor_val: i32 = self.minor_correction[c][@as(usize, @intCast(minor_corr_idx))];
     const cont_val: i32 = if (self.contCorrPtr(2)) |p| p.* else 0;
+    const threat_val: i32 = if (threat_key != 0) self.threat_correction[c][@intCast(threat_key & 16383)] else 0;
 
     const combined: i32 = pawn_val * tp.corr_pawn_read_weight.value +
         npw_val * tp.corr_np_read_weight.value +
         npb_val * tp.corr_np_read_weight.value +
         major_val * tp.corr_major_read_weight.value +
         minor_val * tp.corr_minor_read_weight.value +
-        cont_val * tp.corr_cont_read_weight.value;
+        cont_val * tp.corr_cont_read_weight.value +
+        threat_val * tp.corr_threat_read_weight.value;
 
     return @divTrunc(combined, tp.corr_read_divisor.value);
 }
