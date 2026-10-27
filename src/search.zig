@@ -1081,6 +1081,8 @@ pub const Searcher = struct {
                     n -= tp.rfp_improve.value;
                 }
 
+                n = @max(n, 0);
+
                 if (pruning_eval - n >= beta) {
                     return pruning_eval - n;
                 }
