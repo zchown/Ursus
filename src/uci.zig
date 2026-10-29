@@ -529,15 +529,12 @@ pub const UciProtocol = struct {
     fn reportTunables() !void {
         var buf: [256]u8 = undefined;
         for (tp.tunables) |t| {
-            const line = if (t.isFloat())
-                try std.fmt.bufPrint(&buf, "option name {s} type string default {d}", .{ t.name, t.get() })
-            else
-                try std.fmt.bufPrint(&buf, "option name {s} type spin default {d} min {d} max {d}", .{
-                    t.name,
-                    @as(i64, @intFromFloat(@round(t.get()))),
-                    @as(i64, @intFromFloat(t.min)),
-                    @as(i64, @intFromFloat(t.max)),
-                });
+            const line = try std.fmt.bufPrint(&buf, "option name {s} type spin default {d} min {d} max {d}", .{
+                t.name,
+                t.get(),
+                @as(i64, @intFromFloat(t.min)),
+                @as(i64, @intFromFloat(t.max)),
+            });
             try respond(line);
         }
     }
@@ -560,12 +557,11 @@ pub const UciProtocol = struct {
     fn printSpsaInput() !void {
         var buf: [256]u8 = undefined;
         for (tp.tunables) |t| {
-            const line = try std.fmt.bufPrint(&buf, "{s}, {s}, {d}, {d}, {d}, {d}, {d}", .{
+            const line = try std.fmt.bufPrint(&buf, "{s}, int, {d}, {d}, {d}, {d}, {d}", .{
                 t.name,
-                if (t.isFloat()) "float" else "int",
                 t.get(),
-                t.min,
-                t.max,
+                @as(i64, @intFromFloat(t.min)),
+                @as(i64, @intFromFloat(t.max)),
                 t.cEnd(),
                 t.r_end,
             });

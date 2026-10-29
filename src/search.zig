@@ -9,6 +9,7 @@ const mp = root.mp;
 const tp = root.tp;
 const hist = root.hist;
 const tb = root.tb;
+const zob = root.zob;
 
 pub const max_ply = 128;
 pub const max_game_ply = 1024;
@@ -61,44 +62,72 @@ pub fn initNoisyLMR() [64][64]i32 {
     }
     return table;
 }
-
-pub fn computeThreats(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: brd.Color) u64 {
-    const pos = &gs.cur_position;
-    const occ = pos.getOccupancy();
-    var t: u64 = 0;
-
-    const by_i = @intFromEnum(by);
-    var pawns = pos.getPieceColorBoard(.Pawn, by);
-    while (pawns != 0) {
-        const sq = brd.popLsb(&pawns);
-        t |= mg.pawns[by_i][sq];
-    }
-
-    var knights = pos.getPieceColorBoard(.Knight, by);
-    while (knights != 0) {
-        const sq = brd.popLsb(&knights);
-        t |= mg.knights[sq];
-    }
-
-    var diagonal = pos.diagonalSliders(by);
-    while (diagonal != 0) t |= mg.getBishopAttacks(brd.popLsb(&diagonal), occ);
-
-    var straight = pos.straightSliders(by);
-    while (straight != 0) t |= mg.getRookAttacks(brd.popLsb(&straight), occ);
-
-    const king = pos.getPieceColorBoard(.King, by);
-    if (king != 0) {
-        const ksq = brd.lsb(king);
-        t |= mg.kings[ksq];
-    }
-
-    return t;
-}
+pub const ThreatInfo = struct {
+    all: u64,
+    pawn: u64,
+    minor: u64,
+    rook: u64,
+};
 
 pub inline fn threatIndex(threats: u64, sq: anytype) usize {
     return @intFromBool(threats & (@as(u64, 1) << @intCast(sq)) != 0);
 }
 
+pub fn computeThreatInfo(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: brd.Color) ThreatInfo {
+     const pos = &gs.cur_position;
+     const occ = pos.getOccupancy();
+    var ti: ThreatInfo = .{ .all = 0, .pawn = 0, .minor = 0, .rook = 0 };
+ 
+    const pawns = pos.getPieceColorBoard(.Pawn, by);
+    ti.pawn = if (by == .White)
+        brd.northEastOne(pawns) | brd.northWestOne(pawns)
+    else
+        brd.southEastOne(pawns) | brd.southWestOne(pawns);
+ 
+     var knights = pos.getPieceColorBoard(.Knight, by);
+    while (knights != 0) ti.minor |= mg.knights[brd.popLsb(&knights)];
+ 
+    var bishops = pos.getPieceColorBoard(.Bishop, by);
+    while (bishops != 0) ti.minor |= mg.getBishopAttacks(brd.popLsb(&bishops), occ);
+ 
+    var rooks = pos.getPieceColorBoard(.Rook, by);
+    while (rooks != 0) ti.rook |= mg.getRookAttacks(brd.popLsb(&rooks), occ);
+ 
+    var queen_att: u64 = 0;
+    var queens = pos.getPieceColorBoard(.Queen, by);
+    while (queens != 0) {
+        const sq = brd.popLsb(&queens);
+        queen_att |= mg.getBishopAttacks(sq, occ) | mg.getRookAttacks(sq, occ);
+     }
+ 
+    const king = pos.getPieceColorBoard(.King, by);
+    const king_att: u64 = if (king != 0) mg.kings[brd.lsb(king)] else 0;
+
+    ti.all = ti.pawn | ti.minor | ti.rook | queen_att | king_att;
+    return ti;
+}
+
+pub fn computeThreats(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: brd.Color) u64 {
+    return computeThreatInfo(mg, gs, by).all;
+}
+
+pub fn threatCorrKey(pos: *const brd.Position, us: brd.Color, ti: ThreatInfo) u64 {
+    const ours = pos.getColorBoard(us);
+    const minors = (pos.getPieceBoard(.Knight) | pos.getPieceBoard(.Bishop)) & ours;
+    const rooks = pos.getPieceBoard(.Rook) & ours;
+    const queens = pos.getPieceBoard(.Queen) & ours;
+
+    var hanging = (minors & ti.pawn) |
+        (rooks & (ti.pawn | ti.minor)) |
+        (queens & (ti.pawn | ti.minor | ti.rook));
+
+    var key: u64 = 0;
+    while (hanging != 0) {
+        const sq = brd.popLsb(&hanging);
+        key ^= zob.ZobristKeys.pieceKeys(us, pos.getPieceFromSquare(sq), sq);
+    }
+    return key;
+ }
 
 pub const NodeType = enum {
     Root,
@@ -752,19 +781,19 @@ pub const Searcher = struct {
             self.excluded_root_count = 0;
 
             const stability_idx = @min(stability, tp.tm_stability_scale.values.len - 1);
-            var factor: f32 = tp.tm_stability_scale.values[stability_idx];
+            var factor: f32 = tp.pct(tp.tm_stability_scale.values[stability_idx]);
 
             if (score - prev_score > tp.aspiration_window.value) {
-                factor *= tp.tm_score_rise.value;
+                factor *= tp.pct(tp.tm_score_rise.value);
             } else if (prev_score - score > tp.aspiration_window.value) {
-                factor *= tp.tm_score_drop.value;
+                factor *= tp.pct(tp.tm_score_drop.value);
             }
 
 
             if (outer_depth >= tp.tm_nodetm_min_depth.value and !bm.isNull() and self.nodes > 0) {
                 const bm_nodes = self.root_node_counts[bm.from][bm.to];
                 const bm_frac = @as(f32, @floatFromInt(bm_nodes)) / @as(f32, @floatFromInt(self.nodes));
-                factor *= std.math.clamp((tp.tm_nodetm_base.value - bm_frac) * tp.tm_nodetm_mul.value, 0.55, 1.80);
+                factor *= std.math.clamp((tp.pct(tp.tm_nodetm_base.value) - bm_frac) * tp.pct(tp.tm_nodetm_mul.value), 0.55, 1.80);
             }
 
             factor = std.math.clamp(factor, 0.35, 2.75);
@@ -783,7 +812,7 @@ pub const Searcher = struct {
             const this_depth_ms = now_ms -| self.prev_depth_ms;
             self.prev_depth_ms = now_ms;
 
-            const predicted_next_ms = this_depth_ms * tp.tm_next_iter_mul.value;
+            const predicted_next_ms = this_depth_ms *| tp.tm_next_iter_mul.value / 100;
             const thinking = @atomicLoad(bool, &self.force_think, .acquire);
             if (!thinking and now_ms +| predicted_next_ms > self.max_ms) {
                 break;
@@ -976,6 +1005,9 @@ pub const Searcher = struct {
                 }
             }
         }
+
+        const node_ti = computeThreatInfo(self.move_gen, gs, color.opposite());
+        const node_threats = node_ti.all;
 
         var static_eval: i32 = undefined;
         var raw_static_eval: i32 = 0;
@@ -1235,8 +1267,6 @@ pub const Searcher = struct {
         var other_count: usize = 0;
         var searched_moves: usize = 0;
         var moves_seen: usize = 0;
-
-        const node_threats = computeThreats(self.move_gen, gs, color.opposite());
 
         var picker: mp.MovePicker = undefined;
         picker.init(hash_move, is_null);
