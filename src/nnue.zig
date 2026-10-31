@@ -3,12 +3,22 @@ const builtin = @import("builtin");
 const root = @import("root.zig");
 const brd = root.brd;
 
-pub const net_path = "nets/Alkaid-ml.bin";
+// Network layout, mirroring the bullet trainer (main.rs):
+//
+//   768x16 king-bucketed, horizontally mirrored inputs
+//     -> FT 1280 (i16, QA), crelu, pairwise multiply  -> 640 per perspective, stm ++ ntm = 1280
+//     -> L1 1280 -> 16           (i8 weights, i32 bias)   x8 material output buckets
+//     -> concat(x, |x|^2), crelu -> 32
+//     -> L2 32 -> 32, crelu      (i32 weights, i32 bias)
+//     -> L3 32 -> 1              (i32 weights, i32 bias)
+//     -> eval = 400 * out
+pub const net_path = "nets/nets/Alkaid-ml.bin";
 
-pub const hidden_size = 1024;
+pub const hidden_size = 1280;
 pub const pairwise_size = hidden_size / 2;
 pub const l1_size = 2 * pairwise_size;
 pub const l2_size = 16;
+pub const l2_in_size = 2 * l2_size;
 pub const l3_size = 32;
 
 pub const features_per_bucket = 2 * brd.num_pieces * brd.num_squares;
@@ -29,23 +39,25 @@ const KING_BUCKETS_BASE: [32]u8 = [_]u8{
 
 pub const num_features = NUM_KING_BUCKETS * features_per_bucket;
 
-
 comptime {
     std.debug.assert(hidden_size % 2 == 0);
     std.debug.assert(l1_size == hidden_size);
 }
 
 const QA: i16 = 255;
-const QB: i32 = 64;
-const ft_shift: u4 = 9;
+const Q1: i32 = 128;
+const Q: i32 = 64;
+const ft_shift: u4 = 8;
 
-const l1_input_scale: f32 = @as(f32, @floatFromInt(QA)) * @as(f32, @floatFromInt(QA)) /
-    @as(f32, 1 << ft_shift);
+const l1_dequant: f32 = 1.0 / @as(f32, @floatFromInt(Q1 << ft_shift));
 
-const l1_dequant: f32 = 1.0 / (l1_input_scale * @as(f32, @floatFromInt(QB)));
+const l1_bias_scale: i64 = Q * 256;
+const l2_weight_scale: i64 = Q;
+const l2_bias_scale: i64 = Q * Q * Q;
+const l3_weight_scale: i64 = Q;
+const l3_bias_scale: i64 = Q * Q * Q * Q;
 
 const cache_line = std.atomic.cache_line;
-
 
 const CpuTarget = enum {
     avx512_vnni,
@@ -103,15 +115,10 @@ const I16Vec = @Vector(vec_i16_len, i16);
 const I32Vec = @Vector(vec_i32_len, i32);
 const U16Vec = @Vector(vec_i16_len, u16);
 const I8Vec = @Vector(vec_i16_len, i8);
+const U8Vec = @Vector(vec_i16_len, u8);
 
-const L1I8x16 = @Vector(16, i8);
-const L1I16x16 = @Vector(16, i16);
 const L1I16x8 = @Vector(8, i16);
 const L1I32x8 = @Vector(8, i32);
-const L1I8x32 = @Vector(32, i8);
-const L1I32x16 = @Vector(16, i32);
-const L1I8x64 = @Vector(64, i8);
-const L1I16x64 = @Vector(64, i16);
 
 inline fn maddwd(a: I16Vec, b: I16Vec) I32Vec {
     return switch (TARGET) {
@@ -158,54 +165,26 @@ inline fn dotAccumulate(sum: I32Vec, a: I16Vec, b: I16Vec) I32Vec {
 }
 
 pub const dot_bytes: usize = switch (TARGET) {
-    .avx512_vnni, .avx512 => 64,
-    .avx_vnni, .avx2 => 32,
-    .sdot => 16,
+    .avx512_vnni => 64,
+    .avx_vnni => 32,
     else => 16,
 };
 
-const DotIn = @Vector(dot_bytes, i8);
+const DotU8 = @Vector(dot_bytes, u8);
+const DotI8 = @Vector(dot_bytes, i8);
 const DotAcc = @Vector(dot_bytes / 4, i32);
 
-
-inline fn maddubsMadd32(a: L1I8x32, b: L1I8x32, sum: L1I32x8) L1I32x8 {
-    const ones: L1I16x16 = @splat(1);
-    const prod: L1I16x16 = asm ("vpmaddubsw %[b], %[a], %[ret]"
-        : [ret] "=x" (-> L1I16x16),
-        : [a] "x" (a),
-          [b] "x" (b),
-    );
-    const pairs: L1I32x8 = asm ("vpmaddwd %[b], %[a], %[ret]"
-        : [ret] "=x" (-> L1I32x8),
-        : [a] "x" (prod),
-          [b] "x" (ones),
-    );
-    return sum + pairs;
-}
-
-inline fn maddubsMadd64(a: L1I8x64, b: L1I8x64, sum: L1I32x16) L1I32x16 {
-    const ones: L1I16x64 = @splat(1);
-    const prod: L1I16x64 = asm ("vpmaddubsw %[b], %[a], %[ret]"
-        : [ret] "=x" (-> L1I16x64),
-        : [a] "x" (a),
-          [b] "x" (b),
-    );
-    const pairs: L1I32x16 = asm ("vpmaddwd %[b], %[a], %[ret]"
-        : [ret] "=x" (-> L1I32x16),
-        : [a] "x" (prod),
-          [b] "x" (ones),
-    );
-    return sum + pairs;
-}
-
-inline fn byteDotAccumulate(sum: DotAcc, a: DotIn, b: DotIn) DotAcc {
+inline fn byteDotAccumulate(sum: DotAcc, a: DotU8, b: DotI8) DotAcc {
     return switch (TARGET) {
-        .sdot => asm ("sdot %[d].4s, %[n].16b, %[m].16b"
-            : [d] "=w" (-> DotAcc),
-            : [n] "w" (a),
-              [m] "w" (b),
-              [_] "0" (sum),
-        ),
+        .sdot => blk: {
+            const biased: DotI8 = @bitCast(a ^ @as(DotU8, @splat(0x80)));
+            break :blk asm ("sdot %[d].4s, %[n].16b, %[m].16b"
+                : [d] "=w" (-> DotAcc),
+                : [n] "w" (biased),
+                  [m] "w" (b),
+                  [_] "0" (sum),
+            );
+        },
         .avx_vnni => asm ("vpdpbusd %[m], %[n], %[d]"
             : [d] "=x" (-> DotAcc),
             : [n] "x" (a),
@@ -218,9 +197,7 @@ inline fn byteDotAccumulate(sum: DotAcc, a: DotIn, b: DotIn) DotAcc {
               [m] "x" (b),
               [_] "0" (sum),
         ),
-        .avx2 => maddubsMadd32(a, b, sum),
-        .avx512 => maddubsMadd64(a, b, sum),
-        .neon, .sse2, .fallback => blk: {
+        else => blk: {
             var out = sum;
             inline for (0..dot_bytes / 4) |lane| {
                 var acc: i32 = out[lane];
@@ -238,9 +215,9 @@ inline fn sparseAccumulate16(
     lo: *L1I32x8,
     hi: *L1I32x8,
     weights: *const [16]i8,
-    x: i8,
+    x: u8,
 ) void {
-    const xv: L1I16x8 = @splat(@intCast(x));
+    const xv: L1I16x8 = @splat(@as(i16, x));
 
     const lo_w: L1I16x8 = @intCast(@as(@Vector(8, i8), weights[0..8].*));
     const hi_w: L1I16x8 = @intCast(@as(@Vector(8, i8), weights[8..16].*));
@@ -249,40 +226,35 @@ inline fn sparseAccumulate16(
     hi.* += @as(L1I32x8, @intCast(hi_w * xv));
 }
 
-inline fn screlu(x: f32) f32 {
-    const c = std.math.clamp(x, 0.0, 1.0);
-    return c * c;
-}
-
 const nnue_piece_to_index = [2][6]u8{
-[_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
-[_]u8{ 6, 7, 8, 9, 10, 11 }, // Pawn, Knight, Bishop, Rook, Queen, King
+    [_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
+    [_]u8{ 6, 7, 8, 9, 10, 11 }, // Pawn, Knight, Bishop, Rook, Queen, King
 };
 
 pub const NetworkWeights = extern struct {
     ft_weights: [num_features][hidden_size]i16 align(cache_line),
     ft_biases: [hidden_size]i16 align(cache_line),
 
-    l1_weights: [NUM_OUTPUT_BUCKETS][l2_size][l1_size]i8 align(cache_line),
-    l1_biases: [NUM_OUTPUT_BUCKETS][l2_size]f32 align(cache_line),
+    l1_weights: [l1_size][NUM_OUTPUT_BUCKETS][l2_size]i8 align(cache_line),
+    l1_biases: [NUM_OUTPUT_BUCKETS][l2_size]i32 align(cache_line),
 
-    l2_weights: [NUM_OUTPUT_BUCKETS][l3_size][l2_size]f32 align(cache_line),
-    l2_biases: [NUM_OUTPUT_BUCKETS][l3_size]f32 align(cache_line),
+    l2_weights: [l2_in_size][NUM_OUTPUT_BUCKETS][l3_size]i32 align(cache_line),
+    l2_biases: [NUM_OUTPUT_BUCKETS][l3_size]i32 align(cache_line),
 
-    l3_weights: [NUM_OUTPUT_BUCKETS][l3_size]f32 align(cache_line),
-    l3_biases: [NUM_OUTPUT_BUCKETS]f32,
+    l3_weights: [l3_size][NUM_OUTPUT_BUCKETS]i32 align(cache_line),
+    l3_biases: [NUM_OUTPUT_BUCKETS]i32,
 };
 
 pub const net_data_bytes: usize = blk: {
     var n: usize = 0;
     n += num_features * hidden_size * @sizeOf(i16);
     n += hidden_size * @sizeOf(i16);
-    n += NUM_OUTPUT_BUCKETS * l2_size * l1_size * @sizeOf(i8);
-    n += NUM_OUTPUT_BUCKETS * l2_size * @sizeOf(f32);
-    n += NUM_OUTPUT_BUCKETS * l3_size * l2_size * @sizeOf(f32);
-    n += NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(f32);
-    n += NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(f32);
-    n += NUM_OUTPUT_BUCKETS * @sizeOf(f32);
+    n += l1_size * NUM_OUTPUT_BUCKETS * l2_size * @sizeOf(i8);
+    n += NUM_OUTPUT_BUCKETS * l2_size * @sizeOf(i32);
+    n += l2_in_size * NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(i32);
+    n += NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(i32);
+    n += l3_size * NUM_OUTPUT_BUCKETS * @sizeOf(i32);
+    n += NUM_OUTPUT_BUCKETS * @sizeOf(i32);
     break :blk n;
 };
 
@@ -293,17 +265,17 @@ comptime {
     std.debug.assert(@offsetOf(NetworkWeights, "ft_biases") == off);
     off += hidden_size * @sizeOf(i16);
     std.debug.assert(@offsetOf(NetworkWeights, "l1_weights") == off);
-    off += NUM_OUTPUT_BUCKETS * l2_size * l1_size * @sizeOf(i8);
+    off += l1_size * NUM_OUTPUT_BUCKETS * l2_size * @sizeOf(i8);
     std.debug.assert(@offsetOf(NetworkWeights, "l1_biases") == off);
-    off += NUM_OUTPUT_BUCKETS * l2_size * @sizeOf(f32);
+    off += NUM_OUTPUT_BUCKETS * l2_size * @sizeOf(i32);
     std.debug.assert(@offsetOf(NetworkWeights, "l2_weights") == off);
-    off += NUM_OUTPUT_BUCKETS * l3_size * l2_size * @sizeOf(f32);
+    off += l2_in_size * NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(i32);
     std.debug.assert(@offsetOf(NetworkWeights, "l2_biases") == off);
-    off += NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(f32);
+    off += NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(i32);
     std.debug.assert(@offsetOf(NetworkWeights, "l3_weights") == off);
-    off += NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(f32);
+    off += l3_size * NUM_OUTPUT_BUCKETS * @sizeOf(i32);
     std.debug.assert(@offsetOf(NetworkWeights, "l3_biases") == off);
-    off += NUM_OUTPUT_BUCKETS * @sizeOf(f32);
+    off += NUM_OUTPUT_BUCKETS * @sizeOf(i32);
     std.debug.assert(off == net_data_bytes);
 
     const actual_len = @embedFile(net_path).len;
@@ -313,14 +285,14 @@ comptime {
         \\  expected : {d} bytes of data ({d} with tail padding)
         \\  diff     : {d} bytes
         \\expected breakdown:
-        \\  ft_weights {d}
-        \\  ft_biases  {d}
+        \\  ft_weights {d}  (i16)
+        \\  ft_biases  {d}  (i16)
         \\  l1_weights {d}  (i8)
-        \\  l1_biases  {d}  (f32)
-        \\  l2_weights {d}  (f32)
-        \\  l2_biases  {d}  (f32)
-        \\  l3_weights {d}  (f32)
-        \\  l3_biases  {d}  (f32)
+        \\  l1_biases  {d}  (i32)
+        \\  l2_weights {d}  (i32)
+        \\  l2_biases  {d}  (i32)
+        \\  l3_weights {d}  (i32)
+        \\  l3_biases  {d}  (i32)
     , .{
         actual_len,
         net_data_bytes,
@@ -328,12 +300,12 @@ comptime {
         @as(i64, @intCast(actual_len)) - @as(i64, @intCast(net_data_bytes)),
         num_features * hidden_size * @sizeOf(i16),
         hidden_size * @sizeOf(i16),
-        NUM_OUTPUT_BUCKETS * l2_size * l1_size * @sizeOf(i8),
-        NUM_OUTPUT_BUCKETS * l2_size * @sizeOf(f32),
-        NUM_OUTPUT_BUCKETS * l3_size * l2_size * @sizeOf(f32),
-        NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(f32),
-        NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(f32),
-        NUM_OUTPUT_BUCKETS * @sizeOf(f32),
+        l1_size * NUM_OUTPUT_BUCKETS * l2_size * @sizeOf(i8),
+        NUM_OUTPUT_BUCKETS * l2_size * @sizeOf(i32),
+        l2_in_size * NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(i32),
+        NUM_OUTPUT_BUCKETS * l3_size * @sizeOf(i32),
+        l3_size * NUM_OUTPUT_BUCKETS * @sizeOf(i32),
+        NUM_OUTPUT_BUCKETS * @sizeOf(i32),
     }));
 }
 
@@ -348,27 +320,43 @@ pub const L1Path = enum {
     sparse_elem,
 };
 
-pub const l1_path: L1Path = if (has_byte_dot or TARGET == .avx2 or TARGET == .avx512) .dense_dot else .dense;
+pub const l1_path: L1Path = if (has_byte_dot) .dense_dot else .dense;
 
 var l1_weights_sparse: [NUM_OUTPUT_BUCKETS][l1_size][l2_size]i8 align(cache_line) = undefined;
+var l1_weights_dense: [NUM_OUTPUT_BUCKETS][l2_size][l1_size]i8 align(cache_line) = undefined;
+var l1_sdot_correction: [NUM_OUTPUT_BUCKETS][l2_size]i32 = undefined;
+var l1_biases_f: [NUM_OUTPUT_BUCKETS][l2_size]f32 align(cache_line) = undefined;
+var l2_weights_f: [NUM_OUTPUT_BUCKETS][l2_in_size][l3_size]f32 align(cache_line) = undefined;
+var l2_biases_f: [NUM_OUTPUT_BUCKETS][l3_size]f32 align(cache_line) = undefined;
+var l3_weights_f: [NUM_OUTPUT_BUCKETS][l3_size]f32 align(cache_line) = undefined;
+var l3_biases_f: [NUM_OUTPUT_BUCKETS]f32 = undefined;
 
-var l2_weights_t: [NUM_OUTPUT_BUCKETS][l2_size][l3_size]f32 align(cache_line) = undefined;
+inline fn dequant(x: i32, scale: i64) f32 {
+    return @floatCast(@as(f64, @floatFromInt(x)) / @as(f64, @floatFromInt(scale)));
+}
 
-fn permuteWeights(w: *const NetworkWeights) void {
+fn prepareLayers(w: *const NetworkWeights) void {
     for (0..NUM_OUTPUT_BUCKETS) |b| {
+        for (0..l2_size) |o| {
+            var row_sum: i32 = 0;
+            for (0..l1_size) |j| {
+                const v = w.l1_weights[j][b][o];
+                l1_weights_sparse[b][j][o] = v;
+                l1_weights_dense[b][o][j] = v;
+                row_sum += v;
+            }
+            l1_sdot_correction[b][o] = 128 * row_sum;
+            l1_biases_f[b][o] = dequant(w.l1_biases[b][o], l1_bias_scale);
+        }
+
         for (0..l3_size) |o| {
-            for (0..l2_size) |j| {
-                l2_weights_t[b][j][o] = w.l2_weights[b][o][j];
+            for (0..l2_in_size) |j| {
+                l2_weights_f[b][j][o] = dequant(w.l2_weights[j][b][o], l2_weight_scale);
             }
+            l2_biases_f[b][o] = dequant(w.l2_biases[b][o], l2_bias_scale);
+            l3_weights_f[b][o] = dequant(w.l3_weights[o][b], l3_weight_scale);
         }
-    }
-
-    for (0..NUM_OUTPUT_BUCKETS) |b| {
-        for (0..l1_size) |j| {
-            for (0..l2_size) |o| {
-                l1_weights_sparse[b][j][o] = w.l1_weights[b][o][j];
-            }
-        }
+        l3_biases_f[b] = dequant(w.l3_biases[b], l3_bias_scale);
     }
 }
 
@@ -378,7 +366,7 @@ pub fn initWeights() void {
     const w: *const NetworkWeights = @ptrCast(&embedded_nnue_bytes);
     net_weights = w;
     initFeatureIndexTable();
-    permuteWeights(w);
+    prepareLayers(w);
 }
 
 inline fn mirRank(sq: u8) u8 {
@@ -552,11 +540,11 @@ pub const Accumulator = struct {
     }
 
     fn addSubCopy(
-    noalias self: *Accumulator,
-    noalias parent: *const Accumulator,
-    add_feat: usize,
-    sub_feat: usize,
-) void {
+        noalias self: *Accumulator,
+        noalias parent: *const Accumulator,
+        add_feat: usize,
+        sub_feat: usize,
+    ) void {
         const dst = self.vecs();
         const src = parent.constVecs();
         const add_w = weightVecs(add_feat);
@@ -570,12 +558,12 @@ pub const Accumulator = struct {
     }
 
     fn addSubSubCopy(
-    noalias self: *Accumulator,
-    noalias parent: *const Accumulator,
-    add_feat: usize,
-    sub1_feat: usize,
-    sub2_feat: usize,
-) void {
+        noalias self: *Accumulator,
+        noalias parent: *const Accumulator,
+        add_feat: usize,
+        sub1_feat: usize,
+        sub2_feat: usize,
+    ) void {
         const dst = self.vecs();
         const src = parent.constVecs();
         const add_w = weightVecs(add_feat);
@@ -592,13 +580,13 @@ pub const Accumulator = struct {
     }
 
     fn addAddSubSubCopy(
-    noalias self: *Accumulator,
-    noalias parent: *const Accumulator,
-    add1_feat: usize,
-    add2_feat: usize,
-    sub1_feat: usize,
-    sub2_feat: usize,
-) void {
+        noalias self: *Accumulator,
+        noalias parent: *const Accumulator,
+        add1_feat: usize,
+        add2_feat: usize,
+        sub1_feat: usize,
+        sub2_feat: usize,
+    ) void {
         const dst = self.vecs();
         const src = parent.constVecs();
         const add1_w = weightVecs(add1_feat);
@@ -617,9 +605,9 @@ pub const Accumulator = struct {
 };
 
 fn applyLazyDeltaForPerspective(
-noalias state: *NNUEState,
-noalias parent: *const NNUEState,
-view_idx: usize,
+    noalias state: *NNUEState,
+    noalias parent: *const NNUEState,
+    view_idx: usize,
 ) void {
     const dirty = &state.dirty;
     const view: brd.Color = @enumFromInt(view_idx);
@@ -663,7 +651,7 @@ pub const NNUEState = struct {
     pub fn init() NNUEState {
         return .{
             .accumulators = [_]Accumulator{Accumulator.init()} ** brd.num_colors,
-            .acc_ptr = undefined, 
+            .acc_ptr = undefined,
             .king_squares = [_]u8{0} ** brd.num_colors,
             .dirty = .{},
             .needs_refresh = [_]bool{false} ** brd.num_colors,
@@ -794,11 +782,11 @@ pub const NNUEStack = struct {
                 if (has_refresh) {
                     std.debug.assert(target == self.current);
                     refreshPerspectiveCached(
-                    gs,
-                    &self.states[target],
-                    &self.finny,
-                    @as(brd.Color, @enumFromInt(c)),
-                );
+                        gs,
+                        &self.states[target],
+                        &self.finny,
+                        @as(brd.Color, @enumFromInt(c)),
+                    );
                 } else {
                     var j = first_dirty;
                     while (j <= target) : (j += 1) {
@@ -810,7 +798,6 @@ pub const NNUEStack = struct {
         }
     }
 };
-
 
 inline fn refreshAccumulatorFromBoard(
     gs: *const brd.GameState,
@@ -867,10 +854,10 @@ fn refreshPerspective(gs: *const brd.GameState, state: *NNUEState, view: brd.Col
 }
 
 fn refreshPerspectiveCached(
-gs: *const brd.GameState,
-state: *NNUEState,
-finny: *FinnyTable,
-view: brd.Color,
+    gs: *const brd.GameState,
+    state: *NNUEState,
+    finny: *FinnyTable,
+    view: brd.Color,
 ) void {
     if (net_weights == null) return;
     const c = @intFromEnum(view);
@@ -894,8 +881,8 @@ view: brd.Color,
             while (added != 0) {
                 const sq: u8 = @intCast(@ctz(added));
                 entry.accumulator.activateFeature(
-                featureIndex(view, view_king_sq, piece_color, piece, sq),
-            );
+                    featureIndex(view, view_king_sq, piece_color, piece, sq),
+                );
                 added &= added - 1;
             }
 
@@ -903,8 +890,8 @@ view: brd.Color,
             while (removed != 0) {
                 const sq: u8 = @intCast(@ctz(removed));
                 entry.accumulator.deactivateFeature(
-                featureIndex(view, view_king_sq, piece_color, piece, sq),
-            );
+                    featureIndex(view, view_king_sq, piece_color, piece, sq),
+                );
                 removed &= removed - 1;
             }
 
@@ -930,18 +917,17 @@ pub fn refreshStack(stack: *NNUEStack, gs: *const brd.GameState) void {
     stack.states[stack.current].dirty = .{};
 }
 
-
 const NNZ_WORDS: usize = (l1_size + 63) / 64;
 const NnzMask = [NNZ_WORDS]u64;
 
 inline fn activateFtPairwise(
     acc: *const Accumulator,
-    out: *align(cache_line) [l1_size]i8,
+    out: *align(cache_line) [l1_size]u8,
     vec_offset: usize,
     nnz: *NnzMask,
 ) u16 {
     const src = acc.constVecs();
-    const dst: *[num_l1_vecs]I8Vec = @ptrCast(out);
+    const dst: *[num_l1_vecs]U8Vec = @ptrCast(out);
 
     const zero_vec: I16Vec = @splat(0);
     const qa_vec: I16Vec = @splat(QA);
@@ -952,11 +938,11 @@ inline fn activateFtPairwise(
         const b = @min(@max(src[v + num_pairwise_vecs], zero_vec), qa_vec);
 
         const prod: U16Vec = @as(U16Vec, @intCast(a)) * @as(U16Vec, @intCast(b));
-        const pack: I8Vec = @intCast(prod >> @as(U16Vec, @splat(ft_shift)));
+        const pack: U8Vec = @intCast(prod >> @as(U16Vec, @splat(ft_shift)));
         dst[vec_offset + v] = pack;
 
         const mask_type = std.meta.Int(.unsigned, vec_i16_len);
-        const mask: mask_type = @bitCast(pack != @as(I8Vec, @splat(0)));
+        const mask: mask_type = @bitCast(pack != @as(U8Vec, @splat(0)));
         const base_bit = vec_offset * vec_i16_len + v * vec_i16_len;
         nnz[base_bit / 64] |= @as(u64, mask) << @intCast(base_bit & 63);
         count += @intCast(@popCount(mask));
@@ -966,21 +952,21 @@ inline fn activateFtPairwise(
 
 inline fn sparseThreshold() usize {
     return switch (TARGET) {
-        .avx512_vnni, .avx512 => 384,
-        .avx_vnni, .avx2 => 512,
-        .sdot => 384,
-        .neon => 320,
-        .sse2, .fallback => 256,
+        .avx512_vnni => l1_size * 3 / 8,
+        .avx512, .avx_vnni, .avx2 => l1_size / 2,
+        .sdot => l1_size * 3 / 8,
+        .neon => l1_size * 5 / 16,
+        .sse2, .fallback => l1_size / 4,
     };
 }
 
 inline fn l1Sparse(
-    ft_out: *align(cache_line) const [l1_size]i8,
+    ft_out: *align(cache_line) const [l1_size]u8,
     nnz: *const NnzMask,
     bucket: usize,
-    l1b: *const [l2_size]f32,
-    l1_out: *[l2_size]f32,
+    out: *[l2_size]i32,
 ) void {
+    comptime std.debug.assert(l2_size == 16);
     var acc_lo: L1I32x8 = @splat(0);
     var acc_hi: L1I32x8 = @splat(0);
 
@@ -994,31 +980,23 @@ inline fn l1Sparse(
         }
     }
 
-    const deq = l1_dequant;
-    inline for (0..8) |o| {
-        const x = @as(f32, @floatFromInt(acc_lo[o])) * deq + l1b[o];
-        l1_out[o] = screlu(x);
-    }
-    inline for (0..8) |o| {
-        const x = @as(f32, @floatFromInt(acc_hi[o])) * deq + l1b[o + 8];
-        l1_out[o + 8] = screlu(x);
-    }
+    out[0..8].* = acc_lo;
+    out[8..16].* = acc_hi;
 }
 
 inline fn l1DenseByteDot(
-    ft_out: *align(cache_line) const [l1_size]i8,
+    ft_out: *align(cache_line) const [l1_size]u8,
     bucket: usize,
-    l1b: *const [l2_size]f32,
-    l1_out: *[l2_size]f32,
+    out: *[l2_size]i32,
 ) void {
     const num_chunks = l1_size / dot_bytes;
     comptime std.debug.assert(num_chunks % 4 == 0);
 
-    const acts: *const [num_chunks]DotIn = @ptrCast(ft_out);
-    const l1w = &net_weights.?.l1_weights[bucket];
+    const acts: *const [num_chunks]DotU8 = @ptrCast(ft_out);
+    const l1w = &l1_weights_dense[bucket];
 
     for (0..l2_size) |o| {
-        const row: *const [num_chunks]DotIn = @ptrCast(@alignCast(&l1w[o]));
+        const row: *const [num_chunks]DotI8 = @ptrCast(@alignCast(&l1w[o]));
         var sums: [4]DotAcc = @splat(@as(DotAcc, @splat(0)));
 
         var k: usize = 0;
@@ -1030,18 +1008,19 @@ inline fn l1DenseByteDot(
 
         var total = sums[0];
         inline for (1..4) |a| total += sums[a];
-        l1_out[o] = screlu(@as(f32, @floatFromInt(@reduce(.Add, total))) * l1_dequant + l1b[o]);
+        var dot = @reduce(.Add, total);
+        if (TARGET == .sdot) dot += l1_sdot_correction[bucket][o];
+        out[o] = dot;
     }
 }
 
 inline fn l1DenseI16(
-    ft_out: *align(cache_line) const [l1_size]i8,
+    ft_out: *align(cache_line) const [l1_size]u8,
     bucket: usize,
-    l1b: *const [l2_size]f32,
-    l1_out: *[l2_size]f32,
+    out: *[l2_size]i32,
 ) void {
-    const ft_vecs: *const [num_l1_vecs]I8Vec = @ptrCast(ft_out);
-    const l1w = &net_weights.?.l1_weights[bucket];
+    const ft_vecs: *const [num_l1_vecs]U8Vec = @ptrCast(ft_out);
+    const l1w = &l1_weights_dense[bucket];
 
     const ACC_COUNT = 4;
     comptime std.debug.assert(num_l1_vecs % ACC_COUNT == 0);
@@ -1061,12 +1040,12 @@ inline fn l1DenseI16(
 
         var total_vec = sums[0];
         inline for (1..ACC_COUNT) |a| total_vec += sums[a];
-        l1_out[o] = screlu(@as(f32, @floatFromInt(@reduce(.Add, total_vec))) * l1_dequant + l1b[o]);
+        out[o] = @reduce(.Add, total_vec);
     }
 }
 
 pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, gs: *const brd.GameState) i32 {
-    const w = net_weights orelse return 0;
+    if (net_weights == null) return 0;
     stack.ensureComputed(stack.current, gs);
 
     const state = stack.top();
@@ -1074,45 +1053,50 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, gs: *const brd.GameS
     const stm: usize = @intFromEnum(side_to_move);
     const nstm = stm ^ 1;
 
-    var ft_out: [l1_size]i8 align(cache_line) = undefined;
+    var ft_out: [l1_size]u8 align(cache_line) = undefined;
     var nnz = std.mem.zeroes(NnzMask);
 
     const nnz_stm = activateFtPairwise(state.acc_ptr[stm], &ft_out, 0, &nnz);
-    const nnz_nstm = activateFtPairwise(state.acc_ptr[nstm], &ft_out, pairwise_size / vec_i16_len, &nnz);
+    const nnz_nstm = activateFtPairwise(state.acc_ptr[nstm], &ft_out, num_pairwise_vecs, &nnz);
     const nnz_count: usize = @as(usize, nnz_stm) + @as(usize, nnz_nstm);
 
     if (collect_sparsity) recordSparsityMask(&nnz, nnz_count);
 
-    const l1b = &w.l1_biases[bucket];
-    var l1_out: [l2_size]f32 = undefined;
-
+    var l1_sums: [l2_size]i32 = undefined;
     if (nnz_count <= sparseThreshold()) {
-        l1Sparse(&ft_out, &nnz, bucket, l1b, &l1_out);
-    } else if (TARGET == .avx512_vnni or TARGET == .avx512 or TARGET == .avx_vnni or TARGET == .avx2 or TARGET == .sdot) {
-        l1DenseByteDot(&ft_out, bucket, l1b, &l1_out);
+        l1Sparse(&ft_out, &nnz, bucket, &l1_sums);
+    } else if (has_byte_dot) {
+        l1DenseByteDot(&ft_out, bucket, &l1_sums);
     } else {
-        l1DenseI16(&ft_out, bucket, l1b, &l1_out);
+        l1DenseI16(&ft_out, bucket, &l1_sums);
     }
+
+    const L2Vec = @Vector(l2_size, f32);
+    const l2_zero: L2Vec = @splat(0.0);
+    const l2_one: L2Vec = @splat(1.0);
+    const l1_int: @Vector(l2_size, i32) = l1_sums;
+    const l1_x = @as(L2Vec, @floatFromInt(l1_int)) * @as(L2Vec, @splat(l1_dequant)) +
+        @as(L2Vec, l1_biases_f[bucket]);
+
+    var hl2: [l2_in_size]f32 = undefined;
+    hl2[0..l2_size].* = @min(@max(l1_x, l2_zero), l2_one);
+    hl2[l2_size..l2_in_size].* = @min(l1_x * l1_x, l2_one);
 
     const L3Vec = @Vector(l3_size, f32);
-
-    var l2_acc: L3Vec = w.l2_biases[bucket];
-    const l2w = &l2_weights_t[bucket];
-    inline for (0..l2_size) |j| {
-        l2_acc += l2w[j] * @as(L3Vec, @splat(l1_out[j]));
+    var l2_acc: L3Vec = l2_biases_f[bucket];
+    const l2w = &l2_weights_f[bucket];
+    inline for (0..l2_in_size) |j| {
+        l2_acc += @as(L3Vec, l2w[j]) * @as(L3Vec, @splat(hl2[j]));
     }
+    const hl3 = @min(@max(l2_acc, @as(L3Vec, @splat(0.0))), @as(L3Vec, @splat(1.0)));
 
-    const l2_clamped = @min(@max(l2_acc, @as(L3Vec, @splat(0.0))), @as(L3Vec, @splat(1.0)));
-    const l2_out = l2_clamped * l2_clamped;
-
-    const l3w: L3Vec = w.l3_weights[bucket];
-    const out = w.l3_biases[bucket] + @reduce(.Add, l3w * l2_out);
+    const l3w: L3Vec = l3_weights_f[bucket];
+    const out = l3_biases_f[bucket] + @reduce(.Add, l3w * hl3);
 
     const scaled = @round(out * EVAL_SCALE);
     return @intFromFloat(std.math.clamp(scaled, -32000.0, 32000.0));
 }
 
-// Useful for debugging / profiling
 pub const collect_sparsity = false;
 
 var sp_calls: std.atomic.Value(u64) = .init(0);
@@ -1121,10 +1105,10 @@ var sp_blocks4: std.atomic.Value(u64) = .init(0);
 
 const l1_quads = l1_size / 4;
 
-fn countSparsity(ft_out: *align(cache_line) const [l1_size]i8) struct { nonzero: u32, blocks4: u32 } {
+fn countSparsity(ft_out: *align(cache_line) const [l1_size]u8) struct { nonzero: u32, blocks4: u32 } {
     const Mask = std.meta.Int(.unsigned, vec_i16_len);
-    const zero: I8Vec = @splat(0);
-    const vecs: *const [num_l1_vecs]I8Vec = @ptrCast(ft_out);
+    const zero: U8Vec = @splat(0);
+    const vecs: *const [num_l1_vecs]U8Vec = @ptrCast(ft_out);
 
     var nonzero: u32 = 0;
     for (0..num_l1_vecs) |v| {
@@ -1158,7 +1142,7 @@ fn recordSparsityMask(nnz: *const NnzMask, count: usize) void {
     _ = sp_blocks4.fetchAdd(blocks4, .monotonic);
 }
 
-fn recordSparsity(ft_out: *align(cache_line) const [l1_size]i8) void {
+fn recordSparsity(ft_out: *align(cache_line) const [l1_size]u8) void {
     const c = countSparsity(ft_out);
     _ = sp_calls.fetchAdd(1, .monotonic);
     _ = sp_nonzero.fetchAdd(c.nonzero, .monotonic);
@@ -1198,13 +1182,17 @@ pub fn reportSparsity() void {
         \\
     , .{
         calls,
-        nz, total,
+        nz,
+        total,
         100.0 * (1.0 - nz / total),
-        b4, @as(f64, l1_quads),
+        b4,
+        @as(f64, l1_quads),
         100.0 * (1.0 - b4 / @as(f64, l1_quads)),
         dense_macs,
-        elem_macs, if (elem_macs == 0) 0.0 else dense_macs / elem_macs,
-        blk4_macs, if (blk4_macs == 0) 0.0 else dense_macs / blk4_macs,
+        elem_macs,
+        if (elem_macs == 0) 0.0 else dense_macs / elem_macs,
+        blk4_macs,
+        if (blk4_macs == 0) 0.0 else dense_macs / blk4_macs,
         sparseThreshold(),
         @tagName(TARGET),
     });
@@ -1215,10 +1203,10 @@ pub fn sparsityProbe(stack: *NNUEStack, side_to_move: brd.Color, gs: *const brd.
     const state = stack.top();
     const stm: usize = @intFromEnum(side_to_move);
 
-    var ft_out: [l1_size]i8 align(cache_line) = undefined;
+    var ft_out: [l1_size]u8 align(cache_line) = undefined;
     var nnz = std.mem.zeroes(NnzMask);
     const count = activateFtPairwise(state.acc_ptr[stm], &ft_out, 0, &nnz);
-    const count2 = activateFtPairwise(state.acc_ptr[1 - stm], &ft_out, pairwise_size / vec_i16_len, &nnz);
+    const count2 = activateFtPairwise(state.acc_ptr[1 - stm], &ft_out, num_pairwise_vecs, &nnz);
 
     var blocks4: u32 = 0;
     for (0..l1_quads) |q| {
