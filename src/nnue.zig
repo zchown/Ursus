@@ -12,7 +12,7 @@ const brd = root.brd;
 //     -> L2 32 -> 32, crelu      (i32 weights, i32 bias)
 //     -> L3 32 -> 1              (i32 weights, i32 bias)
 //     -> eval = 400 * out
-pub const net_path = "nets/nets/Alkaid-ml.bin";
+pub const net_path = "nets/Alkaid-ml.bin";
 
 pub const hidden_size = 1280;
 pub const pairwise_size = hidden_size / 2;
