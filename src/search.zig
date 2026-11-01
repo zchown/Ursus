@@ -2,6 +2,7 @@ const std = @import("std");
 const root = @import("root.zig");
 const mvs = root.moves;
 const brd = root.brd;
+const utils = root.utils;
 const eval = root.eval;
 const tt = root.tt;
 const see = root.see;
@@ -12,14 +13,12 @@ const tb = root.tb;
 const zob = root.zob;
 
 pub const max_ply = 128;
-pub const max_game_ply = 1024;
-pub const eval_none: i32 = std.math.minInt(i32);
+pub const neg_inf: i32 = std.math.minInt(i32);
 
-pub const max_root_moves = 218;
+pub const max_moves = 218;
 pub const max_multipv = 16;
 
 pub var quiet_lmr: [64][64]i32 = undefined;
-
 
 pub fn initQuietLMR() [64][64]i32 {
     const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base.value)) / 100.0;
@@ -80,28 +79,28 @@ pub fn computeThreatInfo(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: b
  
     const pawns = pos.getPieceColorBoard(.Pawn, by);
     ti.pawn = if (by == .White)
-        brd.northEastOne(pawns) | brd.northWestOne(pawns)
+        utils.northEastOne(pawns) | utils.northWestOne(pawns)
     else
-        brd.southEastOne(pawns) | brd.southWestOne(pawns);
+        utils.southEastOne(pawns) | utils.southWestOne(pawns);
  
      var knights = pos.getPieceColorBoard(.Knight, by);
-    while (knights != 0) ti.minor |= mg.knights[brd.popLsb(&knights)];
+    while (knights != 0) ti.minor |= mg.knights[utils.popLsb(&knights)];
  
     var bishops = pos.getPieceColorBoard(.Bishop, by);
-    while (bishops != 0) ti.minor |= mg.getBishopAttacks(brd.popLsb(&bishops), occ);
+    while (bishops != 0) ti.minor |= mg.getBishopAttacks(utils.popLsb(&bishops), occ);
  
     var rooks = pos.getPieceColorBoard(.Rook, by);
-    while (rooks != 0) ti.rook |= mg.getRookAttacks(brd.popLsb(&rooks), occ);
+    while (rooks != 0) ti.rook |= mg.getRookAttacks(utils.popLsb(&rooks), occ);
  
     var queen_att: u64 = 0;
     var queens = pos.getPieceColorBoard(.Queen, by);
     while (queens != 0) {
-        const sq = brd.popLsb(&queens);
+        const sq = utils.popLsb(&queens);
         queen_att |= mg.getBishopAttacks(sq, occ) | mg.getRookAttacks(sq, occ);
      }
  
     const king = pos.getPieceColorBoard(.King, by);
-    const king_att: u64 = if (king != 0) mg.kings[brd.lsb(king)] else 0;
+    const king_att: u64 = if (king != 0) mg.kings[utils.lsb(king)] else 0;
 
     ti.all = ti.pawn | ti.minor | ti.rook | queen_att | king_att;
     return ti;
@@ -123,7 +122,7 @@ pub fn threatCorrKey(pos: *const brd.Position, us: brd.Color, ti: ThreatInfo) u6
 
     var key: u64 = 0;
     while (hanging != 0) {
-        const sq = brd.popLsb(&hanging);
+        const sq = utils.popLsb(&hanging);
         key ^= zob.ZobristKeys.pieceKeys(us, pos.getPieceFromSquare(sq), sq);
     }
     return key;
@@ -192,7 +191,7 @@ pub const Searcher = struct {
     searchmoves: ?[]mvs.Move = null,
     excluded_root_moves: [max_multipv]mvs.Move = undefined,
     excluded_root_count: usize = 0,
-    root_moves: [max_root_moves]mvs.Move = undefined,
+    root_moves: [max_moves]mvs.Move = undefined,
     root_move_count: usize = 0,
     root_moves_searched: usize = 0,
     root_pv_index: usize = 0,
@@ -203,6 +202,7 @@ pub const Searcher = struct {
     search_score: i32 = 0,
     perspective: brd.Color = .White,
 
+    //histories 
     eval_history: [max_ply]i32 = undefined,
     move_history: [max_ply]mvs.Move = undefined,
     moved_piece_history: [max_ply]PieceColor = undefined,
@@ -212,8 +212,13 @@ pub const Searcher = struct {
     threat_history: [2][2][2][64][64]i32 = undefined,
     low_ply_history: [tp.low_ply_size][64][64]i16 = undefined,
     counter_moves: [2][64][64]mvs.Move = undefined,
-    excluded_moves: [max_ply]mvs.Move = undefined,
     continuation: *[12][64][12][64]i16= undefined,
+    capture_history: [2][7][64][7]i16 = undefined,
+    root_node_counts: [64][64]u64 = undefined,
+
+    excluded_moves: [max_ply]mvs.Move = undefined,
+
+    // corrections
     correction: [2][16384]i16 = undefined,
     np_white_correction: [2][16384]i16 = undefined,
     np_black_correction: [2][16384]i16 = undefined,
@@ -221,9 +226,6 @@ pub const Searcher = struct {
     minor_correction: [2][16384]i16 = undefined,
     cont_correction: *[12][64][12][64]i16 = undefined,
 
-    capture_history: [2][7][64][7]i16 = undefined,
-
-    root_node_counts: [64][64]u64 = undefined,
 
     optimism: [2]i32 = .{0, 0},
     avg_root_score: i32 = 0,
@@ -333,7 +335,7 @@ pub const Searcher = struct {
                 if (!allowed) continue;
             }
 
-            if (self.root_move_count >= max_root_moves) break;
+            if (self.root_move_count >= max_moves) break;
             self.root_moves[self.root_move_count] = move;
             self.root_move_count += 1;
         }
@@ -1014,7 +1016,7 @@ pub const Searcher = struct {
 
         if (in_check) {
             static_eval = -eval.mate_score + @as(i32, @intCast(self.ply));
-            self.eval_history[self.ply] = eval_none;
+            self.eval_history[self.ply] = neg_inf;
         } else if (!self.excluded_moves[self.ply].isNull()) {
             static_eval = self.eval_history[self.ply];
         } else if (tt_hit and tt_static_eval_valid) {
@@ -1049,9 +1051,9 @@ pub const Searcher = struct {
 
         var improving = false;
         if (!in_check) {
-            if (self.ply >= 2 and self.eval_history[self.ply - 2] != eval_none) {
+            if (self.ply >= 2 and self.eval_history[self.ply - 2] != neg_inf) {
                 improving = static_eval > self.eval_history[self.ply - 2];
-            } else if (self.ply >= 4 and self.eval_history[self.ply - 4] != eval_none) {
+            } else if (self.ply >= 4 and self.eval_history[self.ply - 4] != neg_inf) {
                 improving = static_eval > self.eval_history[self.ply - 4];
             } else {
                 improving = false;
@@ -1064,7 +1066,7 @@ pub const Searcher = struct {
             self.lmr_reduction[self.ply - 1] = 0;
 
             const parent_eval = self.eval_history[self.ply - 1];
-            if (prior_reduction > 0 and !in_check and parent_eval != eval_none and
+            if (prior_reduction > 0 and !in_check and parent_eval != neg_inf and
                 self.excluded_moves[self.ply].isNull())
             {
                 const eval_sum = static_eval + parent_eval;

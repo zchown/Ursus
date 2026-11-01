@@ -1,6 +1,7 @@
 const std = @import("std");
 const root = @import("root.zig");
 const brd = root.brd;
+const utils = root.utils;
 const mvs = root.moves;
 const tp = root.tp;
 
@@ -44,9 +45,9 @@ fn seeSwap(
 
     var occupied = pos.getOccupancy();
     if (ep_capture_sq) |eps| {
-        occupied ^= brd.getSquareBB(eps);
+        occupied ^= utils.getSquareBB(eps);
     }
-    occupied ^= brd.getSquareBB(from_sq);
+    occupied ^= utils.getSquareBB(from_sq);
 
     var attackers = move_gen.attackersTo(pos, target_sq, occupied) & occupied;
 
@@ -76,7 +77,7 @@ fn seeSwap(
 
         from_sq = next_attacker.square;
         piece = next_attacker.piece;
-        occupied ^= brd.getSquareBB(from_sq);
+        occupied ^= utils.getSquareBB(from_sq);
     }
 
     var i = depth - 1;
@@ -187,10 +188,10 @@ pub fn seeAtLeast(
     if (swap <= 0) return true;
 
     var occ = pos.getOccupancy();
-    occ ^= brd.getSquareBB(from);
-    occ ^= brd.getSquareBB(to);
+    occ ^= utils.getSquareBB(from);
+    occ ^= utils.getSquareBB(to);
     if (info.ep_capture_sq) |eps| {
-        occ ^= brd.getSquareBB(eps);
+        occ ^= utils.getSquareBB(eps);
     }
 
     const bq = diagonalSliders(pos);
@@ -220,7 +221,7 @@ pub fn seeAtLeast(
         swap = tp.see_values.values[@intFromEnum(na.piece)] - swap;
         if (swap < res) break;
 
-        occ ^= brd.getSquareBB(na.square);
+        occ ^= utils.getSquareBB(na.square);
 
         if (na.piece == .Pawn or na.piece == .Bishop or na.piece == .Queen) {
             attackers |= move_gen.getBishopAttacks(to, occ) & bq;
@@ -248,7 +249,7 @@ fn getLeastValuableAttacker(pos: *const Position, attackers: Bitboard, color: Co
         const piece_attackers = attackers & pos.getPieceColorBoard(piece, color);
         if (piece_attackers != 0) {
             return AttackerInfo{
-                .square = brd.lsb(piece_attackers),
+                .square = utils.lsb(piece_attackers),
                 .piece = piece,
             };
         }

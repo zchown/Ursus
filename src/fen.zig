@@ -1,6 +1,7 @@
 const std = @import("std");
 const root = @import("root.zig");
 const brd = root.brd;
+const utils = root.utils;
 
 const GameState = brd.GameState;
 const Position = brd.Position;
@@ -21,7 +22,7 @@ pub fn parseFEN(gs: *GameState, fen: []const u8) !void {
     for ([_]Color{ .White, .Black }) |c| {
         if (@popCount(p.getPieceColorBoard(.King, c)) != 1) return error.InvalidFEN;
     }
-    if (@popCount(p.getOccupancy()) > brd.max_pieces) return error.InvalidFEN;
+    if (@popCount(p.getOccupancy()) > utils.max_pieces) return error.InvalidFEN;
 
     const side_to_move = it.next() orelse return error.InvalidFEN;
     if (side_to_move.len != 1) return error.InvalidFEN;
@@ -64,9 +65,9 @@ fn parsePiecePlacement(p: *Position, piece_placement: []const u8) !void {
                 if (file > 8) return error.InvalidFEN;
             },
             else => {
-                const pc = brd.Piece.fromChar(char) orelse return error.InvalidFEN;
+                const pc = utils.Piece.fromChar(char) orelse return error.InvalidFEN;
                 if (file >= 8) return error.InvalidFEN;
-                p.addPiece(pc.color, pc.piece, brd.squareFromFileRank(@intCast(file), rank));
+                p.addPiece(pc.color, pc.piece, utils.squareFromFileRank(@intCast(file), rank));
                 file += 1;
             },
         }
@@ -106,8 +107,8 @@ fn parseCastlingRights(gs: *GameState, castling_rights: []const u8) !void {
 
         const c: Color = if (std.ascii.isUpper(char)) .White else .Black;
         const king_sq = p.kingSquare(c);
-        if (brd.rankOf(king_sq) != backRank(c)) continue;
-        const king_file = brd.fileOf(king_sq);
+        if (utils.rankOf(king_sq) != backRank(c)) continue;
+        const king_file = utils.fileOf(king_sq);
 
         var kingside: bool = undefined;
         var rook_file: u3 = undefined;
@@ -117,13 +118,13 @@ fn parseCastlingRights(gs: *GameState, castling_rights: []const u8) !void {
         } else {
             rook_file = @intCast(lower - 'a');
             if (rook_file == king_file) continue;
-            const rook = p.getFromSquare(brd.squareFromFileRank(rook_file, backRank(c)));
+            const rook = p.getFromSquare(utils.squareFromFileRank(rook_file, backRank(c)));
             if (rook.piece != .Rook or rook.color != c) continue;
             kingside = rook_file > king_file;
         }
 
         setRookFile(gs, c, kingside, rook_file);
-        p.castle |= @intFromEnum(brd.castleRight(c, kingside));
+        p.castle |= @intFromEnum(utils.castleRight(c, kingside));
     }
 }
 
@@ -132,13 +133,13 @@ fn findOuterRookFile(p: *const Position, c: Color, king_file: u3, kingside: bool
     if (kingside) {
         var f: u3 = 7;
         while (f > king_file) : (f -= 1) {
-            const pc = p.getFromSquare(brd.squareFromFileRank(f, rank));
+            const pc = p.getFromSquare(utils.squareFromFileRank(f, rank));
             if (pc.piece == .Rook and pc.color == c) return f;
         }
     } else {
         var f: u3 = 0;
         while (f < king_file) : (f += 1) {
-            const pc = p.getFromSquare(brd.squareFromFileRank(f, rank));
+            const pc = p.getFromSquare(utils.squareFromFileRank(f, rank));
             if (pc.piece == .Rook and pc.color == c) return f;
         }
     }
@@ -149,9 +150,9 @@ fn parseEnPassant(p: *Position, us: Color, en_passant: []const u8) !void {
     p.ep_sq = null;
     if (std.mem.eql(u8, en_passant, "-")) return;
 
-    const sq = brd.parseSquare(en_passant) orelse return error.InvalidFEN;
+    const sq = utils.parseSquare(en_passant) orelse return error.InvalidFEN;
     const them = us.opposite();
-    if (brd.rankOf(sq) != (if (us == .White) @as(u3, 5) else 2)) return;
+    if (utils.rankOf(sq) != (if (us == .White) @as(u3, 5) else 2)) return;
 
     const pushed: Square = if (us == .White) sq - 8 else sq + 8;
     const origin: Square = if (us == .White) sq + 8 else sq - 8;
@@ -159,8 +160,8 @@ fn parseEnPassant(p: *Position, us: Color, en_passant: []const u8) !void {
     if (pc.piece != .Pawn or pc.color != them) return;
     if (!p.getFromSquare(sq).isNone() or !p.getFromSquare(origin).isNone()) return;
 
-    const pushed_bb = brd.getSquareBB(pushed);
-    if (((brd.eastOne(pushed_bb) | brd.westOne(pushed_bb)) & p.getPieceColorBoard(.Pawn, us)) == 0) return;
+    const pushed_bb = utils.getSquareBB(pushed);
+    if (((utils.eastOne(pushed_bb) | utils.westOne(pushed_bb)) & p.getPieceColorBoard(.Pawn, us)) == 0) return;
     p.ep_sq = sq;
 }
 
@@ -172,8 +173,8 @@ pub fn toFEN(gs: *const GameState, allocator: std.mem.Allocator) ![]u8 {
     var rank: u3 = 7;
     while (true) : (rank -= 1) {
         var empty_count: u8 = 0;
-        for (0..brd.num_files) |f| {
-            const pc = p.getFromSquare(brd.squareFromFileRank(@intCast(f), rank));
+        for (0..utils.num_files) |f| {
+            const pc = p.getFromSquare(utils.squareFromFileRank(@intCast(f), rank));
             if (pc.isNone()) {
                 empty_count += 1;
                 continue;
@@ -198,9 +199,9 @@ pub fn toFEN(gs: *const GameState, allocator: std.mem.Allocator) ![]u8 {
     } else {
         for ([_]Color{ .White, .Black }) |c| {
             for ([_]bool{ true, false }) |kingside| {
-                if (!brd.hasCastleRight(p.castle, brd.castleRight(c, kingside))) continue;
-                const king_file = brd.fileOf(p.kingSquare(c));
-                const rook_file = brd.fileOf(gs.rookSquare(c, kingside));
+                if (!utils.hasCastleRight(p.castle, utils.castleRight(c, kingside))) continue;
+                const king_file = utils.fileOf(p.kingSquare(c));
+                const rook_file = utils.fileOf(gs.rookSquare(c, kingside));
                 const standard = king_file == 4 and rook_file == (if (kingside) @as(u3, 7) else 0);
                 var ch: u8 = if (standard) (if (kingside) 'k' else 'q') else 'a' + @as(u8, rook_file);
                 if (c == .White) ch = std.ascii.toUpper(ch);
@@ -212,7 +213,7 @@ pub fn toFEN(gs: *const GameState, allocator: std.mem.Allocator) ![]u8 {
     try fen.append(allocator, ' ');
     if (p.ep_sq) |sq| {
         var sq_buf: [2]u8 = undefined;
-        try fen.appendSlice(allocator, brd.squareToString(sq, &sq_buf));
+        try fen.appendSlice(allocator, utils.squareToString(sq, &sq_buf));
     } else {
         try fen.append(allocator, '-');
     }
@@ -235,8 +236,8 @@ pub fn debugPrintBoard(gs: *const GameState) !void {
     var rank: u3 = 7;
     while (true) : (rank -= 1) {
         try stdout.print("{d} ", .{@as(u8, rank) + 1});
-        for (0..brd.num_files) |f| {
-            const pc = gs.cur_position.getFromSquare(brd.squareFromFileRank(@intCast(f), rank));
+        for (0..utils.num_files) |f| {
+            const pc = gs.cur_position.getFromSquare(utils.squareFromFileRank(@intCast(f), rank));
             try stdout.print("{c} ", .{pc.toChar()});
         }
         try stdout.print("\n", .{});
