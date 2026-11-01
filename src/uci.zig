@@ -4,6 +4,7 @@ const brd = root.brd;
 const mvs = root.moves;
 const fen = root.fen;
 const srch = root.search;
+const hist = root.hist;
 const tt = root.tt;
 const eval = root.eval;
 const datagen = root.datagen;
@@ -140,8 +141,8 @@ pub const UciProtocol = struct {
         searcher_ptr.tt_table = &protocol.tt_table;
         protocol.game_ply = 0;
 
-        srch.quiet_lmr = srch.initQuietLMR();
-        srch.noisy_lmr = srch.initNoisyLMR();
+        hist.quiet_lmr = hist.initQuietLMR();
+        hist.noisy_lmr = hist.initNoisyLMR();
 
         return protocol;
     }
@@ -411,8 +412,8 @@ pub const UciProtocol = struct {
 
         try respond("uciok");
 
-        srch.quiet_lmr = srch.initQuietLMR();
-        srch.noisy_lmr = srch.initNoisyLMR();
+        hist.quiet_lmr = hist.initQuietLMR();
+        hist.noisy_lmr = hist.initNoisyLMR();
     }
 
     fn handleSetOption(self: *UciProtocol, args: [][]const u8) !void {
@@ -548,8 +549,8 @@ pub const UciProtocol = struct {
 
         switch (t.hook) {
             .none => {},
-            .quiet_lmr => srch.quiet_lmr = srch.initQuietLMR(),
-            .noisy_lmr => srch.noisy_lmr = srch.initNoisyLMR(),
+            .quiet_lmr => hist.quiet_lmr = hist.initQuietLMR(),
+            .noisy_lmr => hist.noisy_lmr = hist.initNoisyLMR(),
         }
         return true;
     }
