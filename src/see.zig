@@ -1,7 +1,9 @@
 const std = @import("std");
 const root = @import("root.zig");
 const brd = root.brd;
+const utils = root.utils;
 const mvs = root.moves;
+const tp = root.tp;
 
 const Bitboard = brd.Bitboard;
 const Square = brd.Square;
@@ -10,16 +12,6 @@ const Color = brd.Color;
 const Position = brd.Position;
 const GameState = brd.GameState;
 const Move = mvs.Move;
-
-pub const see_values = [_]i32{
-    93, // Pawn
-    308, // Knight
-    346, // Bishop
-    521, // Rook
-    994, // Queen
-    20000, // King
-    0, // None
-};
 
 inline fn diagonalSliders(pos: *const Position) Bitboard {
     return pos.getPieceBoard(.Bishop) | pos.getPieceBoard(.Queen);
@@ -53,9 +45,9 @@ fn seeSwap(
 
     var occupied = pos.getOccupancy();
     if (ep_capture_sq) |eps| {
-        occupied ^= brd.getSquareBB(eps);
+        occupied ^= utils.getSquareBB(eps);
     }
-    occupied ^= brd.getSquareBB(from_sq);
+    occupied ^= utils.getSquareBB(from_sq);
 
     var attackers = move_gen.attackersTo(pos, target_sq, occupied) & occupied;
 
@@ -63,7 +55,7 @@ fn seeSwap(
         depth += 1;
         if (depth >= 32) break;
 
-        gain[depth] = see_values[@intFromEnum(piece)] - gain[depth - 1];
+        gain[depth] = tp.see_values.values[@intFromEnum(piece)] - gain[depth - 1];
 
         if (piece == .Pawn or piece == .Bishop or piece == .Queen) {
             attackers |= move_gen.getBishopAttacks(target_sq, occupied) & bq;
@@ -85,7 +77,7 @@ fn seeSwap(
 
         from_sq = next_attacker.square;
         piece = next_attacker.piece;
-        occupied ^= brd.getSquareBB(from_sq);
+        occupied ^= utils.getSquareBB(from_sq);
     }
 
     var i = depth - 1;
@@ -103,7 +95,7 @@ const MoveInfo = struct {
 };
 
 fn describe(pos: *const Position, move: Move) MoveInfo {
-    const pawn = see_values[@intFromEnum(Pieces.Pawn)];
+    const pawn = tp.see_values.values[@intFromEnum(Pieces.Pawn)];
     var info = MoveInfo{
         .lands = pos.movedPiece(move).piece,
         .gain = 0,
@@ -114,12 +106,12 @@ fn describe(pos: *const Position, move: Move) MoveInfo {
         info.gain = pawn;
         info.ep_capture_sq = move.to ^ 8;
     } else if (move.isCapture()) {
-        info.gain = see_values[@intFromEnum(pos.getPieceFromSquare(move.to))];
+        info.gain = tp.see_values.values[@intFromEnum(pos.getPieceFromSquare(move.to))];
     }
 
     if (move.isPromo()) {
         const promo = move.promoPiece();
-        info.gain += see_values[@intFromEnum(promo)] - pawn;
+        info.gain += tp.see_values.values[@intFromEnum(promo)] - pawn;
         info.lands = promo;
     }
 
@@ -172,7 +164,7 @@ pub fn see(
         attacker_sq,
         attacker_piece,
         pos.getColorFromSquare(attacker_sq),
-        see_values[@intFromEnum(target_piece)],
+        tp.see_values.values[@intFromEnum(target_piece)],
         null,
     );
 }
@@ -192,14 +184,14 @@ pub fn seeAtLeast(
     var swap: i32 = info.gain - threshold;
     if (swap < 0) return false;
 
-    swap = see_values[@intFromEnum(info.lands)] - swap;
+    swap = tp.see_values.values[@intFromEnum(info.lands)] - swap;
     if (swap <= 0) return true;
 
     var occ = pos.getOccupancy();
-    occ ^= brd.getSquareBB(from);
-    occ ^= brd.getSquareBB(to);
+    occ ^= utils.getSquareBB(from);
+    occ ^= utils.getSquareBB(to);
     if (info.ep_capture_sq) |eps| {
-        occ ^= brd.getSquareBB(eps);
+        occ ^= utils.getSquareBB(eps);
     }
 
     const bq = diagonalSliders(pos);
@@ -226,10 +218,10 @@ pub fn seeAtLeast(
             break;
         }
 
-        swap = see_values[@intFromEnum(na.piece)] - swap;
+        swap = tp.see_values.values[@intFromEnum(na.piece)] - swap;
         if (swap < res) break;
 
-        occ ^= brd.getSquareBB(na.square);
+        occ ^= utils.getSquareBB(na.square);
 
         if (na.piece == .Pawn or na.piece == .Bishop or na.piece == .Queen) {
             attackers |= move_gen.getBishopAttacks(to, occ) & bq;
@@ -257,7 +249,7 @@ fn getLeastValuableAttacker(pos: *const Position, attackers: Bitboard, color: Co
         const piece_attackers = attackers & pos.getPieceColorBoard(piece, color);
         if (piece_attackers != 0) {
             return AttackerInfo{
-                .square = brd.lsb(piece_attackers),
+                .square = utils.lsb(piece_attackers),
                 .piece = piece,
             };
         }

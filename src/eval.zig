@@ -6,7 +6,7 @@ const zob = root.zob;
 const tp = root.tp;
 
 pub const mate_score: i32 = 32000;
-pub const tb_win_score: i32 = mate_score;
+pub const tb_win_score: i32 = mate_score - 128;
 
 pub const win_bound: i32 = mate_score - 256;
 

@@ -1,5 +1,6 @@
 const std = @import("std");
 const root = @import("root.zig");
+const utils = root.utils;
 const brd = root.brd;
 const rad = root.rad;
 const magic = root.magic;
@@ -54,15 +55,15 @@ pub const MoveList = struct {
 };
 
 pub const MoveGen = struct {
-    kings: [brd.num_squares]Bitboard,
-    knights: [brd.num_squares]Bitboard,
-    pawns: [brd.num_colors][brd.num_squares]Bitboard,
-    bishops: [brd.num_squares][512]Bitboard,
-    rooks: [brd.num_squares][4096]Bitboard,
-    bishop_masks: [brd.num_squares]Bitboard,
-    rook_masks: [brd.num_squares]Bitboard,
-    between: [brd.num_squares][brd.num_squares]Bitboard,
-    line: [brd.num_squares][brd.num_squares]Bitboard,
+    kings: [utils.num_squares]Bitboard,
+    knights: [utils.num_squares]Bitboard,
+    pawns: [utils.num_colors][utils.num_squares]Bitboard,
+    bishops: [utils.num_squares][512]Bitboard,
+    rooks: [utils.num_squares][4096]Bitboard,
+    bishop_masks: [utils.num_squares]Bitboard,
+    rook_masks: [utils.num_squares]Bitboard,
+    between: [utils.num_squares][utils.num_squares]Bitboard,
+    line: [utils.num_squares][utils.num_squares]Bitboard,
 
     pub const LegalInfo = struct {
         king_sq: Square,
@@ -72,7 +73,7 @@ pub const MoveGen = struct {
     };
 
     pub fn init(self: *MoveGen) void {
-        for (0..brd.num_squares) |i| {
+        for (0..utils.num_squares) |i| {
             const sq: Square = @intCast(i);
             self.kings[sq] = kingAttacks(sq);
             self.knights[sq] = knightAttacks(sq);
@@ -126,18 +127,18 @@ pub const MoveGen = struct {
 
         var knights = p.getPieceColorBoard(.Knight, us);
         while (knights != 0) {
-            const from = brd.popLsb(&knights);
+            const from = utils.popLsb(&knights);
             emit(list, from, self.knights[from] & targets, enemy);
         }
 
         var diagonal = p.diagonalSliders(us);
         while (diagonal != 0) {
-            const from = brd.popLsb(&diagonal);
+            const from = utils.popLsb(&diagonal);
             emit(list, from, self.getBishopAttacks(from, occ) & targets, enemy);
         }
         var straight = p.straightSliders(us);
         while (straight != 0) {
-            const from = brd.popLsb(&straight);
+            const from = utils.popLsb(&straight);
             emit(list, from, self.getRookAttacks(from, occ) & targets, enemy);
         }
 
@@ -150,11 +151,11 @@ pub const MoveGen = struct {
     inline fn emit(list: *MoveList, from: Square, dests: Bitboard, enemy: Bitboard) void {
         var caps = dests & enemy;
         while (caps != 0) {
-            list.add(Move.capture(from, brd.popLsb(&caps)));
+            list.add(Move.capture(from, utils.popLsb(&caps)));
         }
         var quiets = dests & ~enemy;
         while (quiets != 0) {
-            list.add(Move.quiet(from, brd.popLsb(&quiets)));
+            list.add(Move.quiet(from, utils.popLsb(&quiets)));
         }
     }
 
@@ -167,21 +168,21 @@ pub const MoveGen = struct {
         if (pawns == 0) return;
 
         const empty = ~p.getOccupancy();
-        const promo_rank = comptime brd.promoRankBB(us);
+        const promo_rank = comptime utils.promoRankBB(us);
         const push: i16 = comptime if (us == .White) 8 else -8;
-        const single = brd.forwardOne(us, pawns) & empty;
+        const single = utils.forwardOne(us, pawns) & empty;
 
         if (mode != .quiets) {
             const cap_h: i16 = comptime if (us == .White) 9 else -7; // toward the h-file
             const cap_a: i16 = comptime if (us == .White) 7 else -9; // toward the a-file
-            const toward_h = if (us == .White) brd.northEastOne(pawns) else brd.southEastOne(pawns);
-            const toward_a = if (us == .White) brd.northWestOne(pawns) else brd.southWestOne(pawns);
+            const toward_h = if (us == .White) utils.northEastOne(pawns) else utils.southEastOne(pawns);
+            const toward_a = if (us == .White) utils.northWestOne(pawns) else utils.southWestOne(pawns);
             emitPawnCaptures(cap_h, promo_rank, toward_h & enemy, list);
             emitPawnCaptures(cap_a, promo_rank, toward_a & enemy, list);
 
             var queen_promos = single & promo_rank;
             while (queen_promos != 0) {
-                const to = brd.popLsb(&queen_promos);
+                const to = utils.popLsb(&queen_promos);
                 list.add(Move.promotion(shiftBack(to, push), to, .Queen));
             }
 
@@ -189,7 +190,7 @@ pub const MoveGen = struct {
                 const them_i = @intFromEnum(us.opposite());
                 var from_bb = self.pawns[them_i][ep] & pawns;
                 while (from_bb != 0) {
-                    list.add(Move.enPassant(brd.popLsb(&from_bb), ep));
+                    list.add(Move.enPassant(utils.popLsb(&from_bb), ep));
                 }
             }
         }
@@ -197,7 +198,7 @@ pub const MoveGen = struct {
         if (mode != .captures) {
             var under_promos = single & promo_rank;
             while (under_promos != 0) {
-                const to = brd.popLsb(&under_promos);
+                const to = utils.popLsb(&under_promos);
                 const from = shiftBack(to, push);
                 list.add(Move.promotion(from, to, .Rook));
                 list.add(Move.promotion(from, to, .Bishop));
@@ -206,14 +207,14 @@ pub const MoveGen = struct {
 
             var quiets = single & ~promo_rank;
             while (quiets != 0) {
-                const to = brd.popLsb(&quiets);
+                const to = utils.popLsb(&quiets);
                 list.add(Move.quiet(shiftBack(to, push), to));
             }
 
-            const dpp_rank = comptime brd.doublePushRankBB(us);
-            var doubles = brd.forwardOne(us, single & dpp_rank) & empty;
+            const dpp_rank = comptime utils.doublePushRankBB(us);
+            var doubles = utils.forwardOne(us, single & dpp_rank) & empty;
             while (doubles != 0) {
-                const to = brd.popLsb(&doubles);
+                const to = utils.popLsb(&doubles);
                 list.add(Move.doublePush(shiftBack(to, push * 2), to));
             }
         }
@@ -222,7 +223,7 @@ pub const MoveGen = struct {
     inline fn emitPawnCaptures(comptime delta: i16, promo_rank: Bitboard, dests: Bitboard, list: *MoveList) void {
         var promos = dests & promo_rank;
         while (promos != 0) {
-            const to = brd.popLsb(&promos);
+            const to = utils.popLsb(&promos);
             const from = shiftBack(to, delta);
             inline for ([_]Move.PFlags{ .Queen, .Rook, .Bishop, .Knight }) |pf| {
                 list.add(Move.promoCapture(from, to, pf));
@@ -230,7 +231,7 @@ pub const MoveGen = struct {
         }
         var normal = dests & ~promo_rank;
         while (normal != 0) {
-            const to = brd.popLsb(&normal);
+            const to = utils.popLsb(&normal);
             list.add(Move.capture(shiftBack(to, delta), to));
         }
     }
@@ -238,15 +239,15 @@ pub const MoveGen = struct {
     fn generateCastles(self: *const MoveGen, comptime us: Color, gs: *const GameState, king_sq: Square, list: *MoveList) void {
         const cr = gs.cur_position.castle;
         inline for ([_]bool{ true, false }) |kingside| {
-            const right = comptime brd.castleRight(us, kingside);
-            if (brd.hasCastleRight(cr, right) and self.castleLegal(gs, us, king_sq, kingside)) {
+            const right = comptime utils.castleRight(us, kingside);
+            if (utils.hasCastleRight(cr, right) and self.castleLegal(gs, us, king_sq, kingside)) {
                 list.add(Move.castle(king_sq, GameState.kingCastleDest(us, kingside), kingside));
             }
         }
     }
 
     inline fn spanInclusive(a: Square, b: Square) Bitboard {
-        std.debug.assert(brd.rankOf(a) == brd.rankOf(b));
+        std.debug.assert(utils.rankOf(a) == utils.rankOf(b));
         const lo = @min(a, b);
         const hi = @max(a, b);
         const n: u6 = @intCast(@as(u7, hi - lo) + 1);
@@ -264,14 +265,14 @@ pub const MoveGen = struct {
         const king_to = GameState.kingCastleDest(us, kingside);
         const rook_to = GameState.rookCastleDest(us, kingside);
 
-        const occ = p.getOccupancy() & ~(brd.getSquareBB(king_sq) | brd.getSquareBB(rook_from));
+        const occ = p.getOccupancy() & ~(utils.getSquareBB(king_sq) | utils.getSquareBB(rook_from));
         const king_path = spanInclusive(king_sq, king_to);
         const rook_path = spanInclusive(rook_from, rook_to);
         if ((occ & (king_path | rook_path)) != 0) return false;
 
         var walk = king_path;
         while (walk != 0) {
-            if (self.isSquareAttackedBy(p, brd.popLsb(&walk), them, occ)) return false;
+            if (self.isSquareAttackedBy(p, utils.popLsb(&walk), them, occ)) return false;
         }
         return true;
     }
@@ -291,7 +292,7 @@ pub const MoveGen = struct {
         const check_mask: Bitboard = switch (@popCount(checkers)) {
             0 => ~@as(Bitboard, 0),
             1 => blk: {
-                const checker_sq = brd.lsb(checkers);
+                const checker_sq = utils.lsb(checkers);
                 break :blk checkers | self.between[ksq][checker_sq];
             },
             else => 0,
@@ -302,7 +303,7 @@ pub const MoveGen = struct {
         var snipers = (self.getRookAttacks(ksq, 0) & p.straightSliders(them)) |
             (self.getBishopAttacks(ksq, 0) & p.diagonalSliders(them));
         while (snipers != 0) {
-            const s = brd.popLsb(&snipers);
+            const s = utils.popLsb(&snipers);
             const blockers = self.between[ksq][s] & occ;
             if (blockers != 0 and (blockers & (blockers - 1)) == 0) pinned |= blockers & ours;
         }
@@ -321,22 +322,22 @@ pub const MoveGen = struct {
         if (m.isCastle()) return true;
         if (m.isEP()) return self.epLegal(p, gs.to_move, info, m.from, m.to);
 
-        const to_bb = brd.getSquareBB(m.to);
+        const to_bb = utils.getSquareBB(m.to);
         if (m.from == info.king_sq) {
-            const occ = p.getOccupancy() ^ brd.getSquareBB(m.from);
+            const occ = p.getOccupancy() ^ utils.getSquareBB(m.from);
             return !self.isSquareAttackedBy(p, m.to, gs.to_move.opposite(), occ);
         }
 
         if ((info.check_mask & to_bb) == 0) return false;
-        return !brd.getBit(info.pinned, m.from) or (self.line[info.king_sq][m.from] & to_bb) != 0;
+        return !utils.getBit(info.pinned, m.from) or (self.line[info.king_sq][m.from] & to_bb) != 0;
     }
 
     fn epLegal(self: *const MoveGen, p: *const Position, us: Color, info: *const LegalInfo, from: Square, ep: Square) bool {
         const cap_sq: Square = if (us == .White) ep - 8 else ep + 8;
-        if (((brd.getSquareBB(ep) | brd.getSquareBB(cap_sq)) & info.check_mask) == 0) return false;
+        if (((utils.getSquareBB(ep) | utils.getSquareBB(cap_sq)) & info.check_mask) == 0) return false;
 
         const them = us.opposite();
-        const occ = (p.getOccupancy() ^ brd.getSquareBB(from) ^ brd.getSquareBB(cap_sq)) | brd.getSquareBB(ep);
+        const occ = (p.getOccupancy() ^ utils.getSquareBB(from) ^ utils.getSquareBB(cap_sq)) | utils.getSquareBB(ep);
         if (self.getBishopAttacks(info.king_sq, occ) & p.diagonalSliders(them) != 0) return false;
         if (self.getRookAttacks(info.king_sq, occ) & p.straightSliders(them) != 0) return false;
         return true;
@@ -367,7 +368,7 @@ pub const MoveGen = struct {
         var snipers = (self.getRookAttacks(ksq, 0) & p.straightSliders(us)) |
             (self.getBishopAttacks(ksq, 0) & p.diagonalSliders(us));
         while (snipers != 0) {
-            const s = brd.popLsb(&snipers);
+            const s = utils.popLsb(&snipers);
             const between = self.between[ksq][s] & occ;
             if (between != 0 and (between & (between - 1)) == 0) {
                 ci.blockers |= between & p.getColorBoard(us);
@@ -378,10 +379,10 @@ pub const MoveGen = struct {
 
     pub fn givesCheck(self: *const MoveGen, gs: *const GameState, m: Move, ci: *const CheckInfo) bool {
         const p = &gs.cur_position;
-        const to_bb = brd.getSquareBB(m.to);
+        const to_bb = utils.getSquareBB(m.to);
 
         if (m.isPromo()) {
-            const occ = (p.getOccupancy() ^ brd.getSquareBB(m.from)) | to_bb;
+            const occ = (p.getOccupancy() ^ utils.getSquareBB(m.from)) | to_bb;
             const att: Bitboard = switch (m.promoPiece()) {
                 .Knight => self.knights[m.to],
                 .Bishop => self.getBishopAttacks(m.to, occ),
@@ -389,13 +390,13 @@ pub const MoveGen = struct {
                 .Queen => self.getQueenAttacks(m.to, occ),
                 else => 0,
             };
-            if (att & brd.getSquareBB(ci.ksq) != 0) return true;
+            if (att & utils.getSquareBB(ci.ksq) != 0) return true;
         } else if (!m.isCastle()) {
             const piece = p.getPieceFromSquare(m.from);
             if (ci.squares[@intFromEnum(piece)] & to_bb != 0) return true;
         }
 
-        if (brd.getBit(ci.blockers, m.from) and (self.line[ci.ksq][m.from] & to_bb) == 0) return true;
+        if (utils.getBit(ci.blockers, m.from) and (self.line[ci.ksq][m.from] & to_bb) == 0) return true;
 
         return false;
     }
@@ -435,12 +436,12 @@ pub const MoveGen = struct {
         if (m.isCastle()) {
             if (pc.piece != .King) return false;
             const kingside = m.isKingsideCastle();
-            if (!brd.hasCastleRight(p.castle, brd.castleRight(us, kingside))) return false;
+            if (!utils.hasCastleRight(p.castle, utils.castleRight(us, kingside))) return false;
             if (m.to != GameState.kingCastleDest(us, kingside)) return false;
             return self.castleLegal(gs, us, m.from, kingside);
         }
 
-        const to_bb = brd.getSquareBB(m.to);
+        const to_bb = utils.getSquareBB(m.to);
 
         if (m.isEP()) {
             if (pc.piece != .Pawn) return false;
@@ -469,7 +470,7 @@ pub const MoveGen = struct {
                 return (attacks & to_bb) != 0;
             },
             .Pawn => {
-                if (m.isPromo() != ((brd.promoRankBB(us) & to_bb) != 0)) return false;
+                if (m.isPromo() != ((utils.promoRankBB(us) & to_bb) != 0)) return false;
 
                 if (m.isCapture()) {
                     return (self.pawns[@intFromEnum(us)][m.from] & to_bb) != 0;
@@ -481,10 +482,10 @@ pub const MoveGen = struct {
 
                 if (m.isDoublePP()) {
                     const start_rank: u3 = if (us == .White) 1 else 6;
-                    if (brd.rankOf(m.from) != start_rank) return false;
+                    if (utils.rankOf(m.from) != start_rank) return false;
                     if (to_i != from_i + 2 * push) return false;
                     const mid: Square = @intCast(from_i + push);
-                    return !brd.getBit(occ, mid);
+                    return !utils.getBit(occ, mid);
                 }
 
                 return to_i == from_i + push;
@@ -537,7 +538,7 @@ pub const MoveGen = struct {
     }
 
     fn initSliders(self: *MoveGen) void {
-        for (0..brd.num_squares) |i| {
+        for (0..utils.num_squares) |i| {
             const sq: Square = @intCast(i);
             self.bishop_masks[sq] = rad.maskBishopAttacks(sq);
             self.rook_masks[sq] = rad.maskRookAttacks(sq);
@@ -562,12 +563,12 @@ pub const MoveGen = struct {
     }
 
     fn initLines(self: *MoveGen) void {
-        for (0..brd.num_squares) |ai| {
+        for (0..utils.num_squares) |ai| {
             const a: Square = @intCast(ai);
-            const a_bb = brd.getSquareBB(a);
-            for (0..brd.num_squares) |bi| {
+            const a_bb = utils.getSquareBB(a);
+            for (0..utils.num_squares) |bi| {
                 const b: Square = @intCast(bi);
-                const b_bb = brd.getSquareBB(b);
+                const b_bb = utils.getSquareBB(b);
                 self.between[a][b] = 0;
                 self.line[a][b] = 0;
                 if (a == b) continue;
@@ -585,31 +586,31 @@ pub const MoveGen = struct {
 };
 
 fn kingAttacks(sq: Square) Bitboard {
-    const b = brd.getSquareBB(sq);
-    const row = b | brd.eastOne(b) | brd.westOne(b);
-    return (row | brd.northOne(row) | brd.southOne(row)) ^ b;
+    const b = utils.getSquareBB(sq);
+    const row = b | utils.eastOne(b) | utils.westOne(b);
+    return (row | utils.northOne(row) | utils.southOne(row)) ^ b;
 }
 
 fn knightAttacks(sq: Square) Bitboard {
-    const b = brd.getSquareBB(sq);
-    return ((b & brd.not_h_file) << 17) | ((b & brd.not_h_file) >> 15) |
-        ((b & brd.not_a_file) << 15) | ((b & brd.not_a_file) >> 17) |
-        ((b & brd.not_gh_file) << 10) | ((b & brd.not_gh_file) >> 6) |
-        ((b & brd.not_ab_file) << 6) | ((b & brd.not_ab_file) >> 10);
+    const b = utils.getSquareBB(sq);
+    return ((b & utils.not_h_file) << 17) | ((b & utils.not_h_file) >> 15) |
+        ((b & utils.not_a_file) << 15) | ((b & utils.not_a_file) >> 17) |
+        ((b & utils.not_gh_file) << 10) | ((b & utils.not_gh_file) >> 6) |
+        ((b & utils.not_ab_file) << 6) | ((b & utils.not_ab_file) >> 10);
 }
 
 fn pawnAttacks(comptime c: Color, sq: Square) Bitboard {
-    const b = brd.getSquareBB(sq);
+    const b = utils.getSquareBB(sq);
     return if (c == .White)
-        brd.northEastOne(b) | brd.northWestOne(b)
+        utils.northEastOne(b) | utils.northWestOne(b)
     else
-        brd.southEastOne(b) | brd.southWestOne(b);
+        utils.southEastOne(b) | utils.southWestOne(b);
 }
 
 pub fn parseMove(gs: *const GameState, move_str: []const u8, chess960: bool) ?Move {
     if (move_str.len != 4 and move_str.len != 5) return null;
-    const from = brd.parseSquare(move_str[0..2]) orelse return null;
-    const to = brd.parseSquare(move_str[2..4]) orelse return null;
+    const from = utils.parseSquare(move_str[0..2]) orelse return null;
+    const to = utils.parseSquare(move_str[2..4]) orelse return null;
 
     const p = &gs.cur_position;
     const us = gs.to_move;
@@ -619,7 +620,7 @@ pub fn parseMove(gs: *const GameState, move_str: []const u8, chess960: bool) ?Mo
 
     if (pc.piece == .King and move_str.len == 4) {
         for ([_]bool{ true, false }) |kingside| {
-            if (!brd.hasCastleRight(p.castle, brd.castleRight(us, kingside))) continue;
+            if (!utils.hasCastleRight(p.castle, utils.castleRight(us, kingside))) continue;
             const king_to = GameState.kingCastleDest(us, kingside);
             const own_rook = target.piece == .Rook and target.color == us;
             if (own_rook and to == gs.rookSquare(us, kingside)) return Move.castle(from, king_to, kingside);
@@ -644,8 +645,8 @@ pub fn parseMove(gs: *const GameState, move_str: []const u8, chess960: bool) ?Mo
     }
 
     if (pc.piece == .Pawn) {
-        if ((brd.promoRankBB(us) & brd.getSquareBB(to)) != 0) return null;
-        if (!is_capture and brd.fileOf(from) != brd.fileOf(to)) {
+        if ((utils.promoRankBB(us) & utils.getSquareBB(to)) != 0) return null;
+        if (!is_capture and utils.fileOf(from) != utils.fileOf(to)) {
             if (p.ep_sq) |ep| {
                 if (to == ep) return Move.enPassant(from, to);
             }
@@ -659,9 +660,9 @@ pub fn parseMove(gs: *const GameState, move_str: []const u8, chess960: bool) ?Mo
 
 pub fn moveToUci(gs: *const GameState, m: Move, chess960: bool, buf: *[5]u8) []const u8 {
     if (chess960 and m.isCastle()) {
-        const c: Color = if (brd.rankOf(m.from) == 0) .White else .Black;
-        _ = brd.squareToString(m.from, buf[0..2]);
-        _ = brd.squareToString(gs.rookSquare(c, m.isKingsideCastle()), buf[2..4]);
+        const c: Color = if (utils.rankOf(m.from) == 0) .White else .Black;
+        _ = utils.squareToString(m.from, buf[0..2]);
+        _ = utils.squareToString(gs.rookSquare(c, m.isKingsideCastle()), buf[2..4]);
         return buf[0..4];
     }
     return m.toUci(buf);

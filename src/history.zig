@@ -36,39 +36,17 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     @memset(std.mem.asBytes(&self.low_ply_history), 0);
 
     if (total) {
+        @memset(std.mem.asBytes(&self.counter_moves), 0);
         @memset(std.mem.asBytes(&self.correction), 0);
         @memset(std.mem.asBytes(&self.np_white_correction), 0);
         @memset(std.mem.asBytes(&self.np_black_correction), 0);
         @memset(std.mem.asBytes(&self.major_correction), 0);
         @memset(std.mem.asBytes(&self.minor_correction), 0);
-    }
-
-    if (total) {
         @memset(std.mem.asBytes(&self.capture_history), 0);
         @memset(std.mem.asBytes(&self.history), 0);
         @memset(std.mem.asBytes(&self.threat_history), 0);
         @memset(std.mem.asBytes(self.continuation), 0);
-    }
-    else {
-        const hist_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.history));
-        for (hist_flat) |*entry| {
-            entry.* = entry.* - (entry.* >> 2) + 64;
-        }
-
-        const threat_flat = std.mem.bytesAsSlice(i32, std.mem.asBytes(&self.threat_history));
-        for (threat_flat) |*entry| {
-            entry.* = entry.* - (entry.* >> 2) + 64;
-        }
-
-        const cap_flat = std.mem.bytesAsSlice(i16, std.mem.asBytes(&self.capture_history));
-        for (cap_flat) |*entry| {
-            entry.* -= (entry.* >> 2);
-        }
-
-        const cont_flat = std.mem.bytesAsSlice(i16, std.mem.asBytes(self.continuation));
-        for (cont_flat) |*entry| {
-            entry.* -= (entry.* >> 2);
-        }
+        @memset(std.mem.asBytes(self.cont_correction), 0);
     }
 }
 
@@ -142,6 +120,7 @@ pub fn updateCorrection(
     corrGravity(&self.np_black_correction[c][@intCast(pos.non_pawn_hash[b] & 16383)], bonus);
     corrGravity(&self.major_correction[c][@intCast(pos.major_hash & 16383)], bonus);
     corrGravity(&self.minor_correction[c][@intCast(pos.minor_hash & 16383)], bonus);
+    if (self.contCorrPtr(2)) |p| corrGravity(p, bonus);
 }
 
 pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState) i32 {
@@ -159,12 +138,14 @@ pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState
     const npb_val: i32 = self.np_black_correction[c][@as(usize, @intCast(np_black_corr_idx))];
     const major_val: i32 = self.major_correction[c][@as(usize, @intCast(major_corr_idx))];
     const minor_val: i32 = self.minor_correction[c][@as(usize, @intCast(minor_corr_idx))];
+    const cont_val: i32 = if (self.contCorrPtr(2)) |p| p.* else 0;
 
     const combined: i32 = pawn_val * tp.corr_pawn_read_weight.value +
         npw_val * tp.corr_np_read_weight.value +
         npb_val * tp.corr_np_read_weight.value +
         major_val * tp.corr_major_read_weight.value +
-        minor_val * tp.corr_minor_read_weight.value;
+        minor_val * tp.corr_minor_read_weight.value +
+        cont_val * tp.corr_cont_read_weight.value;
 
     return @divTrunc(combined, tp.corr_read_divisor.value);
 }
@@ -251,7 +232,6 @@ pub fn updateCaptureHistory(
         applyBonus(i16, best_entry, bonus, max_cap_history);
     }
 
-    // Penalize other captures that were tried but didn't cause the cutoff.
     for (other_moves.slice()) |m| {
         if (!m.isCapture() or m.eql(best_move)) continue;
         const attacker = pos.movedPiece(m).piece.idx();

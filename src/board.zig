@@ -1,249 +1,16 @@
 const std = @import("std");
 const root = @import("root.zig");
+const utils = root.utils;
+pub const Pieces = utils.Pieces;
+pub const Piece = utils.Piece;
+pub const CastleValues = utils.CastleValues;
+pub const CastleRights = utils.CastleRights;
+pub const Color = utils.Color;
+pub const Bitboard = utils.Bitboard;
+pub const Square = utils.Square;
 const zob = root.zob;
+pub const ZobristKey = utils.ZobristKey;
 const nnue = root.nnue;
-
-pub const num_colors = 2;
-pub const num_pieces = 6;
-pub const num_squares = 64;
-pub const num_files = 8;
-pub const num_ranks = 8;
-pub const max_pieces = 32;
-pub const max_game_moves = 1021;
-
-pub const Bitboard = u64;
-pub const Square = u6;
-pub const ZobristKey = zob.ZobristKey;
-
-pub const CastleValues = enum(u4) {
-    NoCastling = 0,
-    WhiteKingside = 1,
-    WhiteQueenside = 2,
-    AllWhite = 3,
-    BlackKingside = 4,
-    BlackQueenside = 8,
-    AllBlack = 12,
-    AllCastling = 15,
-};
-
-pub const CastleRights = u4;
-
-pub inline fn removeCastleRights(cr: CastleRights, cv: CastleValues) CastleRights {
-    return cr & ~@intFromEnum(cv);
-}
-
-pub inline fn hasCastleRight(cr: CastleRights, cv: CastleValues) bool {
-    return (cr & @intFromEnum(cv)) != 0;
-}
-
-pub inline fn colorCastleRights(c: Color) CastleValues {
-    return if (c == .White) .AllWhite else .AllBlack;
-}
-
-pub inline fn castleRight(c: Color, kingside: bool) CastleValues {
-    return if (c == .White)
-        (if (kingside) .WhiteKingside else .WhiteQueenside)
-    else
-        (if (kingside) .BlackKingside else .BlackQueenside);
-}
-
-pub const Pieces = enum(u3) {
-    Pawn = 0,
-    Knight = 1,
-    Bishop = 2,
-    Rook = 3,
-    Queen = 4,
-    King = 5,
-    None = 6,
-
-    pub inline fn isNone(self: Pieces) bool {
-        return self == .None;
-    }
-
-    pub inline fn idx(self: Pieces) usize {
-        return @intFromEnum(self);
-    }
-};
-
-pub const Color = enum(u1) {
-    White = 0,
-    Black = 1,
-
-    pub inline fn opposite(self: Color) Color {
-        return @enumFromInt(@intFromEnum(self) ^ 1);
-    }
-
-    pub inline fn idx(self: Color) usize {
-        return @intFromEnum(self);
-    }
-};
-
-pub const Piece = packed struct(u4) {
-    piece: Pieces,
-    color: Color,
-
-    pub const none: Piece = .{ .piece = .None, .color = .White };
-
-    pub fn fromChar(c: u8) ?Piece {
-        const color: Color = if (c >= 'A' and c <= 'Z') .White else .Black;
-        const piece: Pieces = switch (std.ascii.toLower(c)) {
-            'p' => .Pawn,
-            'n' => .Knight,
-            'b' => .Bishop,
-            'r' => .Rook,
-            'q' => .Queen,
-            'k' => .King,
-            else => return null,
-        };
-        return .{ .piece = piece, .color = color };
-    }
-
-    pub fn toChar(self: Piece) u8 {
-        const c: u8 = switch (self.piece) {
-            .Pawn => 'p',
-            .Knight => 'n',
-            .Bishop => 'b',
-            .Rook => 'r',
-            .Queen => 'q',
-            .King => 'k',
-            .None => return '.',
-        };
-        return if (self.color == .White) std.ascii.toUpper(c) else c;
-    }
-
-    pub inline fn isNone(self: Piece) bool {
-        return self.piece == .None;
-    }
-
-    pub inline fn eql(self: Piece, other: Piece) bool {
-        return @as(u4, @bitCast(self)) == @as(u4, @bitCast(other));
-    }
-};
-
-pub const PlacedPiece = struct {
-    color: Color,
-    piece: Pieces,
-    square: Square,
-};
-
-pub const file_a: Bitboard = 0x0101010101010101;
-pub const file_h: Bitboard = 0x8080808080808080;
-pub const not_a_file: Bitboard = ~file_a;
-pub const not_h_file: Bitboard = ~file_h;
-pub const not_ab_file: Bitboard = 0xfcfcfcfcfcfcfcfc;
-pub const not_gh_file: Bitboard = 0x3f3f3f3f3f3f3f3f;
-pub const rank_1: Bitboard = 0x00000000000000ff;
-pub const rank_3: Bitboard = 0x0000000000ff0000;
-pub const rank_6: Bitboard = 0x0000ff0000000000;
-pub const rank_8: Bitboard = 0xff00000000000000;
-pub const dark_squares: Bitboard = 0xaa55aa55aa55aa55;
-
-pub inline fn squareFromFileRank(file: u3, rank: u3) Square {
-    return (@as(Square, rank) * 8) + @as(Square, file);
-}
-
-pub inline fn fileOf(sq: Square) u3 {
-    return @truncate(sq);
-}
-
-pub inline fn rankOf(sq: Square) u3 {
-    return @intCast(sq >> 3);
-}
-
-pub inline fn getSquareBB(sq: Square) Bitboard {
-    return @as(Bitboard, 1) << sq;
-}
-
-pub inline fn getBit(bb: Bitboard, sq: Square) bool {
-    return (bb & getSquareBB(sq)) != 0;
-}
-
-pub inline fn setBit(bb: *Bitboard, sq: Square) void {
-    bb.* |= getSquareBB(sq);
-}
-
-pub inline fn clearBit(bb: *Bitboard, sq: Square) void {
-    bb.* &= ~getSquareBB(sq);
-}
-
-pub inline fn countBits(bb: Bitboard) u32 {
-    return @popCount(bb);
-}
-
-pub inline fn lsb(bb: Bitboard) Square {
-    std.debug.assert(bb != 0);
-    return @intCast(@ctz(bb));
-}
-
-pub inline fn popLsb(bb: *Bitboard) Square {
-    const sq = lsb(bb.*);
-    bb.* &= bb.* - 1;
-    return sq;
-}
-
-pub inline fn northOne(b: Bitboard) Bitboard {
-    return b << 8;
-}
-
-pub inline fn southOne(b: Bitboard) Bitboard {
-    return b >> 8;
-}
-
-pub inline fn eastOne(b: Bitboard) Bitboard {
-    return (b & not_h_file) << 1;
-}
-
-pub inline fn westOne(b: Bitboard) Bitboard {
-    return (b & not_a_file) >> 1;
-}
-
-pub inline fn northEastOne(b: Bitboard) Bitboard {
-    return (b & not_h_file) << 9;
-}
-
-pub inline fn northWestOne(b: Bitboard) Bitboard {
-    return (b & not_a_file) << 7;
-}
-
-pub inline fn southEastOne(b: Bitboard) Bitboard {
-    return (b & not_h_file) >> 7;
-}
-
-pub inline fn southWestOne(b: Bitboard) Bitboard {
-    return (b & not_a_file) >> 9;
-}
-
-pub inline fn forwardOne(comptime c: Color, b: Bitboard) Bitboard {
-    return if (c == .White) northOne(b) else southOne(b);
-}
-
-pub inline fn promoRankBB(c: Color) Bitboard {
-    return if (c == .White) rank_8 else rank_1;
-}
-
-pub inline fn doublePushRankBB(c: Color) Bitboard {
-    return if (c == .White) rank_3 else rank_6;
-}
-
-pub fn squareToString(sq: Square, buf: *[2]u8) []const u8 {
-    buf[0] = 'a' + @as(u8, fileOf(sq));
-    buf[1] = '1' + @as(u8, rankOf(sq));
-    return buf;
-}
-
-pub fn parseSquare(s: []const u8) ?Square {
-    if (s.len != 2) return null;
-    if (s[0] < 'a' or s[0] > 'h' or s[1] < '1' or s[1] > '8') return null;
-    return squareFromFileRank(@intCast(s[0] - 'a'), @intCast(s[1] - '1'));
-}
-
-pub fn bitboardToArray(bb: Bitboard) [64]bool {
-    var arr: [64]bool = undefined;
-    for (0..64) |i| {
-        arr[i] = getBit(bb, @intCast(i));
-    }
-    return arr;
-}
 
 pub const Move = packed struct(u16) {
     pub const PFlags = enum(u2) {
@@ -355,8 +122,8 @@ pub const Move = packed struct(u16) {
     }
 
     pub fn toUci(self: Move, buf: *[5]u8) []const u8 {
-        _ = squareToString(self.from, buf[0..2]);
-        _ = squareToString(self.to, buf[2..4]);
+        _ = utils.squareToString(self.from, buf[0..2]);
+        _ = utils.squareToString(self.to, buf[2..4]);
         if (self.isPromo()) {
             buf[4] = switch (self.promoPiece()) {
                 .Knight => 'n',
@@ -413,30 +180,30 @@ pub const DirtyPieces = struct {
 };
 
 pub const Position = struct {
-    mailbox: [num_squares]Piece,
-    piece_bb: [num_pieces]Bitboard,
-    color_bb: [num_colors]Bitboard,
+    mailbox: [utils.num_squares]Piece,
+    piece_bb: [utils.num_pieces]Bitboard,
+    color_bb: [utils.num_colors]Bitboard,
     castle: CastleRights,
     ep_sq: ?Square,
     halfmove: u8,
 
     hash: ZobristKey,
     pawn_hash: ZobristKey,
-    non_pawn_hash: [num_colors]ZobristKey,
+    non_pawn_hash: [utils.num_colors]ZobristKey,
     major_hash: ZobristKey,
     minor_hash: ZobristKey,
 
     pub fn init() Position {
         return .{
-            .mailbox = [_]Piece{Piece.none} ** num_squares,
-            .piece_bb = [_]Bitboard{0} ** num_pieces,
-            .color_bb = [_]Bitboard{0} ** num_colors,
+            .mailbox = [_]Piece{Piece.none} ** utils.num_squares,
+            .piece_bb = [_]Bitboard{0} ** utils.num_pieces,
+            .color_bb = [_]Bitboard{0} ** utils.num_colors,
             .castle = 0,
             .ep_sq = null,
             .halfmove = 0,
             .hash = 0,
             .pawn_hash = 0,
-            .non_pawn_hash = [_]ZobristKey{0} ** num_colors,
+            .non_pawn_hash = [_]ZobristKey{0} ** utils.num_colors,
             .major_hash = 0,
             .minor_hash = 0,
         };
@@ -471,7 +238,7 @@ pub const Position = struct {
     }
 
     pub inline fn kingSquare(self: *const Position, c: Color) Square {
-        return lsb(self.getPieceColorBoard(.King, c));
+        return utils.lsb(self.getPieceColorBoard(.King, c));
     }
 
     pub inline fn getFromSquare(self: *const Position, sq: Square) Piece {
@@ -520,27 +287,27 @@ pub const Position = struct {
         if (white_minors + black_minors <= 1) return true;
 
         if (knights == 0 and white_minors == 1 and black_minors == 1) {
-            const white_on_dark = (bishops & self.color_bb[0] & dark_squares) != 0;
-            const black_on_dark = (bishops & self.color_bb[1] & dark_squares) != 0;
+            const white_on_dark = (bishops & self.color_bb[0] & utils.dark_squares) != 0;
+            const black_on_dark = (bishops & self.color_bb[1] & utils.dark_squares) != 0;
             if (white_on_dark == black_on_dark) return true;
         }
 
         return false;
     }
 
-    pub fn getPieceList(self: *const Position) [max_pieces]?PlacedPiece {
-        var list: [max_pieces]?PlacedPiece = undefined;
+    pub fn getPieceList(self: *const Position) [utils.max_pieces]?utils.PlacedPiece {
+        var list: [utils.max_pieces]?utils.PlacedPiece = undefined;
         var count: usize = 0;
         for ([_]Color{ .White, .Black }) |c| {
-            for (0..num_pieces) |pi| {
+            for (0..utils.num_pieces) |pi| {
                 const p: Pieces = @enumFromInt(pi);
                 var bb = self.getPieceColorBoard(p, c);
-                while (bb != 0 and count < max_pieces) : (count += 1) {
-                    list[count] = .{ .color = c, .piece = p, .square = popLsb(&bb) };
+                while (bb != 0 and count < utils.max_pieces) : (count += 1) {
+                    list[count] = .{ .color = c, .piece = p, .square = utils.popLsb(&bb) };
                 }
             }
         }
-        if (count < max_pieces) list[count] = null;
+        if (count < utils.max_pieces) list[count] = null;
         return list;
     }
 
@@ -578,7 +345,7 @@ pub const Position = struct {
     pub fn addPiece(self: *Position, c: Color, p: Pieces, sq: Square) void {
         std.debug.assert(p != .None);
         const cur = self.mailbox[sq];
-        const sq_bb = getSquareBB(sq);
+        const sq_bb = utils.getSquareBB(sq);
 
         if (!cur.isNone()) {
             self.togglePieceHashes(cur.color, cur.piece, sq);
@@ -594,7 +361,7 @@ pub const Position = struct {
         const cur = self.mailbox[sq];
         if (!cur.isNone()) {
             self.togglePieceHashes(cur.color, cur.piece, sq);
-            self.clearBB(cur.color, cur.piece, getSquareBB(sq));
+            self.clearBB(cur.color, cur.piece, utils.getSquareBB(sq));
         }
         self.mailbox[sq] = Piece.none;
     }
@@ -618,7 +385,7 @@ pub const Position = struct {
     pub fn reinitZobrist(self: *Position, to_move: Color) void {
         self.hash = 0;
         self.pawn_hash = 0;
-        self.non_pawn_hash = [_]ZobristKey{0} ** num_colors;
+        self.non_pawn_hash = [_]ZobristKey{0} ** utils.num_colors;
         self.major_hash = 0;
         self.minor_hash = 0;
 
@@ -636,12 +403,12 @@ pub const Position = struct {
         for (self.mailbox, 0..) |pc, i| {
             const sq: Square = @intCast(i);
             if (pc.isNone()) {
-                if (getBit(self.getOccupancy(), sq)) return false;
+                if (utils.getBit(self.getOccupancy(), sq)) return false;
                 continue;
             }
-            occ |= getSquareBB(sq);
-            if (!getBit(self.piece_bb[@intFromEnum(pc.piece)], sq)) return false;
-            if (!getBit(self.color_bb[@intFromEnum(pc.color)], sq)) return false;
+            occ |= utils.getSquareBB(sq);
+            if (!utils.getBit(self.piece_bb[@intFromEnum(pc.piece)], sq)) return false;
+            if (!utils.getBit(self.color_bb[@intFromEnum(pc.color)], sq)) return false;
         }
         if (occ != self.getOccupancy()) return false;
         if ((self.color_bb[0] & self.color_bb[1]) != 0) return false;
@@ -655,10 +422,10 @@ pub const Position = struct {
     }
 
     pub fn printBoard(self: *const Position) void {
-        for (0..num_ranks) |r| {
-            const rank: u3 = @intCast(num_ranks - 1 - r);
-            for (0..num_files) |f| {
-                std.debug.print("{c}", .{self.mailbox[squareFromFileRank(@intCast(f), rank)].toChar()});
+        for (0..utils.num_ranks) |r| {
+            const rank: u3 = @intCast(utils.num_ranks - 1 - r);
+            for (0..utils.num_files) |f| {
+                std.debug.print("{c}", .{self.mailbox[utils.squareFromFileRank(@intCast(f), rank)].toChar()});
             }
             std.debug.print("\n", .{});
         }
@@ -667,7 +434,7 @@ pub const Position = struct {
 
 pub const GameState = struct {
     cur_position: Position,
-    history: [max_game_moves]UndoInfo,
+    history: [utils.max_game_moves]UndoInfo,
     ply: usize,
     to_move: Color,
     fullmove: u16,
@@ -734,22 +501,22 @@ pub const GameState = struct {
             (if (kingside) self.white_ks_rook_file else self.white_qs_rook_file)
         else
             (if (kingside) self.black_ks_rook_file else self.black_qs_rook_file);
-        return squareFromFileRank(file, if (color == .White) 0 else 7);
+        return utils.squareFromFileRank(file, if (color == .White) 0 else 7);
     }
 
     pub inline fn rookCastleDest(color: Color, kingside: bool) Square {
-        return squareFromFileRank(if (kingside) 5 else 3, if (color == .White) 0 else 7);
+        return utils.squareFromFileRank(if (kingside) 5 else 3, if (color == .White) 0 else 7);
     }
 
     pub inline fn kingCastleDest(color: Color, kingside: bool) Square {
-        return squareFromFileRank(if (kingside) 6 else 2, if (color == .White) 0 else 7);
+        return utils.squareFromFileRank(if (kingside) 6 else 2, if (color == .White) 0 else 7);
     }
 
     fn clearRookRight(self: *const GameState, cr: CastleRights, c: Color, sq: Square) CastleRights {
         if (sq == self.rookSquare(c, true)) {
-            return removeCastleRights(cr, castleRight(c, true));
+            return utils.removeCastleRights(cr, utils.castleRight(c, true));
         } else if (sq == self.rookSquare(c, false)) {
-            return removeCastleRights(cr, castleRight(c, false));
+            return utils.removeCastleRights(cr, utils.castleRight(c, false));
         }
         return cr;
     }
@@ -777,7 +544,7 @@ pub const GameState = struct {
     }
 
     pub fn makeMove(self: *GameState, m: Move) void {
-        std.debug.assert(self.ply < max_game_moves);
+        std.debug.assert(self.ply < utils.max_game_moves);
         self.nnue_stack.pushAndUpdate(self, m);
 
         const p = &self.cur_position;
@@ -805,7 +572,7 @@ pub const GameState = struct {
         var cr = p.castle;
         if (cr != 0) {
             if (moved.piece == .King) {
-                cr = removeCastleRights(cr, colorCastleRights(us));
+                cr = utils.removeCastleRights(cr, utils.colorCastleRights(us));
             } else if (moved.piece == .Rook) {
                 cr = self.clearRookRight(cr, us, m.from);
             }
@@ -838,9 +605,9 @@ pub const GameState = struct {
             p.addPiece(us, moved.piece, m.to);
 
             if (m.isDoublePP()) {
-                const to_bb = getSquareBB(m.to);
+                const to_bb = utils.getSquareBB(m.to);
                 const enemy_pawns = p.getPieceColorBoard(.Pawn, them);
-                if ((eastOne(to_bb) | westOne(to_bb)) & enemy_pawns != 0) {
+                if ((utils.eastOne(to_bb) | utils.westOne(to_bb)) & enemy_pawns != 0) {
                     new_ep = if (us == .White) m.to - 8 else m.to + 8;
                 }
             }
@@ -896,7 +663,7 @@ pub const GameState = struct {
     }
 
     pub fn makeNullMove(self: *GameState) void {
-        std.debug.assert(self.ply < max_game_moves);
+        std.debug.assert(self.ply < utils.max_game_moves);
         const p = &self.cur_position;
         self.history[self.ply] = .{
             .captured = Piece.none,

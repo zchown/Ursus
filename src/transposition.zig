@@ -269,7 +269,7 @@ pub const TranspositionTable = struct {
         const bucket = &self.buckets[self.index(hash)];
         for (&bucket.entries) |*slot| {
             const packed_entry = PackedEntry{ .data = slot.loadPacked() };
-            if (packed_entry.verify(hash) and packed_entry.verify(hash)) {
+            if (packed_entry.verify(hash)) {
                const current_age = self.getAge();
                 if (packed_entry.getAge() != current_age) {
                     const age_mask: u128 = @as(u128, 0xFF) << 90;

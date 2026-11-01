@@ -1,6 +1,7 @@
 const std = @import("std");
 const root = @import("root.zig");
 const brd = root.brd;
+const utils = root.utils;
 const mvs = root.moves;
 const fen_mod = root.fen;
 const srch = root.search;
@@ -70,7 +71,7 @@ const ViriGame = struct {
         var occ = occupancy;
         var idx: u7 = 0;
         while (occ != 0) {
-            const sq = brd.popLsb(&occ);
+            const sq = utils.popLsb(&occ);
             const piece_nibble: u128 = encodePieceAt(gs, sq);
             pieces |= piece_nibble << (@as(u7, idx) * 4);
             idx += 1;
@@ -122,7 +123,7 @@ fn encodePieceAt(gs: *const brd.GameState, sq: brd.Square) u8 {
 fn isCastlingRook(gs: *const brd.GameState, sq: brd.Square, color: brd.Color) bool {
     const cr = gs.cur_position.castle;
     inline for ([_]bool{ true, false }) |kingside| {
-        if (brd.hasCastleRight(cr, brd.castleRight(color, kingside)) and
+        if (utils.hasCastleRight(cr, utils.castleRight(color, kingside)) and
             sq == gs.rookSquare(color, kingside)) return true;
     }
     return false;
