@@ -104,10 +104,6 @@ pub var stat_cont1_weight = Tunable(i32, .{ .min = 128, .max = 2048 }){ .value =
 pub var stat_cont2_weight = Tunable(i32, .{ .min = 128, .max = 2048 }){ .value = 512 };
 pub var stat_cont4_weight = Tunable(i32, .{ .min = 128, .max = 2048 }){ .value = 256 };
 
-pub var corr_div_bm = Tunable(i32, .{ .min = 4, .max = 24, .c_end = 1.0 }){ .value = 10 };
-pub var corr_div_nobm = Tunable(i32, .{ .min = 4, .max = 24, .c_end = 1.0 }){ .value = 9 };
-pub var corr_np_update_weight = Tunable(i32, .{ .min = 64, .max = 384 }){ .value = 181 };
-
 pub var corr_pawn_read_weight = Tunable(i32, .{ .min = 64, .max = 400 }){ .value = 201 };
 pub var corr_np_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .value = 125 };
 pub var corr_major_read_weight = Tunable(i32, .{ .min = 32, .max = 320 }){ .value = 119 };
@@ -159,7 +155,6 @@ pub var scale_bishop = Tunable(i32, .{ .min = 300, .max = 700 }){ .value = 461 }
 pub var scale_rook = Tunable(i32, .{ .min = 400, .max = 1000 }){ .value = 637 };
 pub var scale_queen = Tunable(i32, .{ .min = 800, .max = 1600 }){ .value = 1223 };
 
-pub var material_scale_base = Tunable(i32, .{ .min = 10000, .max = 40000 }){ .value = 35374 };
 pub var material_scale_div = Tunable(i32, .{ .min = 10000, .max = 40000 }){ .value = 35374 };
 
 pub var fifty_scale_base = Tunable(i32, .{ .min = 120, .max = 400 }){ .value = 200 };
