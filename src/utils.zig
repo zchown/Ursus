@@ -244,4 +244,3 @@ pub const Piece = packed struct(u4) {
         return @as(u4, @bitCast(self)) == @as(u4, @bitCast(other));
     }
 };
-

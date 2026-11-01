@@ -78,17 +78,17 @@ pub const PackedEntry = extern struct {
         const static_bits: u16 = @bitCast(clamped_static);
 
         var packed_entry: u128 = 0;
-        packed_entry |= @as(u128, hash_upper);                            // bits   0-31
-        packed_entry |= @as(u128, eval_bits) << 32;                       // bits  32-47
-        packed_entry |= @as(u128, move_u16) << 48;                        // bits  48-63
-        packed_entry |= @as(u128, static_bits) << 64;                     // bits  64-79
-        packed_entry |= @as(u128, @intFromEnum(flag)) << 80;              // bits  80-81
-        packed_entry |= @as(u128, depth) << 82;                           // bits  82-89
-        packed_entry |= @as(u128, age) << 90;                             // bits  90-97
-        packed_entry |= @as(u128, @intFromBool(in_check)) << 98;          // bit   98
-        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99;             // bit   99
+        packed_entry |= @as(u128, hash_upper); // bits   0-31
+        packed_entry |= @as(u128, eval_bits) << 32; // bits  32-47
+        packed_entry |= @as(u128, move_u16) << 48; // bits  48-63
+        packed_entry |= @as(u128, static_bits) << 64; // bits  64-79
+        packed_entry |= @as(u128, @intFromEnum(flag)) << 80; // bits  80-81
+        packed_entry |= @as(u128, depth) << 82; // bits  82-89
+        packed_entry |= @as(u128, age) << 90; // bits  90-97
+        packed_entry |= @as(u128, @intFromBool(in_check)) << 98; // bit   98
+        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99; // bit   99
         packed_entry |= @as(u128, @intFromBool(static_eval_valid)) << 100; // bit  100
-        packed_entry |= @as(u128, hash_lower) << 101;                     // bits 101-127
+        packed_entry |= @as(u128, hash_lower) << 101; // bits 101-127
 
         return PackedEntry{ .data = packed_entry };
     }
@@ -275,7 +275,7 @@ pub const TranspositionTable = struct {
         for (&bucket.entries) |*slot| {
             const packed_entry = PackedEntry{ .data = slot.loadPacked() };
             if (packed_entry.verify(hash)) {
-               const current_age = self.getAge();
+                const current_age = self.getAge();
                 if (packed_entry.getAge() != current_age) {
                     const age_mask: u128 = @as(u128, 0xFF) << 90;
                     const refreshed = (packed_entry.data & ~age_mask) |
@@ -284,7 +284,6 @@ pub const TranspositionTable = struct {
                 }
                 return packed_entry.unpack(hash);
             }
-
         }
         return null;
     }

@@ -30,7 +30,6 @@ const KING_BUCKETS_BASE: [32]u8 = [_]u8{
 
 pub const num_feat = NUM_KING_BUCKETS * feat_per_bucket;
 
-
 comptime {
     std.debug.assert(hidden_size % 2 == 0);
     std.debug.assert(l1_size == hidden_size);
@@ -46,7 +45,6 @@ const l1_input_scale: f32 = @as(f32, @floatFromInt(QA)) * @as(f32, @floatFromInt
 const l1_dequant: f32 = 1.0 / (l1_input_scale * @as(f32, @floatFromInt(QB)));
 
 const cache_line = std.atomic.cache_line;
-
 
 const CpuTarget = enum {
     avx512_vnni,
@@ -253,8 +251,8 @@ inline fn screlu(x: f32) f32 {
 }
 
 const nnue_piece_to_index = [2][6]u8{
-[_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
-[_]u8{ 6, 7, 8, 9, 10, 11 }, // Pawn, Knight, Bishop, Rook, Queen, King
+    [_]u8{ 0, 1, 2, 3, 4, 5 }, // Pawn, Knight, Bishop, Rook, Queen, King
+    [_]u8{ 6, 7, 8, 9, 10, 11 }, // Pawn, Knight, Bishop, Rook, Queen, King
 };
 
 pub const NetworkWeights = extern struct {
@@ -545,11 +543,11 @@ pub const Accumulator = struct {
     }
 
     fn addSubCopy(
-    noalias self: *Accumulator,
-    noalias parent: *const Accumulator,
-    add_feat: usize,
-    sub_feat: usize,
-) void {
+        noalias self: *Accumulator,
+        noalias parent: *const Accumulator,
+        add_feat: usize,
+        sub_feat: usize,
+    ) void {
         const dst = self.vecs();
         const src = parent.constVecs();
         const add_w = weightVecs(add_feat);
@@ -563,12 +561,12 @@ pub const Accumulator = struct {
     }
 
     fn addSubSubCopy(
-    noalias self: *Accumulator,
-    noalias parent: *const Accumulator,
-    add_feat: usize,
-    sub1_feat: usize,
-    sub2_feat: usize,
-) void {
+        noalias self: *Accumulator,
+        noalias parent: *const Accumulator,
+        add_feat: usize,
+        sub1_feat: usize,
+        sub2_feat: usize,
+    ) void {
         const dst = self.vecs();
         const src = parent.constVecs();
         const add_w = weightVecs(add_feat);
@@ -585,13 +583,13 @@ pub const Accumulator = struct {
     }
 
     fn addAddSubSubCopy(
-    noalias self: *Accumulator,
-    noalias parent: *const Accumulator,
-    add1_feat: usize,
-    add2_feat: usize,
-    sub1_feat: usize,
-    sub2_feat: usize,
-) void {
+        noalias self: *Accumulator,
+        noalias parent: *const Accumulator,
+        add1_feat: usize,
+        add2_feat: usize,
+        sub1_feat: usize,
+        sub2_feat: usize,
+    ) void {
         const dst = self.vecs();
         const src = parent.constVecs();
         const add1_w = weightVecs(add1_feat);
@@ -610,9 +608,9 @@ pub const Accumulator = struct {
 };
 
 fn applyLazyDeltaForPerspective(
-noalias state: *NNUEState,
-noalias parent: *const NNUEState,
-view_idx: usize,
+    noalias state: *NNUEState,
+    noalias parent: *const NNUEState,
+    view_idx: usize,
 ) void {
     const dirty = &state.dirty;
     const view: utils.Color = @enumFromInt(view_idx);
@@ -656,7 +654,7 @@ pub const NNUEState = struct {
     pub fn init() NNUEState {
         return .{
             .accumulators = [_]Accumulator{Accumulator.init()} ** utils.num_colors,
-            .acc_ptr = undefined, 
+            .acc_ptr = undefined,
             .king_squares = [_]u8{0} ** utils.num_colors,
             .dirty = .{},
             .needs_refresh = [_]bool{false} ** utils.num_colors,
@@ -787,11 +785,11 @@ pub const NNUEStack = struct {
                 if (has_refresh) {
                     std.debug.assert(target == self.current);
                     refreshPerspectiveCached(
-                    gs,
-                    &self.states[target],
-                    &self.finny,
-                    @as(utils.Color, @enumFromInt(c)),
-                );
+                        gs,
+                        &self.states[target],
+                        &self.finny,
+                        @as(utils.Color, @enumFromInt(c)),
+                    );
                 } else {
                     var j = first_dirty;
                     while (j <= target) : (j += 1) {
@@ -803,7 +801,6 @@ pub const NNUEStack = struct {
         }
     }
 };
-
 
 inline fn refreshAccumulatorFromBoard(
     gs: *const brd.GameState,
@@ -860,10 +857,10 @@ fn refreshPerspective(gs: *const brd.GameState, state: *NNUEState, view: utils.C
 }
 
 fn refreshPerspectiveCached(
-gs: *const brd.GameState,
-state: *NNUEState,
-finny: *FinnyTable,
-view: utils.Color,
+    gs: *const brd.GameState,
+    state: *NNUEState,
+    finny: *FinnyTable,
+    view: utils.Color,
 ) void {
     if (net_weights == null) return;
     const c = @intFromEnum(view);
@@ -887,8 +884,8 @@ view: utils.Color,
             while (added != 0) {
                 const sq: u8 = @intCast(@ctz(added));
                 entry.accumulator.activateFeature(
-                featureIndex(view, view_king_sq, piece_color, piece, sq),
-            );
+                    featureIndex(view, view_king_sq, piece_color, piece, sq),
+                );
                 added &= added - 1;
             }
 
@@ -896,8 +893,8 @@ view: utils.Color,
             while (removed != 0) {
                 const sq: u8 = @intCast(@ctz(removed));
                 entry.accumulator.deactivateFeature(
-                featureIndex(view, view_king_sq, piece_color, piece, sq),
-            );
+                    featureIndex(view, view_king_sq, piece_color, piece, sq),
+                );
                 removed &= removed - 1;
             }
 
@@ -922,7 +919,6 @@ pub fn refreshStack(stack: *NNUEStack, gs: *const brd.GameState) void {
     refreshPerspectiveCached(gs, &stack.states[stack.current], &stack.finny, .Black);
     stack.states[stack.current].dirty = .{};
 }
-
 
 const NNZ_WORDS: usize = (l1_size + 63) / 64;
 const NnzMask = [NNZ_WORDS]u64;

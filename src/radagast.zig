@@ -61,7 +61,6 @@ pub const Istari = struct {
     }
 
     pub fn findMagicNums(self: *Istari, sq: brd.Square, relevant_bits: i32, bishop: bool) u64 {
-
         if (@inComptime()) {
             return 0;
         }
