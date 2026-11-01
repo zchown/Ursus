@@ -593,7 +593,14 @@ pub const Searcher = struct {
                                 best_pv_length = 1;
                             }
                             if (!self.silent_output) {
-                                self.printInfo(self.nodes, self.tb_hits, bm_score, best_pv[0..best_pv_length], 1, std.heap.smp_allocator);
+                                self.printInfo(
+                                    self.nodes,
+                                    self.tb_hits,
+                                    bm_score,
+                                    best_pv[0..best_pv_length],
+                                    1,
+                                    std.heap.smp_allocator,
+                                );
                             }
                         }
                         break :outer;
@@ -863,7 +870,18 @@ pub const Searcher = struct {
 
                         if (cutoff) {
                             const tdepth: u8 = @intCast(@min(depth + 6, 255));
-                            self.tt_table.set(tt.Entry{ .hash = gs.cur_position.hash, .eval = tt.scoreToTT(tb_score, self.ply), .move = mvs.Move.none, .static_eval = 0, .flag = tb_flag, .depth = tdepth, .age = self.tt_table.getAge(), .in_check = in_check, .is_pv = tt_pv, .static_eval_valid = false });
+                            self.tt_table.set(tt.Entry{
+                                .hash = gs.cur_position.hash,
+                                .eval = tt.scoreToTT(tb_score, self.ply),
+                                .move = mvs.Move.none,
+                                .static_eval = 0,
+                                .flag = tb_flag,
+                                .depth = tdepth,
+                                .age = self.tt_table.getAge(),
+                                .in_check = in_check,
+                                .is_pv = tt_pv,
+                                .static_eval_valid = false,
+                            });
                             return tb_score;
                         }
 

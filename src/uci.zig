@@ -10,6 +10,7 @@ const eval = root.eval;
 const datagen = root.datagen;
 const nnue = root.nnue;
 const perft = root.perft;
+const perft_suite = root.perft_suite;
 const tp = root.tp;
 const tb = root.tb;
 const build_options = root.build_options;
@@ -122,7 +123,7 @@ pub const UciProtocol = struct {
         protocol.allocator = a;
         nnue.initWeights();
         protocol.board.initInPlace();
-        protocol.hash_size_mb = 64;
+        protocol.hash_size_mb = 256;
         protocol.searchmoves_owned = null;
 
         srch.search_helpers = .empty;
@@ -495,7 +496,8 @@ pub const UciProtocol = struct {
             defer self.allocator.free(path_z);
 
             tb.deinit();
-            if (path.len == 0 or std.mem.eql(u8, path, "<empty>")) {} else if (!tb.init(path_z)) {
+            if (path.len == 0 or std.mem.eql(u8, path, "<empty>")) return;
+            if (!tb.init(path_z)) {
                 if (self.debug_mode) try respond("info string Syzygy: failed to load tablebases");
             } else {
                 const msg = try std.fmt.allocPrint(
@@ -735,31 +737,67 @@ pub const UciProtocol = struct {
 
     fn handlePerft(self: *UciProtocol, args: [][]const u8) !void {
         if (args.len == 0) {
-            if (self.debug_mode) {
-                try respond("Error: perft command requires a depth argument");
-            }
+            if (self.debug_mode) try respond("Error: perft command requires a depth argument");
+            return;
+        }
+
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
+        const mg = self.searcher.move_gen;
+
+        if (std.mem.eql(u8, args[0], "test")) {
+            const gs = try self.allocator.create(brd.GameState);
+            defer self.allocator.destroy(gs);
+            gs.initInPlace();
+
+            const failed = try perft_suite.run(self.allocator, mg, gs, stdout);
+            try stdout.print("{d} failed\n", .{failed});
+            try stdout.flush();
             return;
         }
 
         const depth = try std.fmt.parseInt(u32, args[0], 10);
-        if (depth == 0) {
-            if (self.debug_mode) {
-                try respond("Error: perft depth must be greater than 0");
-            }
-            return;
+
+        var table = try perft.TranspositionTable.init(self.allocator, perft.default_tt_size_mb);
+        defer table.deinit(self.allocator);
+
+        for (1..depth + 1) |d| {
+            var timer = try std.time.Timer.start();
+            const r = perft.perftTT(mg, &self.board, @intCast(d), &table);
+            try stdout.print("depth {d} nodes {d} captures {d} ep {d} castles {d} promotions {d} time {d}\n", .{
+                d,
+                r.total,
+                r.captures,
+                r.en_passant,
+                r.castling,
+                r.promotions,
+                timer.read() / std.time.ns_per_ms,
+            });
+            try stdout.flush();
         }
-        try perft.runPerft(self.searcher.move_gen, &self.board, depth);
     }
 
     fn handleDivide(self: *UciProtocol, args: [][]const u8) !void {
         if (args.len == 0) {
-            if (self.debug_mode) {
-                try respond("Error: divide command requires a depth argument");
-            }
+            if (self.debug_mode) try respond("Error: divide command requires a depth argument");
             return;
         }
         const depth = try std.fmt.parseInt(u32, args[0], 10);
-        _ = try perft.divide(self.searcher.move_gen, &self.board, depth, self.chess960);
+
+        var entries: [mvs.max_moves]perft.DivideEntry = undefined;
+        const result = perft.divide(self.searcher.move_gen, &self.board, depth, self.chess960, &entries);
+
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
+
+        for (result) |e| {
+            var buf: [5]u8 = undefined;
+            try stdout.print("{s}: {d}\n", .{ mvs.moveToUci(&self.board, e.move, self.chess960, &buf), e.nodes });
+        }
+        try stdout.print("\nNodes searched: {d}\n", .{perft.divideTotal(result)});
+        try stdout.flush();
     }
 
     fn calculateTimeAllocation(self: *const UciProtocol, limits: *const SearchLimits, side_to_move: brd.Color) struct { max_ms: u64, ideal_ms: u64 } {

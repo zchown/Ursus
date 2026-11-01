@@ -36,9 +36,7 @@ It is playing on an old Intel NUC with a Intel® Core™ i5-4250U configured for
 
 Ursus requires a [Zig](https://ziglang.org/) compiler. Because of Zigs pre 1.0 status and breaking changes it is recommended to use Zig 0.15.2 for building. There are no guarantees that code will compile on any other versions of Zig.
 
-Ursus uses  for Syzygy endgame
-
-Ursus uses [Fathom](https://github.com/jdart1/Fathom) for Syzygy endgame tablebase probing. It's the only external dependency, and the Zig build system fetches it automatically on first build (cached under ~/.cache/zig/p/ for subsequent builds). The pinned version and hash are recorded in build.zig.zon.
+Syzygy probing uses [Fathom](https://github.com/jdart1/Fathom), which `zig build` fetches for you (the version is pinned in build.zig.zon).
 
 Turning on optimizations and native target is highly recommended for best performance.
 
@@ -59,23 +57,26 @@ Ursus implements the core UCI protocol. The table below summarizes supported com
 | --- | --- |
 | `uci` | Supported |
 | `isready` | Supported |
-| `ucinewgame` | Supported -- resets the board and clears the TT |
+| `ucinewgame` | Resets the board and clears the TT |
 | `position startpos [moves ...]` | Supported |
 | `position fen <fen> [moves ...]` | Supported |
-| `go` | Supported -- accepts `wtime`, `btime`, `winc`, `binc`, `movestogo`, `depth`, `nodes`, `mate`, `movetime`, `infinite`, `ponder` |
+| `go` | Accepts `wtime`, `btime`, `winc`, `binc`, `movestogo`, `depth`, `nodes`, `mate`, `movetime`, `infinite`, `ponder` |
 | `stop` | Supported |
 | `ponderhit` | Supported |
 | `quit` | Supported |
-| `debug` | Supported -- turns debug mode on/off or prints current board FEN, debug mode is used to print any errors or warnings when parsing UCI commands or during search |
-| `d` | Supported -- pretty-prints the current board |
-| `bench` | Supported -- Benchmarks the engine using a set of test positions and prints the results |Benchmarks the engine using a set of test positions and prints the results |
+| `debug` | `debug on`/`debug off` toggles printing of UCI parse errors; plain `debug` prints the board and FEN |
+| `d` | Pretty-prints the current board |
+| `bench` | Searches the bench positions and prints total nodes and nps |
+| `perft <depth>` | Move counts for each depth up to `<depth>` from the current position |
+| `perft test` | Runs the perft regression positions |
+| `divide <depth>` | Node count under each legal move |
 | `register` | Accepted |
 | `setoption name Hash` | Sets Hash size in MB, default 256 MB, supported up to 16384MB (16GB) |
 | `setoption name Clear Hash` | Supported |
 | `setoption name Ponder` | Supported |
 | `setoption name Threads` | Sets number of search threads, default 1, supported up to 128 |
-| `setoption name SyzygyPath` | Path to directory containing Syzygy tablebases (`.rtbw` / `.rtbz`); multiple directories separated by `:` on Unix or `;` on Windows. Empty / `<empty>` unloads. |
-| `setoption name SyzygyProbeDepth` | Minimum depth at which in-tree WDL probing fires, default 1. Increase if TB probing causes a noticeable NPS drop. |
+| `setoption name SyzygyPath` | Tablebase directory, multiple separated by `:` (`;` on Windows). `<empty>` unloads |
+| `setoption name SyzygyProbeDepth` | Minimum depth for probing inside the search, default 1 |
 | `datagen` | Used to run self-play data generation for training the NNUE |
 ---
 

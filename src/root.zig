@@ -1,5 +1,6 @@
 pub const uci = @import("uci.zig");
 pub const perft = @import("perft.zig");
+pub const perft_suite = @import("perft_suite.zig");
 pub const zob = @import("zobrist.zig");
 pub const nnue = @import("nnue.zig");
 pub const moves = @import("moves.zig");

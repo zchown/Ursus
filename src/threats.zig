@@ -2,7 +2,6 @@ const std = @import("std");
 const root = @import("root.zig");
 const mvs = root.moves;
 const brd = root.brd;
-const zob = root.zob;
 const utils = root.utils;
 
 pub const ThreatInfo = struct {
@@ -52,22 +51,4 @@ pub fn computeThreatInfo(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: b
 
 pub fn computeThreats(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: brd.Color) u64 {
     return computeThreatInfo(mg, gs, by).all;
-}
-
-pub fn threatCorrKey(pos: *const brd.Position, us: brd.Color, ti: ThreatInfo) u64 {
-    const ours = pos.getColorBoard(us);
-    const minors = (pos.getPieceBoard(.Knight) | pos.getPieceBoard(.Bishop)) & ours;
-    const rooks = pos.getPieceBoard(.Rook) & ours;
-    const queens = pos.getPieceBoard(.Queen) & ours;
-
-    var hanging = (minors & ti.pawn) |
-        (rooks & (ti.pawn | ti.minor)) |
-        (queens & (ti.pawn | ti.minor | ti.rook));
-
-    var key: u64 = 0;
-    while (hanging != 0) {
-        const sq = utils.popLsb(&hanging);
-        key ^= zob.ZobristKeys.pieceKeys(us, pos.getPieceFromSquare(sq), sq);
-    }
-    return key;
 }
