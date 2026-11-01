@@ -78,17 +78,17 @@ pub const PackedEntry = extern struct {
         const static_bits: u16 = @bitCast(clamped_static);
 
         var packed_entry: u128 = 0;
-        packed_entry |= @as(u128, hash_upper); // bits   0-31
-        packed_entry |= @as(u128, eval_bits) << 32; // bits  32-47
-        packed_entry |= @as(u128, move_u16) << 48; // bits  48-63
-        packed_entry |= @as(u128, static_bits) << 64; // bits  64-79
-        packed_entry |= @as(u128, @intFromEnum(flag)) << 80; // bits  80-81
-        packed_entry |= @as(u128, depth) << 82; // bits  82-89
-        packed_entry |= @as(u128, age) << 90; // bits  90-97
-        packed_entry |= @as(u128, @intFromBool(in_check)) << 98; // bit   98
-        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99; // bit   99
-        packed_entry |= @as(u128, @intFromBool(static_eval_valid)) << 100; // bit  100
-        packed_entry |= @as(u128, hash_lower) << 101; // bits 101-127
+        packed_entry |= @as(u128, hash_upper);
+        packed_entry |= @as(u128, eval_bits) << 32;
+        packed_entry |= @as(u128, move_u16) << 48;
+        packed_entry |= @as(u128, static_bits) << 64;
+        packed_entry |= @as(u128, @intFromEnum(flag)) << 80;
+        packed_entry |= @as(u128, depth) << 82;
+        packed_entry |= @as(u128, age) << 90;
+        packed_entry |= @as(u128, @intFromBool(in_check)) << 98;
+        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99;
+        packed_entry |= @as(u128, @intFromBool(static_eval_valid)) << 100;
+        packed_entry |= @as(u128, hash_lower) << 101;
 
         return PackedEntry{ .data = packed_entry };
     }
@@ -172,7 +172,7 @@ pub const TT_BUCKET_SLOTS = 4;
 
 const Slot = struct {
     lo: std.atomic.Value(u64),
-    hi_x: std.atomic.Value(u64), // stores (hi ^ lo)
+    hi_x: std.atomic.Value(u64),
 
     inline fn loadPacked(self: *Slot) u128 {
         const lo = self.lo.load(.monotonic);
@@ -325,7 +325,7 @@ pub const TranspositionTable = struct {
 
             var score: i32 = packed_entry.getDepth();
             const rel_age: u8 = current_age -% packed_entry.getAge();
-            score -= 8 * @as(i32, @min(rel_age, 28)); // was: -256 for any age mismatch
+            score -= 8 * @as(i32, @min(rel_age, 28));
             if (packed_entry.getIsPv()) score += 2;
             if (flag == .Exact) score += 1;
 
