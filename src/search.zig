@@ -18,21 +18,6 @@ pub const neg_inf: i32 = std.math.minInt(i32);
 pub const max_moves = 218;
 pub const max_multipv = 16;
 
-pub var quiet_lmr: [64][64]i32 = undefined;
-
-pub fn initQuietLMR() [64][64]i32 {
-    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base.value)) / 100.0;
-    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_div.value)) / 100.0;
-    var table: [64][64]i32 = undefined;
-    for (0..64) |d| {
-        for (0..64) |m| {
-            const df: f32 = @floatFromInt(@max(d, 1));
-            const mf: f32 = @floatFromInt(@max(m, 1));
-            table[d][m] = @intFromFloat(lmr_base_f + @log(df) * @log(mf) / lmr_div_f);
-        }
-    }
-    return table;
-}
 
 inline fn scoreToTT(score: i32, ply: usize) i32 {
     if (score >= eval.win_bound) return score + @as(i32, @intCast(ply));
@@ -46,21 +31,6 @@ inline fn scoreFromTT(score: i32, ply: usize) i32 {
     return score;
 }
 
-pub var noisy_lmr: [64][64]i32 = undefined;
-
-pub fn initNoisyLMR() [64][64]i32 {
-    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_base.value)) / 100.0;
-    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_div.value)) / 100.0;
-    var table: [64][64]i32 = undefined;
-    for (0..64) |d| {
-        for (0..64) |m| {
-            const df: f32 = @floatFromInt(@max(d, 1));
-            const mf: f32 = @floatFromInt(@max(m, 1));
-            table[d][m] = @intFromFloat(lmr_base_f + @log(df) * @log(mf) / lmr_div_f);
-        }
-    }
-    return table;
-}
 pub const ThreatInfo = struct {
     all: u64,
     pawn: u64,
@@ -308,7 +278,7 @@ pub const Searcher = struct {
     pub inline fn predictedLmrDepth(depth: usize, move_number: usize, is_capture: bool, stat_score: i32) i32 {
         const d = @min(depth, 63);
         const m = @min(move_number, 63);
-        const r: i32 = if (is_capture) noisy_lmr[d][m] else quiet_lmr[d][m];
+        const r: i32 = if (is_capture) hist.noisy_lmr[d][m] else hist.quiet_lmr[d][m];
         const hist_adj: i32 = if (is_capture) 0 else @divTrunc(stat_score, tp.history_div.value);
         return @max(0, @as(i32, @intCast(depth)) - 1 - r + hist_adj);
     }
@@ -1300,9 +1270,9 @@ pub const Searcher = struct {
 
             const moved_pc = gs.cur_position.movedPiece(move);
             const base_r: i32 = if (is_capture)
-                noisy_lmr[@min(depth, 63)][@min(searched_moves + 1, 63)]
+                hist.noisy_lmr[@min(depth, 63)][@min(searched_moves + 1, 63)]
                 else
-                quiet_lmr[@min(depth, 63)][@min(searched_moves + 1, 63)];
+                hist.quiet_lmr[@min(depth, 63)][@min(searched_moves + 1, 63)];
 
             const stat_score: i32 = if (!is_capture)
                 self.quietStatScore(@intFromEnum(color), node_threats, moved_pc, move, !is_null)
@@ -1454,9 +1424,9 @@ pub const Searcher = struct {
             } else {
                 if (!in_check and depth >= 3 and searched_moves > min_lmr_move) {
                     var reduction: i32 = if (is_capture)
-                        noisy_lmr[@min(depth, 63)][@min(searched_moves, 63)]
+                        hist.noisy_lmr[@min(depth, 63)][@min(searched_moves, 63)]
                     else
-                        quiet_lmr[@min(depth, 63)][@min(searched_moves, 63)];
+                        hist.quiet_lmr[@min(depth, 63)][@min(searched_moves, 63)];
 
                     if (improving) {
                         reduction -= 1;

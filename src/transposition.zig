@@ -28,22 +28,18 @@ pub const Entry = struct {
     static_eval_valid: bool = false,
 };
 
-// Packed into 128 bits for atomic load/store:
-//
-//   bits   0-31:  hash key upper (bits 32-63 of zobrist)
-//   bits  32-47:  eval (i16, clamped)
-//   bits  48-63:  move (the 16-bit Move, stored as-is)
-//   bits  64-79:  static_eval (i16, clamped)
-//   bits  80-81:  flag (EstimationType, 2 bits)
-//   bits  82-89:  depth (u8)
-//   bits  90-97:  age (u8)
-//   bit   98:     in_check (1 bit)
-//   bit   99:     is_pv (1 bit)
-//   bit  100:     static_eval_valid (1 bit)
-//   bits 101-127: hash key lower (bits 0-26 of zobrist, 27 bits)
-//
-// Hash verification: bits 0-31 (upper 32) + bits 101-127 (lower 27) = 59-bit key.
-// This reduces false-positive collision probability 
+// TODO: switch to 100 bit entry (currently loses)
+//   bits   0-31:  hash key upper
+//   bits  32-47:  eval
+//   bits  48-63:  move
+//   bits  64-79:  static_eval
+//   bits  80-81:  flag
+//   bits  82-89:  depth
+//   bits  90-97:  age
+//   bit   98:     in_check
+//   bit   99:     is_pv
+//   bit  100:     is static eval valid
+//   bits 101-127: hash key lower
 pub const PackedEntry = extern struct {
     data: u128,
 
@@ -118,8 +114,6 @@ pub const PackedEntry = extern struct {
         return @truncate(self.data);
     }
 
-    // 59-bit verification: upper 32 bits of zobrist (stored in bits 0-31) plus
-    // lower 27 bits of zobrist (stored in bits 101-127).
     pub inline fn verify(self: PackedEntry, full_hash: u64) bool {
         const stored_upper: u32 = @truncate(self.data);
         const stored_lower: u27 = @truncate(self.data >> 101);
@@ -188,7 +182,7 @@ const Slot = struct {
 
 pub const Bucket = struct {
     entries: [TT_BUCKET_SLOTS]Slot,
-    _pad: [(64 - TT_BUCKET_SLOTS * 16) % 64]u8, // 16B at 3 slots, 0B at 4
+    _pad: [(64 - TT_BUCKET_SLOTS * 16) % 64]u8,
 
     pub fn init() Bucket {
         var b: Bucket = undefined;
@@ -207,7 +201,6 @@ pub const TranspositionTable = struct {
         const raw_num_buckets = (size_in_mb * mb) / @sizeOf(Bucket);
         const num_buckets = std.math.floorPowerOfTwo(usize, raw_num_buckets);
 
-        // alignedAlloc guarantees each bucket starts exactly on a cache line boundary
         const buckets = try allocator.alignedAlloc(Bucket, std.mem.Alignment.@"64", num_buckets);
         for (buckets) |*b| {
             b.* = Bucket.init();
@@ -257,7 +250,6 @@ pub const TranspositionTable = struct {
     pub inline fn prefetch(self: *TranspositionTable, hash: zob.ZobristKey) void {
         const idx = self.index(hash);
         const ptr = &self.buckets[idx];
-        // Prefetching now pulls all 3 slots into L1 simultaneously
         @prefetch(ptr, .{
             .rw = .read,
             .locality = 1,
@@ -301,7 +293,6 @@ pub const TranspositionTable = struct {
         var worst_idx: usize = 0;
         var worst_score: i32 = std.math.maxInt(i32);
 
-        // 1. Scan the bucket for a match, an empty slot, and identify the worst entry
         for (&bucket.entries, 0..) |*slot, i| {
             const packed_data = slot.loadPacked();
             const packed_entry = PackedEntry{ .data = packed_data };
@@ -320,7 +311,6 @@ pub const TranspositionTable = struct {
                 break;
             }
 
-            // 2. Score the entry to find the weakest link for collision handling
             var score: i32 = packed_entry.getDepth();
             const rel_age: u8 = current_age -% packed_entry.getAge();
             score -= 8 * @as(i32, @min(rel_age, 28)); // was: -256 for any age mismatch
@@ -333,7 +323,6 @@ pub const TranspositionTable = struct {
             }
         }
 
-        // 3. Determine the write target: Match > Empty > Worst
         const target_idx = match_idx orelse empty_idx orelse worst_idx;
 
         if (match_idx != null) {
@@ -341,7 +330,7 @@ pub const TranspositionTable = struct {
             const keep_old = entry.flag != .Exact and
                 old.getAge() == current_age and
                 @as(i32, old.getDepth()) >= @as(i32, entry.depth) + 4;
-            if (keep_old) return; // deep data survives; move was already merged above
+            if (keep_old) return;
         }
 
         const new_packed = PackedEntry.pack(

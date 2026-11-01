@@ -13,16 +13,35 @@ const PieceColor = Searcher.PieceColor;
 const max_history: i32 = 16384;
 const max_cap_history: i32 = 16384;
 
-pub inline fn quietHist(s: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
-    return s.quietHistScore(side, threats, from, to);
+pub var quiet_lmr: [64][64]i32 = undefined;
+pub var noisy_lmr: [64][64]i32 = undefined;
+
+pub fn initQuietLMR() [64][64]i32 {
+    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_base.value)) / 100.0;
+    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_div.value)) / 100.0;
+    var table: [64][64]i32 = undefined;
+    for (0..64) |d| {
+        for (0..64) |m| {
+            const df: f32 = @floatFromInt(@max(d, 1));
+            const mf: f32 = @floatFromInt(@max(m, 1));
+            table[d][m] = @intFromFloat(lmr_base_f + @log(df) * @log(mf) / lmr_div_f);
+        }
+    }
+    return table;
 }
 
-pub inline fn capHist(s: *Searcher, side: usize, attacker: usize, to: usize, captured: usize) i32 {
-    return s.capture_history[side][attacker][to][captured];
-}
-
-pub inline fn contHist(s: *Searcher, prev_pc: usize, prev_to: usize, cur_pc: usize, cur_to: usize) i32 {
-    return s.continuation[prev_pc][prev_to][cur_pc][cur_to];
+pub fn initNoisyLMR() [64][64]i32 {
+    const lmr_base_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_base.value)) / 100.0;
+    const lmr_div_f: f32 = @as(f32, @floatFromInt(tp.lmr_noisy_div.value)) / 100.0;
+    var table: [64][64]i32 = undefined;
+    for (0..64) |d| {
+        for (0..64) |m| {
+            const df: f32 = @floatFromInt(@max(d, 1));
+            const mf: f32 = @floatFromInt(@max(m, 1));
+            table[d][m] = @intFromFloat(lmr_base_f + @log(df) * @log(mf) / lmr_div_f);
+        }
+    }
+    return table;
 }
 
 pub fn resetHeuristics(self: *Searcher, total: bool) void {
@@ -50,11 +69,11 @@ pub fn resetHeuristics(self: *Searcher, total: bool) void {
     }
 }
 
-pub inline fn historyBonus(depth: i32) i32 {
+inline fn historyBonus(depth: i32) i32 {
     return @max(1, @min(tp.hist_bonus_max.value, tp.hist_bonus_mul.value * depth - tp.hist_bonus_offset.value));
 }
 
-pub inline fn historyMalus(depth: i32) i32 {
+inline fn historyMalus(depth: i32) i32 {
     return @max(0, @min(tp.hist_malus_max.value, tp.hist_malus_mul.value * depth - tp.hist_malus_offset.value));
 }
 
