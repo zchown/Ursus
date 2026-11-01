@@ -1030,7 +1030,8 @@ pub const Searcher = struct {
             }
 
             if (!is_null and depth >= 3 and nmp_static_eval >= beta and has_non_pawns) {
-                var r = tp.nmp_base.value + depth / tp.nmp_depth_div.value;
+                const r_f: f32 = (@as(f32, @floatFromInt(tp.nmp_base.value)) / 10.0) + @as(f32, @floatFromInt(depth)) / (@as(f32, @floatFromInt(tp.nmp_depth_div.value)) / 10.0);
+                var r: usize = @intFromFloat(r_f);
                 const diff = pruning_eval - beta;
                 const div = @divTrunc(diff, @as(i32, @intCast(tp.nmp_beta_div.value)));
                 r += @as(usize, @intCast(@max(0, @min(4, div))));
