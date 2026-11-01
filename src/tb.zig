@@ -7,14 +7,9 @@ const c = @cImport({
     @cInclude("tbprobe.h");
 });
 
-// Wrapper around Fathom's TBProbe
-
-pub const TB_LOSS: u32 = 0;
-pub const TB_BLESSED_LOSS: u32 = 1;
-pub const TB_DRAW: u32 = 2;
-pub const TB_CURSED_WIN: u32 = 3;
-pub const TB_WIN: u32 = 4;
-pub const TB_RESULT_FAILED: u32 = 0xFFFFFFFF;
+pub const TB_LOSS: u32 = c.TB_LOSS;
+pub const TB_WIN: u32 = c.TB_WIN;
+const TB_RESULT_FAILED: u32 = c.TB_RESULT_FAILED;
 
 comptime {
     std.debug.assert(@intFromEnum(brd.CastleValues.WhiteKingside) == c.TB_CASTLING_K);

@@ -270,13 +270,10 @@ fn playSingleGame(
     }
 
     if (board.isDraw(0)) return false;
-    {
-        searcher.soft_max_nodes = 2 * config.num_nodes;
-        _ = searcher.iterativeDeepening(board, null) catch return false;
-        const opening_eval = searcher.best_move_score;
-        const abs_eval = if (opening_eval < 0) -opening_eval else opening_eval;
-        if (abs_eval > 600) return false;
-    }
+
+    prepareNodeSearch(searcher, 2 * config.num_nodes);
+    _ = searcher.iterativeDeepening(board, null) catch return false;
+    if (@abs(searcher.best_move_score) > 600) return false;
 
     game.setStartingBoard(board);
 
@@ -302,18 +299,6 @@ fn playSingleGame(
             break;
         }
 
-        searcher.stop = false;
-        searcher.is_searching = true;
-        searcher.time_stop = false;
-        searcher.silent_output = true;
-        searcher.max_ms = std.math.maxInt(u64);
-        searcher.ideal_ms = std.math.maxInt(u64);
-        searcher.max_nodes = null;
-        searcher.soft_max_nodes = null;
-        searcher.force_think = false;
-
-        tt.stop_signal.store(false, .release);
-
         const jitter_range: i64 = @intCast(config.num_nodes / 5);
         var random_offset: i64 = 0;
         if (jitter_range > 0) {
@@ -321,7 +306,7 @@ fn playSingleGame(
         }
         const node_count: u64 = @intCast(@max(1000, @as(i64, @intCast(config.num_nodes)) + random_offset));
 
-        searcher.soft_max_nodes = node_count;
+        prepareNodeSearch(searcher, node_count);
         const search_result = searcher.iterativeDeepening(board, null) catch break;
         const score = search_result.score;
         const best_move = search_result.move;
@@ -408,12 +393,10 @@ fn workerThread(ctx: *ThreadContext) void {
 
     var path_buf: [256]u8 = undefined;
     const path = std.fmt.bufPrint(&path_buf, "{s}.thread{d}", .{ ctx.config.output_path, ctx.thread_id }) catch return;
-    const file = std.fs.cwd().openFile(path, .{ .mode = .write_only }) catch
-        std.fs.cwd().createFile(path, .{}) catch |err|
-        {
-            std.debug.print("Thread {d}: Failed to open output file: {}\n", .{ ctx.thread_id, err });
-            return;
-        };
+    const file = std.fs.cwd().createFile(path, .{ .truncate = false }) catch |err| {
+        std.debug.print("Thread {d}: Failed to open output file: {}\n", .{ ctx.thread_id, err });
+        return;
+    };
     file.seekFromEnd(0) catch {};
     defer file.close();
 
@@ -524,13 +507,12 @@ pub fn run(config: DatagenConfig) !void {
     defer if (maybe_book) |*b| b.deinit();
 
     if (config.opening_book_path) |book_path| {
-        maybe_book = OpeningBook.load(std.heap.smp_allocator, book_path) catch |err|
-            blk: {
-                std.debug.print("Warning: failed to load opening book '{s}': {} — falling back to random plies\n", .{ book_path, err });
-                break :blk null;
-            };
+        maybe_book = OpeningBook.load(std.heap.smp_allocator, book_path) catch |err| blk: {
+            std.debug.print("Failed to load opening book '{s}': {}, using {d} random plies instead\n", .{ book_path, err, config.random_plies });
+            break :blk null;
+        };
     } else {
-        std.debug.print("No opening book specified — using {d} random plies\n", .{config.random_plies});
+        std.debug.print("No opening book, using {d} random plies\n", .{config.random_plies});
     }
 
     const book_ptr: ?*const OpeningBook = if (maybe_book != null) &maybe_book.? else null;
@@ -550,9 +532,7 @@ pub fn run(config: DatagenConfig) !void {
     var thread_handles = try std.heap.smp_allocator.alloc(std.Thread, config.num_threads);
     defer std.heap.smp_allocator.free(thread_handles);
 
-    const spawn_config = std.Thread.SpawnConfig{
-        .stack_size = 16 * 1024 * 1024, // 16 MB stack
-    };
+    const spawn_config = std.Thread.SpawnConfig{ .stack_size = 16 * 1024 * 1024 };
 
     for (0..config.num_threads) |i| {
         thread_contexts[i] = .{
@@ -663,13 +643,13 @@ pub fn parseCommand(args: [][]const u8) DatagenConfig {
     var i: usize = 0;
     while (i < args.len) : (i += 1) {
         if (std.mem.eql(u8, args[i], "nodes") and i + 1 < args.len) {
-            config.num_nodes = std.fmt.parseInt(u64, args[i + 1], 10) catch 10000;
+            config.num_nodes = std.fmt.parseInt(u64, args[i + 1], 10) catch config.num_nodes;
             i += 1;
         } else if (std.mem.eql(u8, args[i], "games") and i + 1 < args.len) {
-            config.games_per_thread = std.fmt.parseInt(u32, args[i + 1], 10) catch 0;
+            config.games_per_thread = std.fmt.parseInt(u32, args[i + 1], 10) catch config.games_per_thread;
             i += 1;
         } else if (std.mem.eql(u8, args[i], "threads") and i + 1 < args.len) {
-            config.num_threads = std.fmt.parseInt(u32, args[i + 1], 10) catch 1;
+            config.num_threads = std.fmt.parseInt(u32, args[i + 1], 10) catch config.num_threads;
             i += 1;
         } else if (std.mem.eql(u8, args[i], "output") and i + 1 < args.len) {
             config.output_path = args[i + 1];
@@ -678,13 +658,13 @@ pub fn parseCommand(args: [][]const u8) DatagenConfig {
             config.opening_book_path = args[i + 1];
             i += 1;
         } else if (std.mem.eql(u8, args[i], "random_plies") and i + 1 < args.len) {
-            config.random_plies = std.fmt.parseInt(u32, args[i + 1], 10) catch 8;
+            config.random_plies = std.fmt.parseInt(u32, args[i + 1], 10) catch config.random_plies;
             i += 1;
         } else if (std.mem.eql(u8, args[i], "adjudication") and i + 1 < args.len) {
-            config.adjudication_score = std.fmt.parseInt(i32, args[i + 1], 10) catch 2500;
+            config.adjudication_score = std.fmt.parseInt(i32, args[i + 1], 10) catch config.adjudication_score;
             i += 1;
         } else if (std.mem.eql(u8, args[i], "flush") and i + 1 < args.len) {
-            config.flush_interval = std.fmt.parseInt(u32, args[i + 1], 10) catch 100;
+            config.flush_interval = std.fmt.parseInt(u32, args[i + 1], 10) catch config.flush_interval;
             i += 1;
         }
     }
@@ -742,6 +722,18 @@ pub fn parseGenfensCommand(args: [][]const u8) GenfensConfig {
     return config;
 }
 
+fn prepareNodeSearch(searcher: *srch.Searcher, nodes: u64) void {
+    searcher.stop = false;
+    searcher.time_stop = false;
+    searcher.silent_output = true;
+    searcher.force_think = false;
+    searcher.max_ms = std.math.maxInt(u64);
+    searcher.ideal_ms = std.math.maxInt(u64);
+    searcher.max_nodes = null;
+    searcher.soft_max_nodes = nodes;
+    tt.stop_signal.store(false, .release);
+}
+
 fn pickRandomLegalMove(
     searcher: *srch.Searcher,
     board: *brd.GameState,
@@ -793,21 +785,9 @@ fn buildOpening(
     if (!hasLegalMove(searcher, board)) return false;
 
     if (config.max_eval > 0 and config.verify_nodes > 0) {
-        searcher.stop = false;
-        searcher.is_searching = true;
-        searcher.time_stop = false;
-        searcher.silent_output = true;
-        searcher.max_ms = std.math.maxInt(u64);
-        searcher.ideal_ms = std.math.maxInt(u64);
-        searcher.max_nodes = null;
-        searcher.force_think = false;
-        tt.stop_signal.store(false, .release);
-
-        searcher.soft_max_nodes = config.verify_nodes;
+        prepareNodeSearch(searcher, config.verify_nodes);
         _ = searcher.iterativeDeepening(board, null) catch return false;
-        const opening_eval = searcher.best_move_score;
-        const abs_eval = if (opening_eval < 0) -opening_eval else opening_eval;
-        if (abs_eval > config.max_eval) return false;
+        if (@abs(searcher.best_move_score) > config.max_eval) return false;
     }
 
     return true;

@@ -1,7 +1,6 @@
 const std = @import("std");
 const root = @import("root.zig");
 const uci = root.uci;
-const perft = root.perft;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -40,7 +39,7 @@ pub fn main() !void {
     const reader: *std.Io.Reader = &stdin_reader.interface;
 
     while (true) {
-        const maybe_line = reader.takeDelimiterExclusive('\n') catch |err| switch (err) {
+        const maybe_line = reader.takeDelimiterInclusive('\n') catch |err| switch (err) {
             error.EndOfStream => break,
             else => return err,
         };

@@ -10,6 +10,7 @@ pub const num_files = 8;
 pub const num_ranks = 8;
 pub const max_pieces = 32;
 pub const max_game_moves = 2048;
+pub const mb = 1 << 20;
 
 pub const Bitboard = u64;
 pub const Square = u6;

@@ -4,10 +4,7 @@ const zob = root.zob;
 const brd = root.brd;
 const mv = root.moves;
 const eval = root.eval;
-
-pub const default_tt_size_mb = 64;
-pub const kb = 1 << 10;
-pub const mb = 1 << 20;
+const utils = root.utils;
 
 pub inline fn scoreToTT(score: i32, ply: usize) i32 {
     if (score >= eval.win_bound) return score + @as(i32, @intCast(ply));
@@ -123,10 +120,6 @@ pub const PackedEntry = extern struct {
         };
     }
 
-    pub inline fn getHashKey(self: PackedEntry) u32 {
-        return @truncate(self.data);
-    }
-
     pub inline fn verify(self: PackedEntry, full_hash: u64) bool {
         const stored_upper: u32 = @truncate(self.data);
         const stored_lower: u27 = @truncate(self.data >> 101);
@@ -148,16 +141,8 @@ pub const PackedEntry = extern struct {
         return @truncate(self.data >> 90);
     }
 
-    pub inline fn getInCheck(self: PackedEntry) bool {
-        return ((self.data >> 98) & 1) != 0;
-    }
-
     pub inline fn getIsPv(self: PackedEntry) bool {
         return ((self.data >> 99) & 1) != 0;
-    }
-
-    pub inline fn getStaticEvalValid(self: PackedEntry) bool {
-        return ((self.data >> 100) & 1) != 0;
     }
 
     pub inline fn getMove(self: PackedEntry) mv.Move {
@@ -211,7 +196,7 @@ pub const TranspositionTable = struct {
     age: std.atomic.Value(u8),
 
     pub fn init(allocator: std.mem.Allocator, size_in_mb: usize) !TranspositionTable {
-        const raw_num_buckets = (size_in_mb * mb) / @sizeOf(Bucket);
+        const raw_num_buckets = (size_in_mb * utils.mb) / @sizeOf(Bucket);
         const num_buckets = std.math.floorPowerOfTwo(usize, raw_num_buckets);
 
         const buckets = try allocator.alignedAlloc(Bucket, std.mem.Alignment.@"64", num_buckets);
@@ -252,10 +237,6 @@ pub const TranspositionTable = struct {
         self.age.store(old_age +% 1, .monotonic);
     }
 
-    pub inline fn setAge(self: *TranspositionTable, new_age: u8) void {
-        self.age.store(new_age, .monotonic);
-    }
-
     pub inline fn getAge(self: *TranspositionTable) u8 {
         return self.age.load(.monotonic);
     }
@@ -286,10 +267,6 @@ pub const TranspositionTable = struct {
             }
         }
         return null;
-    }
-
-    pub inline fn store(self: *TranspositionTable, entry: Entry) void {
-        self.set(entry);
     }
 
     pub inline fn set(self: *TranspositionTable, entry: Entry) void {
@@ -360,28 +337,8 @@ pub const TranspositionTable = struct {
 
         bucket.entries[target_idx].storePacked(@bitCast(new_packed));
     }
-
-    pub fn getUsage(self: *TranspositionTable) struct { used: usize, total: usize } {
-        var used: usize = 0;
-
-        for (self.buckets) |*bucket| {
-            for (&bucket.entries) |*item| {
-                const packed_entry = PackedEntry{ .data = item.loadPacked() };
-                if (packed_entry.data != 0) {
-                    used += 1;
-                }
-            }
-        }
-
-        return .{ .used = used, .total = self.num_buckets * TT_BUCKET_SLOTS };
-    }
 };
 
 comptime {
-    if (@sizeOf(u128) != 16) {
-        @compileError("u128 must be 16 bytes for atomic operations");
-    }
-    if (@sizeOf(Bucket) != 64) {
-        @compileError("Bucket must be exactly 64 bytes to align with CPU cache lines");
-    }
+    std.debug.assert(@sizeOf(Bucket) == 64);
 }

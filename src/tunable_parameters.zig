@@ -1,7 +1,6 @@
 const std = @import("std");
 
 pub const max_ply = 128;
-pub const max_game_ply = 1024;
 
 // Just a convenient place to put this not a tunable
 pub var tb_probe_depth: usize = 1;
@@ -233,10 +232,8 @@ fn refTo(comptime name: []const u8, comptime spec: Spec, comptime val_ptr: anyty
         Value{ .size = val_ptr }
     else if (E == u64)
         Value{ .count = val_ptr }
-    else if (@typeInfo(E) == .float)
-        @compileError("tunable '" ++ name ++ "' is a float; store it as an integer scaled by 100 and read it with pct()")
     else
-        @compileError("unsupported tunable type: " ++ @typeName(E));
+        @compileError("tunable '" ++ name ++ "' must be i32, usize or u64, not " ++ @typeName(E));
 
     if (spec.min > spec.max) @compileError("tunable '" ++ name ++ "' has min > max");
 
