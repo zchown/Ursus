@@ -5,6 +5,7 @@ const mvs = root.moves;
 const see = root.see;
 const srch = root.search;
 const tp = root.tp;
+const threat = root.threats;
 
 const Move = mvs.Move;
 const GameState = brd.GameState;
@@ -97,19 +98,6 @@ pub const MovePicker = struct {
         self.is_null = is_null;
     }
 
-    pub fn setThreats(self: *MovePicker, t: u64) void {
-        self.threats = t;
-        self.threats_ready = true;
-    }
-
-    fn ensureThreats(self: *MovePicker, s: *srch.Searcher, gs: *const GameState) u64 {
-        if (!self.threats_ready) {
-            self.threats = srch.computeThreats(s.move_gen, gs, gs.to_move.opposite());
-            self.threats_ready = true;
-        }
-        return self.threats;
-    }
-
     pub fn initNoisy(self: *MovePicker, hash_move: Move) void {
         self.reset(hash_move);
         self.noisy_only = true;
@@ -186,14 +174,18 @@ pub const MovePicker = struct {
     fn scoreQuiets(self: *MovePicker, s: *srch.Searcher, gs: *const GameState) void {
         const pos = &gs.cur_position;
         const side = @intFromEnum(gs.to_move);
-        const threats = self.ensureThreats(s, gs);
+        if (!self.threats_ready) {
+            self.threats = threat.computeThreats(s.move_gen, gs, gs.to_move.opposite());
+            self.threats_ready = true;
+        }
+
         for (self.list.slice(), 0..) |move, i| {
             if (move.isPromo()) {
                 self.scores[i] = -5_000;
                 continue;
             }
 
-            var score: i32 = s.quietHistScore(side, threats, move.from, move.to);
+            var score: i32 = s.quietHistScore(side, self.threats, move.from, move.to);
 
             if (s.ply == 0) {
                 const n = s.root_node_counts[move.from][move.to];
@@ -296,7 +288,6 @@ pub const MovePicker = struct {
                     }
                 },
                 // I would like to remove feels gross histories should be good enough
-                // currently neutralish
                 .counter => {
                     self.stage = .gen_quiet;
                     if (s.ply > 0) {

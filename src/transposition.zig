@@ -3,10 +3,23 @@ const root = @import("root.zig");
 const zob = root.zob;
 const brd = root.brd;
 const mv = root.moves;
+const eval = root.eval;
 
 pub const default_tt_size_mb = 64;
 pub const kb = 1 << 10;
 pub const mb = 1 << 20;
+
+pub inline fn scoreToTT(score: i32, ply: usize) i32 {
+    if (score >= eval.win_bound) return score + @as(i32, @intCast(ply));
+    if (score <= -eval.win_bound) return score - @as(i32, @intCast(ply));
+    return score;
+}
+
+pub inline fn scoreFromTT(score: i32, ply: usize) i32 {
+    if (score >= eval.win_bound) return score - @as(i32, @intCast(ply));
+    if (score <= -eval.win_bound) return score + @as(i32, @intCast(ply));
+    return score;
+}
 
 pub const EstimationType = enum(u2) {
     None = 0,

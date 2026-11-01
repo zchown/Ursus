@@ -11,92 +11,13 @@ const tp = root.tp;
 const hist = root.hist;
 const tb = root.tb;
 const zob = root.zob;
+const threat = root.threats;
 
 pub const max_ply = 128;
 pub const neg_inf: i32 = std.math.minInt(i32);
 
 pub const max_moves = 218;
 pub const max_multipv = 16;
-
-
-inline fn scoreToTT(score: i32, ply: usize) i32 {
-    if (score >= eval.win_bound) return score + @as(i32, @intCast(ply));
-    if (score <= -eval.win_bound) return score - @as(i32, @intCast(ply));
-    return score;
-}
-
-inline fn scoreFromTT(score: i32, ply: usize) i32 {
-    if (score >= eval.win_bound) return score - @as(i32, @intCast(ply));
-    if (score <= -eval.win_bound) return score + @as(i32, @intCast(ply));
-    return score;
-}
-
-pub const ThreatInfo = struct {
-    all: u64,
-    pawn: u64,
-    minor: u64,
-    rook: u64,
-};
-
-pub inline fn threatIndex(threats: u64, sq: anytype) usize {
-    return @intFromBool(threats & (@as(u64, 1) << @intCast(sq)) != 0);
-}
-
-pub fn computeThreatInfo(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: brd.Color) ThreatInfo {
-     const pos = &gs.cur_position;
-     const occ = pos.getOccupancy();
-    var ti: ThreatInfo = .{ .all = 0, .pawn = 0, .minor = 0, .rook = 0 };
- 
-    const pawns = pos.getPieceColorBoard(.Pawn, by);
-    ti.pawn = if (by == .White)
-        utils.northEastOne(pawns) | utils.northWestOne(pawns)
-    else
-        utils.southEastOne(pawns) | utils.southWestOne(pawns);
- 
-     var knights = pos.getPieceColorBoard(.Knight, by);
-    while (knights != 0) ti.minor |= mg.knights[utils.popLsb(&knights)];
- 
-    var bishops = pos.getPieceColorBoard(.Bishop, by);
-    while (bishops != 0) ti.minor |= mg.getBishopAttacks(utils.popLsb(&bishops), occ);
- 
-    var rooks = pos.getPieceColorBoard(.Rook, by);
-    while (rooks != 0) ti.rook |= mg.getRookAttacks(utils.popLsb(&rooks), occ);
- 
-    var queen_att: u64 = 0;
-    var queens = pos.getPieceColorBoard(.Queen, by);
-    while (queens != 0) {
-        const sq = utils.popLsb(&queens);
-        queen_att |= mg.getBishopAttacks(sq, occ) | mg.getRookAttacks(sq, occ);
-     }
- 
-    const king = pos.getPieceColorBoard(.King, by);
-    const king_att: u64 = if (king != 0) mg.kings[utils.lsb(king)] else 0;
-
-    ti.all = ti.pawn | ti.minor | ti.rook | queen_att | king_att;
-    return ti;
-}
-
-pub fn computeThreats(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: brd.Color) u64 {
-    return computeThreatInfo(mg, gs, by).all;
-}
-
-pub fn threatCorrKey(pos: *const brd.Position, us: brd.Color, ti: ThreatInfo) u64 {
-    const ours = pos.getColorBoard(us);
-    const minors = (pos.getPieceBoard(.Knight) | pos.getPieceBoard(.Bishop)) & ours;
-    const rooks = pos.getPieceBoard(.Rook) & ours;
-    const queens = pos.getPieceBoard(.Queen) & ours;
-
-    var hanging = (minors & ti.pawn) |
-        (rooks & (ti.pawn | ti.minor)) |
-        (queens & (ti.pawn | ti.minor | ti.rook));
-
-    var key: u64 = 0;
-    while (hanging != 0) {
-        const sq = utils.popLsb(&hanging);
-        key ^= zob.ZobristKeys.pieceKeys(us, pos.getPieceFromSquare(sq), sq);
-    }
-    return key;
- }
 
 pub const NodeType = enum {
     Root,
@@ -249,7 +170,7 @@ pub const Searcher = struct {
     }
 
     pub inline fn threatHistPtr(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) *i32 {
-        return &self.threat_history[side][threatIndex(threats, from)][threatIndex(threats, to)][from][to];
+        return &self.threat_history[side][threat.threatIndex(threats, from)][threat.threatIndex(threats, to)][from][to];
     }
 
     pub inline fn quietHistScore(self: *Searcher, side: usize, threats: u64, from: usize, to: usize) i32 {
@@ -888,7 +809,7 @@ pub const Searcher = struct {
         const entry = self.tt_table.get(gs.cur_position.hash);
         if (entry) |e| {
             tt_hit = true;
-            tt_eval = scoreFromTT(e.eval, self.ply);
+            tt_eval = tt.scoreFromTT(e.eval, self.ply);
             tt_depth = @as(usize, @intCast(e.depth));
             tt_e_flag = e.flag;
             tt_static_eval = e.static_eval;
@@ -950,7 +871,7 @@ pub const Searcher = struct {
                             const tdepth: u8 = @intCast(@min(depth + 6, 255));
                             self.tt_table.set(tt.Entry{
                                 .hash = gs.cur_position.hash,
-                                .eval = scoreToTT(tb_score, self.ply),
+                                .eval = tt.scoreToTT(tb_score, self.ply),
                                 .move = mvs.Move.none,
                                 .static_eval = 0,
                                 .flag = tb_flag,
@@ -976,7 +897,7 @@ pub const Searcher = struct {
             }
         }
 
-        const node_ti = computeThreatInfo(self.move_gen, gs, color.opposite());
+        const node_ti = threat.computeThreatInfo(self.move_gen, gs, color.opposite());
         const node_threats = node_ti.all;
 
         var static_eval: i32 = undefined;
@@ -1214,7 +1135,7 @@ pub const Searcher = struct {
 
                     self.tt_table.set(tt.Entry{
                         .hash = gs.cur_position.hash,
-                        .eval = scoreToTT(score, self.ply),
+                        .eval = tt.scoreToTT(score, self.ply),
                         .move = move,
                         .static_eval = raw_static_eval,
                         .flag = tt.EstimationType.Under,
@@ -1244,7 +1165,8 @@ pub const Searcher = struct {
         var picker: mp.MovePicker = undefined;
         picker.init(hash_move, is_null);
 
-        picker.setThreats(node_threats);
+        picker.threats = node_threats;
+        picker.threats_ready = true;
 
         const check_info = self.move_gen.checkInfo(gs);
 
@@ -1565,7 +1487,7 @@ pub const Searcher = struct {
 
             self.tt_table.set(tt.Entry{
                 .hash = gs.cur_position.hash,
-                .eval = scoreToTT(best_score, self.ply),
+                .eval = tt.scoreToTT(best_score, self.ply),
                 .move = alpha_move,
                 .static_eval = raw_static_eval,
                 .flag = tt_flag,
@@ -1629,7 +1551,7 @@ pub const Searcher = struct {
             qs_tt_is_pv = e.is_pv;
 
             if (!is_pv) {
-                const tt_score = scoreFromTT(e.eval, self.ply);
+                const tt_score = tt.scoreFromTT(e.eval, self.ply);
                 if (e.flag == .Exact) {
                     return tt_score;
                 } else if (e.flag == .Under and tt_score >= beta) {
@@ -1664,7 +1586,7 @@ pub const Searcher = struct {
             if (best_score >= beta) {
                 self.tt_table.set(tt.Entry{
                     .hash = gs.cur_position.hash,
-                    .eval = scoreToTT(best_score, self.ply),
+                    .eval = tt.scoreToTT(best_score, self.ply),
                     .move = mvs.Move.none,
                     .static_eval = raw_static,
                     .flag = .Under,
@@ -1735,7 +1657,7 @@ pub const Searcher = struct {
                     if (score >= beta) {
                         self.tt_table.set(tt.Entry{
                             .hash = gs.cur_position.hash,
-                            .eval = scoreToTT(best_score, self.ply),
+                            .eval = tt.scoreToTT(best_score, self.ply),
                             .move = best_move,
                             .static_eval = raw_static,
                             .flag = tt.EstimationType.Under,
@@ -1786,7 +1708,7 @@ pub const Searcher = struct {
 
         self.tt_table.set(tt.Entry{
             .hash = gs.cur_position.hash,
-            .eval = scoreToTT(best_score, self.ply),
+            .eval = tt.scoreToTT(best_score, self.ply),
             .move = if (best_score > alpha_) best_move else mvs.Move.none,
             .static_eval = raw_static,
             .flag = if (best_score >= beta) tt.EstimationType.Under else tt.EstimationType.Over,
