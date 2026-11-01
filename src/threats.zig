@@ -17,32 +17,32 @@ pub inline fn threatIndex(threats: u64, sq: anytype) usize {
 }
 
 pub fn computeThreatInfo(mg: *const mvs.MoveGen, gs: *const brd.GameState, by: brd.Color) ThreatInfo {
-     const pos = &gs.cur_position;
-     const occ = pos.getOccupancy();
+    const pos = &gs.cur_position;
+    const occ = pos.getOccupancy();
     var ti: ThreatInfo = .{ .all = 0, .pawn = 0, .minor = 0, .rook = 0 };
- 
+
     const pawns = pos.getPieceColorBoard(.Pawn, by);
     ti.pawn = if (by == .White)
         utils.northEastOne(pawns) | utils.northWestOne(pawns)
     else
         utils.southEastOne(pawns) | utils.southWestOne(pawns);
- 
-     var knights = pos.getPieceColorBoard(.Knight, by);
+
+    var knights = pos.getPieceColorBoard(.Knight, by);
     while (knights != 0) ti.minor |= mg.knights[utils.popLsb(&knights)];
- 
+
     var bishops = pos.getPieceColorBoard(.Bishop, by);
     while (bishops != 0) ti.minor |= mg.getBishopAttacks(utils.popLsb(&bishops), occ);
- 
+
     var rooks = pos.getPieceColorBoard(.Rook, by);
     while (rooks != 0) ti.rook |= mg.getRookAttacks(utils.popLsb(&rooks), occ);
- 
+
     var queen_att: u64 = 0;
     var queens = pos.getPieceColorBoard(.Queen, by);
     while (queens != 0) {
         const sq = utils.popLsb(&queens);
         queen_att |= mg.getBishopAttacks(sq, occ) | mg.getRookAttacks(sq, occ);
-     }
- 
+    }
+
     const king = pos.getPieceColorBoard(.King, by);
     const king_att: u64 = if (king != 0) mg.kings[utils.lsb(king)] else 0;
 
@@ -70,5 +70,4 @@ pub fn threatCorrKey(pos: *const brd.Position, us: brd.Color, ti: ThreatInfo) u6
         key ^= zob.ZobristKeys.pieceKeys(us, pos.getPieceFromSquare(sq), sq);
     }
     return key;
- }
-
+}

@@ -33,18 +33,18 @@ const GameResult = enum(u8) {
 
 const ViriMove = packed struct {
     move_data: u16,
-    eval_score: i16, 
+    eval_score: i16,
 };
 
 const ViriHeader = packed struct {
     occupancy: u64,
-    pieces: u128, 
-    ep_and_stm: u8, 
+    pieces: u128,
+    ep_and_stm: u8,
     halfmove_clock: u8,
     fullmove_clock: u16,
-    score: i16, 
-    outcome: u8, 
-    extra: u8, 
+    score: i16,
+    outcome: u8,
+    extra: u8,
 };
 
 const max_moves_per_game = 512;
@@ -245,12 +245,12 @@ const Rng = struct {
 pub var stop_signal = std.atomic.Value(bool).init(false);
 
 fn playSingleGame(
-searcher: *srch.Searcher,
-rng: *Rng,
-config: *const DatagenConfig,
-game: *ViriGame,
-book: ?*const OpeningBook,
-board: *brd.GameState,
+    searcher: *srch.Searcher,
+    rng: *Rng,
+    config: *const DatagenConfig,
+    game: *ViriGame,
+    book: ?*const OpeningBook,
+    board: *brd.GameState,
 ) bool {
     game.* = ViriGame.init();
     board.initInPlace();
@@ -270,7 +270,7 @@ board: *brd.GameState,
     }
 
     if (board.isDraw(0)) return false;
-{
+    {
         searcher.soft_max_nodes = 2 * config.num_nodes;
         _ = searcher.iterativeDeepening(board, null) catch return false;
         const opening_eval = searcher.best_move_score;
@@ -409,11 +409,11 @@ fn workerThread(ctx: *ThreadContext) void {
     var path_buf: [256]u8 = undefined;
     const path = std.fmt.bufPrint(&path_buf, "{s}.thread{d}", .{ ctx.config.output_path, ctx.thread_id }) catch return;
     const file = std.fs.cwd().openFile(path, .{ .mode = .write_only }) catch
-    std.fs.cwd().createFile(path, .{}) catch |err|
-{
-        std.debug.print("Thread {d}: Failed to open output file: {}\n", .{ ctx.thread_id, err });
-        return;
-    };
+        std.fs.cwd().createFile(path, .{}) catch |err|
+        {
+            std.debug.print("Thread {d}: Failed to open output file: {}\n", .{ ctx.thread_id, err });
+            return;
+        };
     file.seekFromEnd(0) catch {};
     defer file.close();
 
@@ -525,10 +525,10 @@ pub fn run(config: DatagenConfig) !void {
 
     if (config.opening_book_path) |book_path| {
         maybe_book = OpeningBook.load(std.heap.smp_allocator, book_path) catch |err|
-        blk: {
-            std.debug.print("Warning: failed to load opening book '{s}': {} — falling back to random plies\n", .{ book_path, err });
-            break :blk null;
-        };
+            blk: {
+                std.debug.print("Warning: failed to load opening book '{s}': {} — falling back to random plies\n", .{ book_path, err });
+                break :blk null;
+            };
     } else {
         std.debug.print("No opening book specified — using {d} random plies\n", .{config.random_plies});
     }
@@ -600,7 +600,7 @@ pub fn run(config: DatagenConfig) !void {
             total_games,
             total_positions,
             total_positions / 1_000_000_000,
-        (total_positions % 1_000_000_000) / 100_000_000,
+            (total_positions % 1_000_000_000) / 100_000_000,
             pos_per_sec,
         });
         if (stop_signal.load(.acquire)) all_done = true;
@@ -645,7 +645,7 @@ fn printSummary(session_games: u64, session_positions: u64, total_games: u64, to
         total_games,
         total_positions,
         total_positions / 1_000_000_000,
-    (total_positions % 1_000_000_000) / 100_000_000,
+        (total_positions % 1_000_000_000) / 100_000_000,
     });
     std.debug.print("Time:      {d}m {d}s\n", .{ mins, secs });
     std.debug.print("Speed:     {d} games/s, {d} pos/s\n", .{
@@ -653,7 +653,7 @@ fn printSummary(session_games: u64, session_positions: u64, total_games: u64, to
         session_positions / safe_s,
     });
     if (session_games > 0) {
-        std.debug.print("Avg:       {d} positions/game\n", .{ session_positions / session_games });
+        std.debug.print("Avg:       {d} positions/game\n", .{session_positions / session_games});
     }
 }
 

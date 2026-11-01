@@ -75,9 +75,18 @@ fn extract(gs: *const brd.GameState) Extracted {
 pub fn probeWdl(gs: *const brd.GameState) ?u32 {
     const e = extract(gs);
     const r = c.tb_probe_wdl(
-        e.white, e.black, e.kings, e.queens, e.rooks,
-        e.bishops, e.knights, e.pawns,
-        e.rule50, e.castling, e.ep, e.turn,
+        e.white,
+        e.black,
+        e.kings,
+        e.queens,
+        e.rooks,
+        e.bishops,
+        e.knights,
+        e.pawns,
+        e.rule50,
+        e.castling,
+        e.ep,
+        e.turn,
     );
     if (r == TB_RESULT_FAILED) return null;
     return r;
@@ -92,9 +101,18 @@ pub const RootProbe = struct {
 pub fn probeRootDtz(gs: *const brd.GameState, move_gen: *const mvs.MoveGen) ?RootProbe {
     const e = extract(gs);
     const r = c.tb_probe_root(
-        e.white, e.black, e.kings, e.queens, e.rooks,
-        e.bishops, e.knights, e.pawns,
-        e.rule50, e.castling, e.ep, e.turn,
+        e.white,
+        e.black,
+        e.kings,
+        e.queens,
+        e.rooks,
+        e.bishops,
+        e.knights,
+        e.pawns,
+        e.rule50,
+        e.castling,
+        e.ep,
+        e.turn,
         null,
     );
     if (r == TB_RESULT_FAILED or r == c.TB_RESULT_CHECKMATE or r == c.TB_RESULT_STALEMATE) {
