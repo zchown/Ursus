@@ -295,7 +295,8 @@ pub const MovePicker = struct {
                         return PickedMove{ .move = m, .stage = .killer_2 };
                     }
                 },
-
+                // I would like to remove feels gross histories should be good enough
+                // currently neutralish
                 .counter => {
                     self.stage = .gen_quiet;
                     if (s.ply > 0) {
@@ -357,41 +358,3 @@ pub const MovePicker = struct {
         }
     }
 };
-
-pub fn verifyPicker(s: *srch.Searcher, gs: *const GameState, hash_move: Move) bool {
-    const reference = s.move_gen.generateLegal(gs, .all);
-    var matched: [mvs.max_moves]bool = .{false} ** mvs.max_moves;
-
-    var picker: MovePicker = undefined;
-    picker.init(hash_move, false);
-    var ok = true;
-    var buf: [5]u8 = undefined;
-
-    while (picker.next(s, gs)) |picked| {
-        var found = false;
-        for (reference.slice(), 0..) |ref, i| {
-            if (ref.eql(picked.move)) {
-                if (matched[i]) {
-                    std.debug.print("picker yielded duplicate move (stage {s}): {s}\n", .{ @tagName(picked.stage), picked.move.toUci(&buf) });
-                    ok = false;
-                }
-                matched[i] = true;
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            std.debug.print("picker yielded illegal/unknown move (stage {s}): {s}\n", .{ @tagName(picked.stage), picked.move.toUci(&buf) });
-            ok = false;
-        }
-    }
-
-    for (reference.slice(), 0..) |ref, i| {
-        if (!matched[i]) {
-            std.debug.print("picker missed legal move: {s}\n", .{ref.toUci(&buf)});
-            ok = false;
-        }
-    }
-
-    return ok;
-}

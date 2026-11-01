@@ -416,7 +416,6 @@ pub const Searcher = struct {
         try search_helpers.ensureTotalCapacity(std.heap.smp_allocator, num_threads - 1);
         try threads.ensureTotalCapacity(std.heap.smp_allocator, num_threads - 1);
 
-        // Create helper searchers (thread 0 is the main searcher)
         var i: usize = 1;
         while (i < num_threads) : (i += 1) {
             const helper_ptr = try std.heap.smp_allocator.create(Searcher);
@@ -905,8 +904,6 @@ pub const Searcher = struct {
 
         self.nodes += 1;
 
-        // TT lookup happens before isInCheck so we can reuse the stored in_check flag
-        // on hits, saving an expensive bitboard traversal on the common TT-hit path.
         var hash_move = mvs.Move.none;
         var tt_hit = false;
         var tt_eval: i32 = 0;
@@ -916,8 +913,9 @@ pub const Searcher = struct {
         var tt_in_check: bool = false;
         var tt_is_pv: bool = false;
         var tt_static_eval_valid: bool = false;
-        const entry = self.tt_table.get(gs.cur_position.hash);
 
+        //tt probe
+        const entry = self.tt_table.get(gs.cur_position.hash);
         if (entry) |e| {
             tt_hit = true;
             tt_eval = scoreFromTT(e.eval, self.ply);
@@ -952,7 +950,7 @@ pub const Searcher = struct {
         var tb_floor: i32 = -eval.mate_score;
         var tb_ceiling: i32 = eval.mate_score;
 
-
+        // tb probe
         if (!is_root and self.excluded_moves[self.ply].isNull() and depth >= tp.tb_probe_depth) {
             const tb_max = tb.largest();
             if (tb_max > 0) {
@@ -1031,6 +1029,7 @@ pub const Searcher = struct {
             static_eval = eval.adjustEval(gs, self.optimism[@intFromEnum(color)], raw_static_eval, correction);
             self.eval_history[self.ply] = static_eval;
 
+            // put raw in tt for speed
             if (!tt_hit) {
                 self.tt_table.set(tt.Entry{
                     .hash = gs.cur_position.hash,
@@ -1089,6 +1088,7 @@ pub const Searcher = struct {
             last_last_last_move = self.move_history[self.ply - 3];
         }
 
+        // iir
         if (depth >= 3 and !in_check and hash_move.isNull() and self.excluded_moves[self.ply].isNull() and (on_pv or cutnode)) {
             depth -= 1;
         }
@@ -1161,6 +1161,9 @@ pub const Searcher = struct {
                 self.ply -= 1;
                 gs.unmakeNullMove();
 
+                // should try a non regression on verification search
+                // has failed in the past is a known non gainer but helps with zugzwang
+
                 if (self.time_stop) {
                     return 0;
                 }
@@ -1191,7 +1194,6 @@ pub const Searcher = struct {
         if (improving) {
             probcut_beta += (tp.probcut_improve.value - 1000);
         }
-
 
         if (cutnode and depth >= 6 and !in_check and beta < eval.win_bound and beta > -eval.win_bound and self.excluded_moves[self.ply].isNull()) {
             const probcut_depth = depth - 3;
@@ -1237,7 +1239,6 @@ pub const Searcher = struct {
                 }
 
                 if (score >= probcut_beta) {
-                    // store in TT
                     gs.unmakeMove(move);
                     self.ply -= 1;
 
@@ -1277,6 +1278,7 @@ pub const Searcher = struct {
 
         const check_info = self.move_gen.checkInfo(gs);
 
+        // move loop
         while (picker.next(self, gs)) |picked| {
             const move = picked.move;
             const gives_check = self.move_gen.givesCheck(gs, move, &check_info);
@@ -1309,7 +1311,7 @@ pub const Searcher = struct {
             const lmr_depth: i32 = @max(0, @as(i32, @intCast(depth)) - 1 - base_r +
         (if (is_capture) 0 else @divTrunc(stat_score, tp.history_div.value)));
 
-
+            // lmp
             if (!is_root and moves_seen > 2 and !in_check and !on_pv) {
                 var lmp_threshold: usize = (tp.lmp_base.value + depth * depth * tp.lmp_mul.value) / 100;
                 if (!improving) lmp_threshold /= 2;
@@ -1334,6 +1336,7 @@ pub const Searcher = struct {
                 continue;
             }
 
+            // hist prune
             if (can_prune and !is_important and !is_capture and !is_important and
                 depth <= 4 and searched_moves >= 2)
             {
@@ -1410,6 +1413,7 @@ pub const Searcher = struct {
                 }
             }
 
+            // recap extension (old tech probably can remove but currently loses)
             if (!is_root and self.ply <= depth and !hash_move.isCapture()) {
                 if (is_capture and last_move.isCapture() and move.to == last_move.to) {
                     extension += 1;
@@ -1444,8 +1448,7 @@ pub const Searcher = struct {
             const min_lmr_move: usize = if (on_pv) tp.lmr_pv_min else tp.lmr_non_pv_min;
             var do_full_search = false;
 
-
-
+            // lmr
             if (on_pv and searched_moves == 1) {
                 score = -self.negamax(gs, color.opposite(), new_depth, -beta, -alpha, false, NodeType.PV, false);
             } else {
@@ -1784,14 +1787,14 @@ pub const Searcher = struct {
         }
 
         if (!in_check and moves_seen == 0 and self.ply > 0) {
-            // The piece the previous move captured (Piece.none after a null move).
+            // The piece the previous move captured
             const last_captured = gs.history[gs.ply - 1].captured.piece;
             const has_non_pawns_us = gs.cur_position.hasNonPawnMaterial(color);
 
             // Only relevant if we just lost a rook/queen and have no pieces left
             if (!has_non_pawns_us and (last_captured == .Rook or last_captured == .Queen)) {
 
-                // Check if any pawn can push forward (if so, can't be stalemate)
+                // Check if any pawn can push forward
                 const pawn_bb = gs.cur_position.getPieceColorBoard(.Pawn, color);
                 const occupied = gs.cur_position.getOccupancy();
 
@@ -1803,7 +1806,7 @@ pub const Searcher = struct {
                 if (!pawn_pushes_exist) {
                     const all_moves = self.move_gen.generateLegal(gs, .all);
                     if (all_moves.len == 0) {
-                        return 0; // stalemate — don't return a negative stand-pat
+                        return 0; // stalemate
                     }
                 }
             }

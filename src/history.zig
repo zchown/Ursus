@@ -232,7 +232,6 @@ pub fn updateCaptureHistory(
         applyBonus(i16, best_entry, bonus, max_cap_history);
     }
 
-    // Penalize other captures that were tried but didn't cause the cutoff.
     for (other_moves.slice()) |m| {
         if (!m.isCapture() or m.eql(best_move)) continue;
         const attacker = pos.movedPiece(m).piece.idx();
