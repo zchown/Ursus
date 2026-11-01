@@ -1,5 +1,6 @@
 pub const uci = @import("uci.zig");
 pub const perft = @import("perft.zig");
+pub const perft_suite = @import("perft_suite.zig");
 pub const zob = @import("zobrist.zig");
 pub const nnue = @import("nnue.zig");
 pub const moves = @import("moves.zig");
@@ -16,5 +17,7 @@ pub const tb = @import("tb.zig");
 pub const mp = @import("move_picker.zig");
 pub const see = @import("see.zig");
 pub const datagen = @import("datagen.zig");
+pub const utils = @import("utils.zig");
+pub const threats = @import("threats.zig");
 
 pub const build_options = @import("build_options");

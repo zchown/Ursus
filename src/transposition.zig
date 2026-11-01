@@ -3,10 +3,20 @@ const root = @import("root.zig");
 const zob = root.zob;
 const brd = root.brd;
 const mv = root.moves;
+const eval = root.eval;
+const utils = root.utils;
 
-pub const default_tt_size_mb = 64;
-pub const kb = 1 << 10;
-pub const mb = 1 << 20;
+pub inline fn scoreToTT(score: i32, ply: usize) i32 {
+    if (score >= eval.win_bound) return score + @as(i32, @intCast(ply));
+    if (score <= -eval.win_bound) return score - @as(i32, @intCast(ply));
+    return score;
+}
+
+pub inline fn scoreFromTT(score: i32, ply: usize) i32 {
+    if (score >= eval.win_bound) return score - @as(i32, @intCast(ply));
+    if (score <= -eval.win_bound) return score + @as(i32, @intCast(ply));
+    return score;
+}
 
 pub const EstimationType = enum(u2) {
     None = 0,
@@ -28,22 +38,18 @@ pub const Entry = struct {
     static_eval_valid: bool = false,
 };
 
-// Packed into 128 bits for atomic load/store:
-//
-//   bits   0-31:  hash key upper (bits 32-63 of zobrist)
-//   bits  32-47:  eval (i16, clamped)
-//   bits  48-63:  move (the 16-bit Move, stored as-is)
-//   bits  64-79:  static_eval (i16, clamped)
-//   bits  80-81:  flag (EstimationType, 2 bits)
-//   bits  82-89:  depth (u8)
-//   bits  90-97:  age (u8)
-//   bit   98:     in_check (1 bit)
-//   bit   99:     is_pv (1 bit)
-//   bit  100:     static_eval_valid (1 bit)
-//   bits 101-127: hash key lower (bits 0-26 of zobrist, 27 bits)
-//
-// Hash verification: bits 0-31 (upper 32) + bits 101-127 (lower 27) = 59-bit key.
-// This reduces false-positive collision probability 
+// TODO: switch to 100 bit entry (currently loses)
+//   bits   0-31:  hash key upper
+//   bits  32-47:  eval
+//   bits  48-63:  move
+//   bits  64-79:  static_eval
+//   bits  80-81:  flag
+//   bits  82-89:  depth
+//   bits  90-97:  age
+//   bit   98:     in_check
+//   bit   99:     is_pv
+//   bit  100:     is static eval valid
+//   bits 101-127: hash key lower
 pub const PackedEntry = extern struct {
     data: u128,
 
@@ -69,17 +75,17 @@ pub const PackedEntry = extern struct {
         const static_bits: u16 = @bitCast(clamped_static);
 
         var packed_entry: u128 = 0;
-        packed_entry |= @as(u128, hash_upper);                            // bits   0-31
-        packed_entry |= @as(u128, eval_bits) << 32;                       // bits  32-47
-        packed_entry |= @as(u128, move_u16) << 48;                        // bits  48-63
-        packed_entry |= @as(u128, static_bits) << 64;                     // bits  64-79
-        packed_entry |= @as(u128, @intFromEnum(flag)) << 80;              // bits  80-81
-        packed_entry |= @as(u128, depth) << 82;                           // bits  82-89
-        packed_entry |= @as(u128, age) << 90;                             // bits  90-97
-        packed_entry |= @as(u128, @intFromBool(in_check)) << 98;          // bit   98
-        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99;             // bit   99
-        packed_entry |= @as(u128, @intFromBool(static_eval_valid)) << 100; // bit  100
-        packed_entry |= @as(u128, hash_lower) << 101;                     // bits 101-127
+        packed_entry |= @as(u128, hash_upper);
+        packed_entry |= @as(u128, eval_bits) << 32;
+        packed_entry |= @as(u128, move_u16) << 48;
+        packed_entry |= @as(u128, static_bits) << 64;
+        packed_entry |= @as(u128, @intFromEnum(flag)) << 80;
+        packed_entry |= @as(u128, depth) << 82;
+        packed_entry |= @as(u128, age) << 90;
+        packed_entry |= @as(u128, @intFromBool(in_check)) << 98;
+        packed_entry |= @as(u128, @intFromBool(is_pv)) << 99;
+        packed_entry |= @as(u128, @intFromBool(static_eval_valid)) << 100;
+        packed_entry |= @as(u128, hash_lower) << 101;
 
         return PackedEntry{ .data = packed_entry };
     }
@@ -114,12 +120,6 @@ pub const PackedEntry = extern struct {
         };
     }
 
-    pub inline fn getHashKey(self: PackedEntry) u32 {
-        return @truncate(self.data);
-    }
-
-    // 59-bit verification: upper 32 bits of zobrist (stored in bits 0-31) plus
-    // lower 27 bits of zobrist (stored in bits 101-127).
     pub inline fn verify(self: PackedEntry, full_hash: u64) bool {
         const stored_upper: u32 = @truncate(self.data);
         const stored_lower: u27 = @truncate(self.data >> 101);
@@ -141,16 +141,8 @@ pub const PackedEntry = extern struct {
         return @truncate(self.data >> 90);
     }
 
-    pub inline fn getInCheck(self: PackedEntry) bool {
-        return ((self.data >> 98) & 1) != 0;
-    }
-
     pub inline fn getIsPv(self: PackedEntry) bool {
         return ((self.data >> 99) & 1) != 0;
-    }
-
-    pub inline fn getStaticEvalValid(self: PackedEntry) bool {
-        return ((self.data >> 100) & 1) != 0;
     }
 
     pub inline fn getMove(self: PackedEntry) mv.Move {
@@ -165,7 +157,7 @@ pub const TT_BUCKET_SLOTS = 4;
 
 const Slot = struct {
     lo: std.atomic.Value(u64),
-    hi_x: std.atomic.Value(u64), // stores (hi ^ lo)
+    hi_x: std.atomic.Value(u64),
 
     inline fn loadPacked(self: *Slot) u128 {
         const lo = self.lo.load(.monotonic);
@@ -188,7 +180,7 @@ const Slot = struct {
 
 pub const Bucket = struct {
     entries: [TT_BUCKET_SLOTS]Slot,
-    _pad: [(64 - TT_BUCKET_SLOTS * 16) % 64]u8, // 16B at 3 slots, 0B at 4
+    _pad: [(64 - TT_BUCKET_SLOTS * 16) % 64]u8,
 
     pub fn init() Bucket {
         var b: Bucket = undefined;
@@ -204,10 +196,9 @@ pub const TranspositionTable = struct {
     age: std.atomic.Value(u8),
 
     pub fn init(allocator: std.mem.Allocator, size_in_mb: usize) !TranspositionTable {
-        const raw_num_buckets = (size_in_mb * mb) / @sizeOf(Bucket);
+        const raw_num_buckets = (size_in_mb * utils.mb) / @sizeOf(Bucket);
         const num_buckets = std.math.floorPowerOfTwo(usize, raw_num_buckets);
 
-        // alignedAlloc guarantees each bucket starts exactly on a cache line boundary
         const buckets = try allocator.alignedAlloc(Bucket, std.mem.Alignment.@"64", num_buckets);
         for (buckets) |*b| {
             b.* = Bucket.init();
@@ -246,10 +237,6 @@ pub const TranspositionTable = struct {
         self.age.store(old_age +% 1, .monotonic);
     }
 
-    pub inline fn setAge(self: *TranspositionTable, new_age: u8) void {
-        self.age.store(new_age, .monotonic);
-    }
-
     pub inline fn getAge(self: *TranspositionTable) u8 {
         return self.age.load(.monotonic);
     }
@@ -257,7 +244,6 @@ pub const TranspositionTable = struct {
     pub inline fn prefetch(self: *TranspositionTable, hash: zob.ZobristKey) void {
         const idx = self.index(hash);
         const ptr = &self.buckets[idx];
-        // Prefetching now pulls all 3 slots into L1 simultaneously
         @prefetch(ptr, .{
             .rw = .read,
             .locality = 1,
@@ -270,7 +256,7 @@ pub const TranspositionTable = struct {
         for (&bucket.entries) |*slot| {
             const packed_entry = PackedEntry{ .data = slot.loadPacked() };
             if (packed_entry.verify(hash)) {
-               const current_age = self.getAge();
+                const current_age = self.getAge();
                 if (packed_entry.getAge() != current_age) {
                     const age_mask: u128 = @as(u128, 0xFF) << 90;
                     const refreshed = (packed_entry.data & ~age_mask) |
@@ -279,13 +265,8 @@ pub const TranspositionTable = struct {
                 }
                 return packed_entry.unpack(hash);
             }
-
         }
         return null;
-    }
-
-    pub inline fn store(self: *TranspositionTable, entry: Entry) void {
-        self.set(entry);
     }
 
     pub inline fn set(self: *TranspositionTable, entry: Entry) void {
@@ -301,7 +282,6 @@ pub const TranspositionTable = struct {
         var worst_idx: usize = 0;
         var worst_score: i32 = std.math.maxInt(i32);
 
-        // 1. Scan the bucket for a match, an empty slot, and identify the worst entry
         for (&bucket.entries, 0..) |*slot, i| {
             const packed_data = slot.loadPacked();
             const packed_entry = PackedEntry{ .data = packed_data };
@@ -320,10 +300,9 @@ pub const TranspositionTable = struct {
                 break;
             }
 
-            // 2. Score the entry to find the weakest link for collision handling
             var score: i32 = packed_entry.getDepth();
             const rel_age: u8 = current_age -% packed_entry.getAge();
-            score -= 8 * @as(i32, @min(rel_age, 28)); // was: -256 for any age mismatch
+            score -= 8 * @as(i32, @min(rel_age, 28));
             if (packed_entry.getIsPv()) score += 2;
             if (flag == .Exact) score += 1;
 
@@ -333,7 +312,6 @@ pub const TranspositionTable = struct {
             }
         }
 
-        // 3. Determine the write target: Match > Empty > Worst
         const target_idx = match_idx orelse empty_idx orelse worst_idx;
 
         if (match_idx != null) {
@@ -341,7 +319,7 @@ pub const TranspositionTable = struct {
             const keep_old = entry.flag != .Exact and
                 old.getAge() == current_age and
                 @as(i32, old.getDepth()) >= @as(i32, entry.depth) + 4;
-            if (keep_old) return; // deep data survives; move was already merged above
+            if (keep_old) return;
         }
 
         const new_packed = PackedEntry.pack(
@@ -359,28 +337,8 @@ pub const TranspositionTable = struct {
 
         bucket.entries[target_idx].storePacked(@bitCast(new_packed));
     }
-
-    pub fn getUsage(self: *TranspositionTable) struct { used: usize, total: usize } {
-        var used: usize = 0;
-
-        for (self.buckets) |*bucket| {
-            for (&bucket.entries) |*item| {
-                const packed_entry = PackedEntry{ .data = item.loadPacked() };
-                if (packed_entry.data != 0) {
-                    used += 1;
-                }
-            }
-        }
-
-        return .{ .used = used, .total = self.num_buckets * TT_BUCKET_SLOTS };
-    }
 };
 
 comptime {
-    if (@sizeOf(u128) != 16) {
-        @compileError("u128 must be 16 bytes for atomic operations");
-    }
-    if (@sizeOf(Bucket) != 64) {
-        @compileError("Bucket must be exactly 64 bytes to align with CPU cache lines");
-    }
+    std.debug.assert(@sizeOf(Bucket) == 64);
 }

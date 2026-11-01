@@ -2,17 +2,10 @@ const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root.zig");
 const brd = root.brd;
+const utils = root.utils;
 
-// Network layout, mirroring the bullet trainer (main.rs):
-//
-//   768x16 king-bucketed, horizontally mirrored inputs
-//     -> FT 1280 (i16, QA), crelu, pairwise multiply  -> 640 per perspective, stm ++ ntm = 1280
-//     -> L1 1280 -> 16           (i8 weights, i32 bias)   x8 material output buckets
-//     -> concat(x, |x|^2), crelu -> 32
-//     -> L2 32 -> 32, crelu      (i32 weights, i32 bias)
-//     -> L3 32 -> 1              (i32 weights, i32 bias)
-//     -> eval = 400 * out
-pub const net_path = "nets/Alkaid-ml.bin";
+// pub const net_path = "nets/Alkaid-ml.bin";
+pub const net_path = "nets/Alkaid1280.bin";
 
 pub const hidden_size = 1280;
 pub const pairwise_size = hidden_size / 2;
@@ -21,7 +14,7 @@ pub const l2_size = 16;
 pub const l2_in_size = 2 * l2_size;
 pub const l3_size = 32;
 
-pub const features_per_bucket = 2 * brd.num_pieces * brd.num_squares;
+pub const features_per_bucket = 2 * utils.num_pieces * utils.num_squares;
 
 pub const NUM_KING_BUCKETS: usize = 16;
 const NUM_OUTPUT_BUCKETS: usize = 8;
@@ -381,7 +374,7 @@ inline fn shouldMirror(king_sq: u8) bool {
     return (king_sq & 7) >= 4;
 }
 
-inline fn perspectiveKingBucket(view: brd.Color, view_king_sq: u8) usize {
+inline fn perspectiveKingBucket(view: utils.Color, view_king_sq: u8) usize {
     var sq: u8 = if (view == .White) view_king_sq else mirRank(view_king_sq);
     if (shouldMirror(view_king_sq)) sq = mirFile(sq);
     const file: usize = @intCast(sq & 0b111);
@@ -389,7 +382,7 @@ inline fn perspectiveKingBucket(view: brd.Color, view_king_sq: u8) usize {
     return KING_BUCKETS_BASE[rank * 4 + file];
 }
 
-inline fn perspectiveSlotId(view: brd.Color, view_king_sq: u8) usize {
+inline fn perspectiveSlotId(view: utils.Color, view_king_sq: u8) usize {
     const mirror_bit: usize = if (shouldMirror(view_king_sq)) 1 else 0;
     const bucket = perspectiveKingBucket(view, view_king_sq);
     return mirror_bit * NUM_KING_BUCKETS + bucket;
@@ -397,14 +390,14 @@ inline fn perspectiveSlotId(view: brd.Color, view_king_sq: u8) usize {
 
 pub const NUM_FINNY_SLOTS: usize = 2 * NUM_KING_BUCKETS;
 
-var feature_index_table: [brd.num_colors][64][brd.num_colors][6][64]u16 = undefined;
-var slot_id_table: [brd.num_colors][64]u8 = undefined;
+var feature_index_table: [utils.num_colors][64][utils.num_colors][6][64]u16 = undefined;
+var slot_id_table: [utils.num_colors][64]u8 = undefined;
 
 inline fn featureIndexSlow(
-    view: brd.Color,
+    view: utils.Color,
     view_king_sq: u8,
-    piece_color: brd.Color,
-    piece_type: brd.Pieces,
+    piece_color: utils.Color,
+    piece_type: utils.Pieces,
     square: u8,
 ) usize {
     var oriented_sq: u8 = if (view == .White) square else mirRank(square);
@@ -416,15 +409,15 @@ inline fn featureIndexSlow(
 }
 
 fn initFeatureIndexTable() void {
-    for (0..brd.num_colors) |view_i| {
-        const view: brd.Color = @enumFromInt(view_i);
+    for (0..utils.num_colors) |view_i| {
+        const view: utils.Color = @enumFromInt(view_i);
         for (0..64) |ksq_i| {
             const ksq: u8 = @intCast(ksq_i);
             slot_id_table[view_i][ksq_i] = @intCast((if (shouldMirror(ksq)) NUM_KING_BUCKETS else 0) + perspectiveKingBucket(view, ksq));
-            for (0..brd.num_colors) |pc_i| {
-                const pc: brd.Color = @enumFromInt(pc_i);
+            for (0..utils.num_colors) |pc_i| {
+                const pc: utils.Color = @enumFromInt(pc_i);
                 for (0..6) |pt_i| {
-                    const pt: brd.Pieces = @enumFromInt(pt_i);
+                    const pt: utils.Pieces = @enumFromInt(pt_i);
                     for (0..64) |sq_i| {
                         feature_index_table[view_i][ksq_i][pc_i][pt_i][sq_i] =
                             @intCast(featureIndexSlow(view, ksq, pc, pt, @intCast(sq_i)));
@@ -436,16 +429,16 @@ fn initFeatureIndexTable() void {
 }
 
 pub inline fn featureIndex(
-    view: brd.Color,
+    view: utils.Color,
     view_king_sq: u8,
-    piece_color: brd.Color,
-    piece_type: brd.Pieces,
+    piece_color: utils.Color,
+    piece_type: utils.Pieces,
     square: u8,
 ) usize {
     return feature_index_table[@intFromEnum(view)][view_king_sq][@intFromEnum(piece_color)][@intFromEnum(piece_type)][square];
 }
 
-inline fn perspectiveSlotCached(view: brd.Color, king_sq: u8) usize {
+inline fn perspectiveSlotCached(view: utils.Color, king_sq: u8) usize {
     return slot_id_table[@intFromEnum(view)][king_sq];
 }
 
@@ -456,8 +449,8 @@ fn materialBucket(gs: *const brd.GameState) usize {
 }
 
 const FeatureDelta = struct {
-    piece_color: brd.Color,
-    piece_type: brd.Pieces,
+    piece_color: utils.Color,
+    piece_type: utils.Pieces,
     square: u8,
 };
 
@@ -467,12 +460,12 @@ const DirtyPieces = struct {
     num_adds: u8 = 0,
     num_subs: u8 = 0,
 
-    inline fn addPiece(self: *DirtyPieces, color: brd.Color, piece: brd.Pieces, sq: u8) void {
+    inline fn addPiece(self: *DirtyPieces, color: utils.Color, piece: utils.Pieces, sq: u8) void {
         self.adds[self.num_adds] = .{ .piece_color = color, .piece_type = piece, .square = sq };
         self.num_adds += 1;
     }
 
-    inline fn subPiece(self: *DirtyPieces, color: brd.Color, piece: brd.Pieces, sq: u8) void {
+    inline fn subPiece(self: *DirtyPieces, color: utils.Color, piece: utils.Pieces, sq: u8) void {
         self.subs[self.num_subs] = .{ .piece_color = color, .piece_type = piece, .square = sq };
         self.num_subs += 1;
     }
@@ -610,7 +603,7 @@ fn applyLazyDeltaForPerspective(
     view_idx: usize,
 ) void {
     const dirty = &state.dirty;
-    const view: brd.Color = @enumFromInt(view_idx);
+    const view: utils.Color = @enumFromInt(view_idx);
     const king_sq = state.king_squares[view_idx];
     const parent_acc = parent.acc_ptr[view_idx];
 
@@ -641,33 +634,33 @@ fn applyLazyDeltaForPerspective(
 }
 
 pub const NNUEState = struct {
-    accumulators: [brd.num_colors]Accumulator,
-    acc_ptr: [brd.num_colors]*const Accumulator,
-    king_squares: [brd.num_colors]u8,
+    accumulators: [utils.num_colors]Accumulator,
+    acc_ptr: [utils.num_colors]*const Accumulator,
+    king_squares: [utils.num_colors]u8,
     dirty: DirtyPieces,
-    needs_refresh: [brd.num_colors]bool,
-    computed: [brd.num_colors]bool,
+    needs_refresh: [utils.num_colors]bool,
+    computed: [utils.num_colors]bool,
 
     pub fn init() NNUEState {
         return .{
-            .accumulators = [_]Accumulator{Accumulator.init()} ** brd.num_colors,
+            .accumulators = [_]Accumulator{Accumulator.init()} ** utils.num_colors,
             .acc_ptr = undefined,
-            .king_squares = [_]u8{0} ** brd.num_colors,
+            .king_squares = [_]u8{0} ** utils.num_colors,
             .dirty = .{},
-            .needs_refresh = [_]bool{false} ** brd.num_colors,
-            .computed = [_]bool{false} ** brd.num_colors,
+            .needs_refresh = [_]bool{false} ** utils.num_colors,
+            .computed = [_]bool{false} ** utils.num_colors,
         };
     }
 };
 
 pub const FinnyEntry = struct {
     accumulator: Accumulator,
-    pieces: [brd.num_colors][brd.num_pieces]u64,
+    pieces: [utils.num_colors][utils.num_pieces]u64,
 
     pub fn reset(self: *FinnyEntry) void {
         self.accumulator.initFromBias();
-        for (0..brd.num_colors) |c| {
-            for (0..brd.num_pieces) |p| {
+        for (0..utils.num_colors) |c| {
+            for (0..utils.num_pieces) |p| {
                 self.pieces[c][p] = 0;
             }
         }
@@ -675,7 +668,7 @@ pub const FinnyEntry = struct {
 };
 
 pub const FinnyTable = struct {
-    entries: [brd.num_colors][NUM_FINNY_SLOTS]FinnyEntry,
+    entries: [utils.num_colors][NUM_FINNY_SLOTS]FinnyEntry,
 
     pub fn init() FinnyTable {
         var ft: FinnyTable = undefined;
@@ -684,7 +677,7 @@ pub const FinnyTable = struct {
     }
 
     pub fn reset(self: *FinnyTable) void {
-        for (0..brd.num_colors) |c| {
+        for (0..utils.num_colors) |c| {
             for (0..NUM_FINNY_SLOTS) |s| {
                 self.entries[c][s].reset();
             }
@@ -693,7 +686,7 @@ pub const FinnyTable = struct {
 };
 
 pub const NNUEStack = struct {
-    states: [brd.max_game_moves + 1]NNUEState,
+    states: [utils.max_game_moves + 1]NNUEState,
     finny: FinnyTable,
     current: usize,
 
@@ -713,8 +706,8 @@ pub const NNUEStack = struct {
         const next = self.current + 1;
         self.states[next].king_squares = self.states[self.current].king_squares;
         self.states[next].dirty = .{};
-        self.states[next].needs_refresh = [_]bool{false} ** brd.num_colors;
-        self.states[next].computed = [_]bool{false} ** brd.num_colors;
+        self.states[next].needs_refresh = [_]bool{false} ** utils.num_colors;
+        self.states[next].computed = [_]bool{false} ** utils.num_colors;
         self.current = next;
     }
 
@@ -744,9 +737,9 @@ pub const NNUEStack = struct {
             }
         }
 
-        var needs_refresh = [_]bool{false} ** brd.num_colors;
-        inline for (0..brd.num_colors) |c| {
-            const view = @as(brd.Color, @enumFromInt(c));
+        var needs_refresh = [_]bool{false} ** utils.num_colors;
+        inline for (0..utils.num_colors) |c| {
+            const view = @as(utils.Color, @enumFromInt(c));
             const old_slot = perspectiveSlotCached(view, parent.king_squares[c]);
             const new_slot = perspectiveSlotCached(view, new_king_sqs[c]);
             if (old_slot != new_slot) {
@@ -757,13 +750,13 @@ pub const NNUEStack = struct {
         self.states[next].dirty = dirty;
         self.states[next].king_squares = new_king_sqs;
         self.states[next].needs_refresh = needs_refresh;
-        self.states[next].computed = [_]bool{false} ** brd.num_colors;
+        self.states[next].computed = [_]bool{false} ** utils.num_colors;
         self.current = next;
     }
 
     fn ensureComputed(self: *NNUEStack, target: usize, gs: *const brd.GameState) void {
         if (net_weights == null) return;
-        inline for (0..brd.num_colors) |c| {
+        inline for (0..utils.num_colors) |c| {
             if (!self.states[target].computed[c]) {
                 var first_dirty = target;
                 while (first_dirty > 0 and !self.states[first_dirty - 1].computed[c]) {
@@ -785,7 +778,7 @@ pub const NNUEStack = struct {
                         gs,
                         &self.states[target],
                         &self.finny,
-                        @as(brd.Color, @enumFromInt(c)),
+                        @as(utils.Color, @enumFromInt(c)),
                     );
                 } else {
                     var j = first_dirty;
@@ -802,7 +795,7 @@ pub const NNUEStack = struct {
 inline fn refreshAccumulatorFromBoard(
     gs: *const brd.GameState,
     state: *NNUEState,
-    view: brd.Color,
+    view: utils.Color,
     view_king_sq: u8,
 ) void {
     const c = @intFromEnum(view);
@@ -822,7 +815,7 @@ inline fn refreshAccumulatorFromBoard(
     }
     while (i < num_acc_vecs) : (i += 1) bv[i] = biasv[i];
 
-    inline for (0..brd.num_colors) |ci| {
+    inline for (0..utils.num_colors) |ci| {
         inline for (0..6) |pi| {
             var bb = gs.cur_position.getPieceColorBoard(@enumFromInt(pi), @enumFromInt(ci));
             while (bb != 0) {
@@ -841,7 +834,7 @@ inline fn refreshAccumulatorFromBoard(
     }
 }
 
-fn refreshPerspective(gs: *const brd.GameState, state: *NNUEState, view: brd.Color) void {
+fn refreshPerspective(gs: *const brd.GameState, state: *NNUEState, view: utils.Color) void {
     const c = @intFromEnum(view);
     const view_king_sq: u8 = gs.cur_position.kingSquare(view);
     state.king_squares[c] = view_king_sq;
@@ -857,7 +850,7 @@ fn refreshPerspectiveCached(
     gs: *const brd.GameState,
     state: *NNUEState,
     finny: *FinnyTable,
-    view: brd.Color,
+    view: utils.Color,
 ) void {
     if (net_weights == null) return;
     const c = @intFromEnum(view);
@@ -867,9 +860,9 @@ fn refreshPerspectiveCached(
     const slot = perspectiveSlotCached(view, view_king_sq);
     const entry = &finny.entries[c][slot];
 
-    for (std.meta.tags(brd.Color)) |piece_color| {
+    for (std.meta.tags(utils.Color)) |piece_color| {
         const ci = @intFromEnum(piece_color);
-        for (std.meta.tags(brd.Pieces)) |piece| {
+        for (std.meta.tags(utils.Pieces)) |piece| {
             if (piece == .None) continue;
             const pi = @intFromEnum(piece);
 
@@ -1044,7 +1037,7 @@ inline fn l1DenseI16(
     }
 }
 
-pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, gs: *const brd.GameState) i32 {
+pub fn evaluate(stack: *NNUEStack, side_to_move: utils.Color, gs: *const brd.GameState) i32 {
     if (net_weights == null) return 0;
     stack.ensureComputed(stack.current, gs);
 
@@ -1059,8 +1052,6 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, gs: *const brd.GameS
     const nnz_stm = activateFtPairwise(state.acc_ptr[stm], &ft_out, 0, &nnz);
     const nnz_nstm = activateFtPairwise(state.acc_ptr[nstm], &ft_out, num_pairwise_vecs, &nnz);
     const nnz_count: usize = @as(usize, nnz_stm) + @as(usize, nnz_nstm);
-
-    if (collect_sparsity) recordSparsityMask(&nnz, nnz_count);
 
     var l1_sums: [l2_size]i32 = undefined;
     if (nnz_count <= sparseThreshold()) {
@@ -1095,129 +1086,4 @@ pub fn evaluate(stack: *NNUEStack, side_to_move: brd.Color, gs: *const brd.GameS
 
     const scaled = @round(out * EVAL_SCALE);
     return @intFromFloat(std.math.clamp(scaled, -32000.0, 32000.0));
-}
-
-pub const collect_sparsity = false;
-
-var sp_calls: std.atomic.Value(u64) = .init(0);
-var sp_nonzero: std.atomic.Value(u64) = .init(0);
-var sp_blocks4: std.atomic.Value(u64) = .init(0);
-
-const l1_quads = l1_size / 4;
-
-fn countSparsity(ft_out: *align(cache_line) const [l1_size]u8) struct { nonzero: u32, blocks4: u32 } {
-    const Mask = std.meta.Int(.unsigned, vec_i16_len);
-    const zero: U8Vec = @splat(0);
-    const vecs: *const [num_l1_vecs]U8Vec = @ptrCast(ft_out);
-
-    var nonzero: u32 = 0;
-    for (0..num_l1_vecs) |v| {
-        const m: Mask = @bitCast(vecs[v] != zero);
-        nonzero += @popCount(m);
-    }
-
-    const quads: *const [l1_quads]u32 = @ptrCast(ft_out);
-    var blocks4: u32 = 0;
-    for (quads) |q| {
-        if (q != 0) blocks4 += 1;
-    }
-    return .{ .nonzero = nonzero, .blocks4 = blocks4 };
-}
-
-fn recordSparsityMask(nnz: *const NnzMask, count: usize) void {
-    _ = sp_calls.fetchAdd(1, .monotonic);
-    _ = sp_nonzero.fetchAdd(count, .monotonic);
-
-    var blocks4: u64 = 0;
-    for (0..l1_quads) |q| {
-        const byte_base = q * 4;
-        const word = byte_base / 64;
-        const bit = byte_base & 63;
-        const mask: u64 = if (bit <= 60)
-            @as(u64, 0xF) << @intCast(bit)
-        else
-            ((@as(u64, 0xF) << @intCast(bit)) & std.math.maxInt(u64));
-        if ((nnz[word] & mask) != 0) blocks4 += 1;
-    }
-    _ = sp_blocks4.fetchAdd(blocks4, .monotonic);
-}
-
-fn recordSparsity(ft_out: *align(cache_line) const [l1_size]u8) void {
-    const c = countSparsity(ft_out);
-    _ = sp_calls.fetchAdd(1, .monotonic);
-    _ = sp_nonzero.fetchAdd(c.nonzero, .monotonic);
-    _ = sp_blocks4.fetchAdd(c.blocks4, .monotonic);
-}
-
-pub fn resetSparsity() void {
-    sp_calls.store(0, .monotonic);
-    sp_nonzero.store(0, .monotonic);
-    sp_blocks4.store(0, .monotonic);
-}
-
-pub fn reportSparsity() void {
-    const calls = sp_calls.load(.monotonic);
-    if (calls == 0) {
-        std.debug.print("sparsity: no evals recorded (is collect_sparsity true?)\n", .{});
-        return;
-    }
-
-    const nz = @as(f64, @floatFromInt(sp_nonzero.load(.monotonic))) / @as(f64, @floatFromInt(calls));
-    const b4 = @as(f64, @floatFromInt(sp_blocks4.load(.monotonic))) / @as(f64, @floatFromInt(calls));
-    const total: f64 = @floatFromInt(l1_size);
-
-    const dense_macs = total * @as(f64, l2_size);
-    const elem_macs = nz * @as(f64, l2_size);
-    const blk4_macs = b4 * 4.0 * @as(f64, l2_size);
-
-    std.debug.print(
-        \\sparsity over {d} evals
-        \\  nonzero activations : {d:.1} / {d}  ({d:.1}% zero)
-        \\  live 4-blocks       : {d:.1} / {d}  ({d:.1}% skipped)
-        \\  MACs  dense         : {d:.0}
-        \\  MACs  sparse_elem   : {d:.0}  ({d:.1}x fewer)
-        \\  MACs  sparse_block4 : {d:.0}  ({d:.1}x fewer)
-        \\  sparse threshold    : {d}
-        \\  kernel               : {s}
-        \\
-    , .{
-        calls,
-        nz,
-        total,
-        100.0 * (1.0 - nz / total),
-        b4,
-        @as(f64, l1_quads),
-        100.0 * (1.0 - b4 / @as(f64, l1_quads)),
-        dense_macs,
-        elem_macs,
-        if (elem_macs == 0) 0.0 else dense_macs / elem_macs,
-        blk4_macs,
-        if (blk4_macs == 0) 0.0 else dense_macs / blk4_macs,
-        sparseThreshold(),
-        @tagName(TARGET),
-    });
-}
-
-pub fn sparsityProbe(stack: *NNUEStack, side_to_move: brd.Color, gs: *const brd.GameState) struct { nonzero: u32, blocks4: u32 } {
-    stack.ensureComputed(stack.current, gs);
-    const state = stack.top();
-    const stm: usize = @intFromEnum(side_to_move);
-
-    var ft_out: [l1_size]u8 align(cache_line) = undefined;
-    var nnz = std.mem.zeroes(NnzMask);
-    const count = activateFtPairwise(state.acc_ptr[stm], &ft_out, 0, &nnz);
-    const count2 = activateFtPairwise(state.acc_ptr[1 - stm], &ft_out, num_pairwise_vecs, &nnz);
-
-    var blocks4: u32 = 0;
-    for (0..l1_quads) |q| {
-        const byte_base = q * 4;
-        const word = byte_base / 64;
-        const bit = byte_base & 63;
-        if ((nnz[word] & (@as(u64, 0xF) << @intCast(bit))) != 0) blocks4 += 1;
-    }
-
-    return .{
-        .nonzero = count + count2,
-        .blocks4 = blocks4,
-    };
 }

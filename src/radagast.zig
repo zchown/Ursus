@@ -1,6 +1,7 @@
 const std = @import("std");
 const root = @import("root.zig");
 const brd = root.brd;
+const utils = root.utils;
 const Bitboard = brd.Bitboard;
 
 pub const bishop_relevant_bits = [_]usize{
@@ -60,7 +61,6 @@ pub const Istari = struct {
     }
 
     pub fn findMagicNums(self: *Istari, sq: brd.Square, relevant_bits: i32, bishop: bool) u64 {
-
         if (@inComptime()) {
             return 0;
         }
@@ -86,7 +86,7 @@ pub const Istari = struct {
         for (0..100000000) |_| {
             const magic: u64 = self.generateMagicNum();
 
-            if (brd.countBits((attack_mask *% magic) & 0xFF00000000000000) < 6) {
+            if (utils.countBits((attack_mask *% magic) & 0xFF00000000000000) < 6) {
                 continue;
             }
 
@@ -161,7 +161,7 @@ fn calculateAttacks(rank_dir: isize, file_dir: isize, target_rank: isize, target
         (file_dir == 0 or (file >= 1 and file <= 6)))
     {
         const sq: brd.Square = @intCast(rank * 8 + file);
-        attacks.* |= brd.getSquareBB(sq);
+        attacks.* |= utils.getSquareBB(sq);
         rank += rank_dir;
         file += file_dir;
     }
@@ -172,8 +172,8 @@ fn calculateAttacksWithBlocks(rank_dir: isize, file_dir: isize, target_rank: isi
     var file = target_file + file_dir;
     while ((rank >= 0 and rank <= 7) and (file >= 0 and file <= 7)) {
         const sq: brd.Square = @intCast(rank * 8 + file);
-        attacks.* |= brd.getSquareBB(sq);
-        if (brd.getBit(blockers, sq)) {
+        attacks.* |= utils.getSquareBB(sq);
+        if (utils.getBit(blockers, sq)) {
             break;
         }
         rank += rank_dir;
@@ -212,9 +212,9 @@ pub fn setOccupancy(index: Bitboard, bits: i32, attack_mask: Bitboard) Bitboard 
     var occupancy: Bitboard = 0;
 
     for (0..@intCast(bits)) |i| {
-        const square = brd.popLsb(&atm);
+        const square = utils.popLsb(&atm);
         if (index & (@as(Bitboard, 1) << @intCast(i)) != 0) {
-            occupancy |= brd.getSquareBB(square);
+            occupancy |= utils.getSquareBB(square);
         }
     }
     return occupancy;

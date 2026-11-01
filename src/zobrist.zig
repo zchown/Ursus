@@ -1,13 +1,14 @@
 const std = @import("std");
 const root = @import("root.zig");
 const brd = root.brd;
+const utils = root.utils;
 
 pub const ZobristKey = u64;
 
-const PieceRandoms = [brd.num_colors][brd.num_pieces + 1][brd.num_squares]ZobristKey;
+const PieceRandoms = [utils.num_colors][utils.num_pieces + 1][utils.num_squares]ZobristKey;
 const CastleRandoms = [16]ZobristKey;
-const ColorRandoms = [brd.num_colors]ZobristKey;
-const EnPassantRandoms = [brd.num_squares + 1]ZobristKey;
+const ColorRandoms = [utils.num_colors]ZobristKey;
+const EnPassantRandoms = [utils.num_squares + 1]ZobristKey;
 const EvalPhaseRandoms = [24]ZobristKey;
 
 pub const ZobristKeys: ZobristKeyStruct = ZobristKeyStruct.init();
@@ -28,7 +29,7 @@ pub const ZobristKeyStruct = struct {
             .eval_phase = @splat(0),
         };
         var rng_state: u64 = 0xdeadbeefdeadbeef;
-        
+
         // white
         keys.color[0] = nextSplitMix64(&rng_state);
         // black
@@ -36,7 +37,7 @@ pub const ZobristKeyStruct = struct {
 
         @setEvalBranchQuota(1000000);
         inline for (std.meta.tags(brd.Pieces)) |piece| {
-            for (0..brd.num_squares) |square| {
+            for (0..utils.num_squares) |square| {
                 // white
                 keys.piece[0][@intFromEnum(piece)][square] = nextSplitMix64(&rng_state);
                 // black
@@ -48,7 +49,7 @@ pub const ZobristKeyStruct = struct {
             keys.castle[castle] = nextSplitMix64(&rng_state);
         }
 
-        inline for (0..brd.num_squares + 1) |square| {
+        inline for (0..utils.num_squares + 1) |square| {
             keys.en_passant[square] = nextSplitMix64(&rng_state);
         }
 
@@ -59,12 +60,12 @@ pub const ZobristKeyStruct = struct {
         return keys;
     }
 
-    pub inline fn sideKeys(self: ZobristKeyStruct, side: brd.Color) ZobristKey {
+    pub inline fn sideKeys(self: ZobristKeyStruct, side: utils.Color) ZobristKey {
         return self.color[@intFromEnum(side)];
     }
 
     pub inline fn enPassantKeys(self: ZobristKeyStruct, ep: ?u8) ZobristKey {
-        return self.en_passant[ep orelse brd.num_squares];
+        return self.en_passant[ep orelse utils.num_squares];
     }
 
     pub inline fn castleKeys(self: ZobristKeyStruct, castles: u4) ZobristKey {
