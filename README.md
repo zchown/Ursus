@@ -15,8 +15,8 @@ Engine strength on rating lists and against previous versions of Ursus:
 
 | Version | CCRL Blitz | CCRL 40/15 | COPE | STC Self | LTC Self |
 |---------|-----------|------------|------|----------|----------|
-| v1.1.x  | TBD       | TBD        | TBD  | 71+-8    | 72+-13   |
-| v1.0.x  |    3512   | 3448       | 3449 |  0       | 0        |
+| v1.1.x  | TBD       | 3474       | 3466 | 71+-8    | 72+-13   |
+| v1.0.x  |  3512     | 3443       | 3489 |  0       | 0        |
 
 --------------------------------------------------
 
@@ -71,6 +71,8 @@ Ursus implements the core UCI protocol. The table below summarizes supported com
 | `perft test` | Runs the perft regression positions |
 | `divide <depth>` | Node count under each legal move |
 | `register` | Accepted |
+| `multipv` | Supported up to 16 |
+| `searchmoves` | Supported |
 | `setoption name Hash` | Sets Hash size in MB, default 256 MB, supported up to 16384MB (16GB) |
 | `setoption name Clear Hash` | Supported |
 | `setoption name Ponder` | Supported |
