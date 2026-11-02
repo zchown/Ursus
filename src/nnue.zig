@@ -4,7 +4,7 @@ const root = @import("root.zig");
 const brd = root.brd;
 const utils = root.utils;
 
-pub const net_path = "nets/Alkaid.bin";
+pub const net_path = "nets/Alkaid-1280.bin";
 
 pub const hidden_size = 1280;
 pub const pairwise_size = hidden_size / 2;
