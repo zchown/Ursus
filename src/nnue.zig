@@ -5,9 +5,9 @@ const brd = root.brd;
 const utils = root.utils;
 
 pub const net_path = "nets/Alkaid-ml.bin";
-// pub const net_path = "nets/Alkaid1280.bin";
+// pub const net_path = "nets/Alkaid1536.bin";
 
-pub const hidden_size = 1280;
+pub const hidden_size = 1536;
 pub const pairwise_size = hidden_size / 2;
 pub const l1_size = 2 * pairwise_size;
 pub const l2_size = 16;
