@@ -158,7 +158,6 @@ pub fn getCorrection(self: *Searcher, color: brd.Color, gs: *const brd.GameState
     const major_val: i32 = self.major_correction[c][@as(usize, @intCast(major_corr_idx))];
     const minor_val: i32 = self.minor_correction[c][@as(usize, @intCast(minor_corr_idx))];
     const cont_val: i32 = if (self.contCorrPtr(2)) |p| p.* else 0;
-
     const combined: i32 = pawn_val * tp.corr_pawn_read_weight.value +
         npw_val * tp.corr_np_read_weight.value +
         npb_val * tp.corr_np_read_weight.value +
